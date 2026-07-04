@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite n'a pas de type enum natif : Role et activityType sont stockés en String
+// et contraints au niveau applicatif ("ADMIN"|"MEMBER" et "JEUX_DE_PLATEAU"|"JEUX_DE_ROLE"|"AIRSOFT"|"AUTRE").
+
+model BureauRole {
+  id    String @id @default(cuid())
+  label String @unique
+  order Int    @default(0)
+
+  userRoles UserBureauRole[]
+}
+
+model UserBureauRole {
+  userId       String
+  bureauRoleId String
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bureauRole BureauRole @relation(fields: [bureauRoleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, bureauRoleId])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  firstName    String
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("MEMBER")
+  isActive     Boolean   @default(true)
+  isPending    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  bureauRoles  UserBureauRole[]
+
+  dateOfBirth        String?
+  phone              String?
+  addressStreet      String?
+  addressCity        String?
+  addressPostalCode  String?
+  gender             String?
+
+  emergencyContactFirstName String?
+  emergencyContactLastName  String?
+  emergencyContactPhone     String?
+
+  registrations EventRegistration[]
+  membership    Membership?
+  snackOrders   SnackOrder[]
+  balance       Int                  @default(0)
+  boardGames    BoardGame[]
+}
+
+model Membership {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  year            Int
+  wantsBoardGames Boolean   @default(false)
+  wantsRolePlay   Boolean   @default(false)
+  wantsAirsoft    Boolean   @default(false)
+  amount          Int
+  isPaid          Boolean   @default(false)
+  paidAt          DateTime?
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extraActivities MembershipActivity[]
+}
+
+model Event {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  activityType String   @default("AUTRE")
+  location     String
+  startsAt     DateTime
+  endsAt       DateTime
+  capacity     Int?
+  createdAt    DateTime @default(now())
+
+  hasMeal              Boolean   @default(false)
+  mealInfo             String?
+  mealPrice            Int       @default(10)
+  registrationDeadline DateTime?
+
+  registrations EventRegistration[]
+  menus         MealMenu[]
+  expenses      EventExpense[]
+  boardGames    BoardGame[]
+}
+
+model BoardGame {
+  id              String   @id @default(cuid())
+  ownerId         String
+  name            String
+  photoUrl        String?
+  minPlayers      Int
+  maxPlayers      Int
+  durationMinutes Int
+  status          String   @default("DISPONIBLE") // DISPONIBLE | INDISPONIBLE
+  createdAt       DateTime @default(now())
+
+  owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  events Event[]
+}
+
+model EventExpense {
+  id        String   @id @default(cuid())
+  eventId   String
+  label     String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model GeneralExpense {
+  id        String   @id @default(cuid())
+  label     String
+  amount    Int
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model MealMenu {
+  id            String @id @default(cuid())
+  eventId       String
+  label         String
+  maxPerPerson  Int?
+
+  event      Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderItems MealOrderItem[]
+}
+
+model EventRegistration {
+  id         String   @id @default(cuid())
+  userId     String
+  eventId    String
+  wantsMeal  Boolean  @default(false)
+  mealNotes  String?
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt  DateTime @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  mealOrders MealOrderItem[]
+  rentals    EquipmentRental[]
+
+  @@unique([userId, eventId])
+}
+
+model MealOrderItem {
+  id             String @id @default(cuid())
+  registrationId String
+  menuId         String?
+  quantity       Int
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  menu         MealMenu?         @relation(fields: [menuId], references: [id], onDelete: SetNull)
+}
+
+model Equipment {
+  id            String   @id @default(cuid())
+  category      String // "REPLIQUE" | "EQUIPEMENT"
+  name          String
+  photos        String? // URLs séparées par des retours à la ligne
+  status        String   @default("DISPONIBLE") // DISPONIBLE | HORS_SERVICE | INDISPONIBLE
+  rentalCost    Int
+  magazineCount Int? // uniquement pour les répliques
+  info          String?
+  createdAt     DateTime @default(now())
+
+  rentals EquipmentRental[]
+}
+
+model GalleryPhoto {
+  id           String   @id @default(cuid())
+  url          String
+  date         DateTime
+  comment      String?
+  activityType String   @default("AUTRE") // JEUX_DE_PLATEAU | JEUX_DE_ROLE | AIRSOFT | AUTRE
+  visibility   String   @default("PUBLIC") // PUBLIC | MEMBERS_ONLY
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  category  String // SNACK | DRINK
+  name      String
+  photoUrl  String?
+  price     Int
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  orderItems  SnackOrderItem[]
+  activities  ProductActivity[]
+}
+
+model ProductActivity {
+  id          String @id @default(cuid())
+  productId   String
+  activityKey String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, activityKey])
+}
+
+model SnackOrder {
+  id          String   @id @default(cuid())
+  userId      String
+  totalAmount Int
+  createdAt   DateTime @default(now())
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items SnackOrderItem[]
+}
+
+model SnackOrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId String?
+  name      String
+  unitPrice Int
+  quantity  Int
+
+  order   SnackOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+}
+
+model ActivityContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // JEUX_DE_PLATEAU | JEUX_DE_ROLE | AIRSOFT
+  content   String
+  updatedAt DateTime @updatedAt
+}
+
+model Activity {
+  id                 String   @id @default(cuid())
+  key                String   @unique  // ex: "JEUX_DE_PLATEAU", "COSPLAY"
+  label              String            // ex: "Jeux de plateau"
+  emoji              String   @default("🎯")
+  color              String   @default("slate") // emerald | violet | amber | blue | rose | cyan | fuchsia | slate
+  order              Int      @default(0)
+  membershipRequired Boolean  @default(false)
+  isCore             Boolean  @default(false)   // les 3 activités de base ne peuvent pas être supprimées
+  isActive           Boolean  @default(true)    // visible sur le site si true
+  price              Int      @default(0)       // tarif d'adhésion pour cette activité (€)
+  createdAt          DateTime @default(now())
+}
+
+model MembershipActivity {
+  id           String     @id @default(cuid())
+  membershipId String
+  activityKey  String
+
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, activityKey])
+}
+
+model EquipmentRental {
+  id             String   @id @default(cuid())
+  registrationId String
+  equipmentId    String
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  isFree         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  equipment    Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, equipmentId])
+}
+
+model SiteSetting {
+  key   String @id
+  value String
+}

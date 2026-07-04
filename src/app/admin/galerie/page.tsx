@@ -1,0 +1,213 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { getAllowedActivityTypes } from "@/lib/permissions";
+
+type ActivityOption = { key: string; label: string; emoji: string };
+
+type Photo = {
+  id: string;
+  url: string;
+  date: string;
+  comment: string | null;
+  activityType: string;
+  visibility: string;
+};
+
+const inputClass =
+  "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
+
+const EMPTY_FORM = { url: "", date: "", comment: "", activityType: "AUTRE", visibility: "PUBLIC" };
+
+export default function AdminGaleriePage() {
+  const { data: session } = useSession();
+  const role = (session?.user as { role?: string })?.role ?? "";
+  const allowedTypes = getAllowedActivityTypes(role);
+
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [activityOptions, setActivityOptions] = useState<ActivityOption[]>([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    const res = await fetch("/api/admin/gallery");
+    if (res.ok) setPhotos(await res.json());
+  }
+
+  useEffect(() => {
+    load();
+    fetch("/api/activities")
+      .then((r) => r.json())
+      .then((data: ActivityOption[]) =>
+        setActivityOptions([...data, { key: "AUTRE", label: "Autre", emoji: "📌" }])
+      );
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+
+    const res = await fetch("/api/admin/gallery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    setSaving(false);
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Erreur lors de l'ajout.");
+      return;
+    }
+
+    setForm(EMPTY_FORM);
+    await load();
+  }
+
+  async function removePhoto(id: string) {
+    if (!confirm("Supprimer cette photo ?")) return;
+    const res = await fetch(`/api/admin/gallery/${id}`, { method: "DELETE" });
+    if (res.ok) await load();
+  }
+
+  async function toggleVisibility(photo: Photo) {
+    const next = photo.visibility === "PUBLIC" ? "MEMBERS_ONLY" : "PUBLIC";
+    const res = await fetch(`/api/admin/gallery/${photo.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility: next }),
+    });
+    if (res.ok) await load();
+  }
+
+  const visiblePhotos = allowedTypes
+    ? photos.filter((p) => allowedTypes.includes(p.activityType))
+    : photos;
+  const visibleActivityOptions = allowedTypes
+    ? activityOptions.filter((a) => allowedTypes.includes(a.key))
+    : activityOptions;
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-12">
+      <h1 className="font-display text-3xl text-silver-100">Galerie photo</h1>
+      <p className="mt-2 text-slate-400">Ajoutez des photos de l'association à la galerie publique.</p>
+
+      <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">URL de la photo</label>
+          <input
+            required
+            type="url"
+            value={form.url}
+            onChange={(e) => setForm({ ...form, url: e.target.value })}
+            placeholder="https://exemple.com/photo.jpg"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Date</label>
+          <input
+            required
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Activité</label>
+          <select
+            value={form.activityType}
+            onChange={(e) => setForm({ ...form, activityType: e.target.value })}
+            className={inputClass}
+          >
+            {visibleActivityOptions.map((a) => (
+              <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Visibilité</label>
+          <select
+            value={form.visibility}
+            onChange={(e) => setForm({ ...form, visibility: e.target.value })}
+            className={inputClass}
+          >
+            <option value="PUBLIC">🌐 Publique — visible par tous</option>
+            <option value="MEMBERS_ONLY">🔒 Membres — cotisation requise</option>
+          </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Commentaire (optionnel)</label>
+          <textarea
+            value={form.comment}
+            onChange={(e) => setForm({ ...form, comment: e.target.value })}
+            rows={2}
+            placeholder="Ex: Tournoi annuel de jeux de plateau"
+            className={inputClass}
+          />
+        </div>
+
+        {error && <p className="sm:col-span-2 text-sm text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="sm:col-span-2 rounded-md bg-primary-400 px-5 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+        >
+          {saving ? "Ajout..." : "Ajouter la photo"}
+        </button>
+      </form>
+
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+        {visiblePhotos.map((p) => (
+          <div key={p.id} className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.url} alt={p.comment ?? ""} className="h-40 w-full object-cover" />
+            <div className="p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-400">
+                  {activityOptions.find((a) => a.key === p.activityType)
+                    ? `${activityOptions.find((a) => a.key === p.activityType)!.emoji} ${activityOptions.find((a) => a.key === p.activityType)!.label}`
+                    : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
+                </p>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    p.visibility === "MEMBERS_ONLY"
+                      ? "bg-amber-900/60 text-amber-300"
+                      : "bg-emerald-900/60 text-emerald-300"
+                  }`}
+                >
+                  {p.visibility === "MEMBERS_ONLY" ? "🔒 Membres" : "🌐 Public"}
+                </span>
+              </div>
+              {p.comment && <p className="mt-1 text-sm text-slate-300">{p.comment}</p>}
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  onClick={() => toggleVisibility(p)}
+                  className={`text-xs font-medium hover:underline ${
+                    p.visibility === "MEMBERS_ONLY" ? "text-amber-400" : "text-emerald-400"
+                  }`}
+                >
+                  {p.visibility === "MEMBERS_ONLY" ? "🔒 Rendre publique" : "🌐 Rendre privée"}
+                </button>
+                <button onClick={() => removePhoto(p.id)} className="text-sm text-red-400 hover:underline">
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {photos.length === 0 && <p className="text-sm text-slate-400">Aucune photo dans la galerie.</p>}
+      </div>
+    </div>
+  );
+}
