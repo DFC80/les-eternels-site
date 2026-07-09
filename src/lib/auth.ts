@@ -20,6 +20,9 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          include: {
+            bureauRoles: { include: { bureauRole: true }, orderBy: { bureauRole: { order: "asc" } } },
+          },
         });
         if (!user) return null;
 
@@ -34,11 +37,17 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
+        // Si user.role est "MEMBER" mais qu'il a un rôle bureau, on utilise ce rôle
+        const effectiveRole =
+          user.role === "MEMBER" && user.bureauRoles.length > 0
+            ? user.bureauRoles[0].bureauRole.label
+            : user.role;
+
         return {
           id: user.id,
           name: `${user.firstName} ${user.name}`,
           email: user.email,
-          role: user.role as "ADMIN" | "MEMBER",
+          role: effectiveRole,
         };
       },
     }),

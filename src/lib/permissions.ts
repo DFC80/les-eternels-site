@@ -42,6 +42,7 @@ export function canAccessSection(role: string, section: AdminSection): boolean {
   const map: Record<string, AdminSection[]> = {
     Secrétaire: ["members"],
     Trésorier: ["members", "comptabilite"],
+    Comptoir: ["kiosque"],
     Airsoft: ["events", "equipements", "galerie"],
     "Jeux de rôle": ["events", "galerie"],
     "Jeux de plateau": ["events", "galerie"],
