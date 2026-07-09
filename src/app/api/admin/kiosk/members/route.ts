@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin } from "@/lib/permissions";
+import { isFullAdmin, canAccessSection } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) {
+  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "kiosque"))) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
