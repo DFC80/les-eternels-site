@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendWelcomeEmail, sendNewMemberNotification } from "@/lib/mail";
 
@@ -30,12 +31,17 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+
   const user = await prisma.user.create({
-    data: { firstName, name, email, passwordHash, isPending: true },
+    data: { firstName, name, email, passwordHash, isPending: true, verificationToken },
   });
 
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
+
   await Promise.all([
-    sendWelcomeEmail({ to: user.email, firstName: user.firstName }),
+    sendWelcomeEmail({ to: user.email, firstName: user.firstName, verificationLink }),
     sendNewMemberNotification({ firstName: user.firstName, lastName: user.name, email: user.email }),
   ]);
 

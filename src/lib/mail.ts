@@ -187,18 +187,24 @@ export async function sendNewMemberNotification(params: {
   await sendMail(adminEmail, `Nouvelle inscription — ${firstName} ${lastName}`, html);
 }
 
-export async function sendWelcomeEmail(params: { to: string; firstName: string }) {
-  const { to, firstName } = params;
+export async function sendWelcomeEmail(params: { to: string; firstName: string; verificationLink: string }) {
+  const { to, firstName, verificationLink } = params;
   const html = wrapHtml(
-    "Demande d'inscription reçue",
+    "Confirmez votre inscription",
     `
       <p>Bonjour ${firstName},</p>
       <p>Votre demande d'inscription aux <strong>Éternels</strong> a bien été enregistrée.</p>
-      <p>Un administrateur va examiner votre dossier et vous recevrez un email de confirmation dès que votre accès sera validé.</p>
-      <p>À très bientôt !</p>
+      <p>Pour activer votre compte, cliquez sur le bouton ci-dessous :</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a href="${verificationLink}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+          Confirmer mon inscription
+        </a>
+      </p>
+      <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${verificationLink}</p>
+      <p>Ce lien est valable 48 heures. Si vous n'avez pas créé de compte, ignorez cet email.</p>
     `
   );
-  await sendMail(to, "Demande d'inscription reçue — Les Éternels", html);
+  await sendMail(to, "Confirmez votre inscription — Les Éternels", html);
 }
 
 export async function sendAccountValidatedEmail(params: { to: string; firstName: string }) {
