@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatCentsToEuros } from "@/lib/money";
 
+type ProductActivity = { activityKey: string };
+
 type Product = {
   id: string;
   category: "SNACK" | "DRINK";
@@ -10,6 +12,7 @@ type Product = {
   photoUrl: string | null;
   price: number;
   stock: number;
+  activities: ProductActivity[];
 };
 
 type Member = {
@@ -28,6 +31,7 @@ export default function KiosquePage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [topUpAmount, setTopUpAmount] = useState("");
+  const [activityFilter, setActivityFilter] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -70,6 +74,23 @@ export default function KiosquePage() {
       return updated;
     });
   }
+
+  // Clés d'activité uniques présentes dans les produits (pour les boutons de filtre)
+  const activityKeys = useMemo(() => {
+    const keys = new Set<string>();
+    products.forEach((p) => p.activities.forEach((a) => keys.add(a.activityKey)));
+    return Array.from(keys).sort();
+  }, [products]);
+
+  // Produits filtrés par activité sélectionnée
+  const visibleProducts = useMemo(() => {
+    if (!activityFilter) return products;
+    return products.filter(
+      (p) =>
+        p.activities.length === 0 ||
+        p.activities.some((a) => a.activityKey === activityFilter)
+    );
+  }, [products, activityFilter]);
 
   const cartLines = Object.entries(cart)
     .map(([productId, quantity]) => ({ product: products.find((p) => p.id === productId), quantity }))
@@ -198,8 +219,37 @@ export default function KiosquePage() {
 
         {/* Produits */}
         <div className="lg:col-span-2">
+          {/* Filtre par activité */}
+          {activityKeys.length > 0 && (
+            <div className="mb-5 flex flex-wrap gap-2">
+              <button
+                onClick={() => setActivityFilter(null)}
+                className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+                  activityFilter === null
+                    ? "bg-primary-400 text-primary-950"
+                    : "border border-primary-700 text-slate-300 hover:border-primary-500"
+                }`}
+              >
+                Toutes
+              </button>
+              {activityKeys.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setActivityFilter(activityFilter === key ? null : key)}
+                  className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+                    activityFilter === key
+                      ? "bg-primary-400 text-primary-950"
+                      : "border border-primary-700 text-slate-300 hover:border-primary-500"
+                  }`}
+                >
+                  {key.replace(/_/g, " ")}
+                </button>
+              ))}
+            </div>
+          )}
+
           {["SNACK", "DRINK"].map((cat) => {
-            const catProducts = products.filter((p) => p.category === cat);
+            const catProducts = visibleProducts.filter((p) => p.category === cat);
             if (catProducts.length === 0) return null;
             return (
               <div key={cat} className="mb-6">
