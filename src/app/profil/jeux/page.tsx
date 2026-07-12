@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ImageUpload from "@/components/ImageUpload";
 
 type BoardGame = {
   id: string;
@@ -166,12 +167,10 @@ export default function MesJeuxPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Photo (URL, optionnel)</label>
-          <input
+          <ImageUpload
+            label="Photo (optionnel)"
             value={form.photoUrl}
-            onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-            placeholder="https://exemple.com/photo.jpg"
-            className={inputClass}
+            onChange={(url) => setForm({ ...form, photoUrl: url })}
           />
         </div>
 

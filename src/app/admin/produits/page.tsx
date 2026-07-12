@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatCentsToEuros } from "@/lib/money";
+import ImageUpload from "@/components/ImageUpload";
 
 type Activity = { id: string; key: string; label: string; emoji: string };
 type ProductActivity = { activityKey: string };
@@ -224,12 +225,10 @@ export default function AdminProduitsPage() {
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Photo (URL, optionnel)</label>
-          <input
+          <ImageUpload
+            label="Photo (optionnel)"
             value={form.photoUrl}
-            onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-            placeholder="https://exemple.com/photo.jpg"
-            className={inputClass}
+            onChange={(url) => setForm({ ...form, photoUrl: url })}
           />
         </div>
 
