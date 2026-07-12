@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { getAllowedActivityTypes } from "@/lib/permissions";
+import ImageUpload from "@/components/ImageUpload";
 
 type ActivityOption = { key: string; label: string; emoji: string };
 
@@ -98,14 +99,10 @@ export default function AdminGaleriePage() {
 
       <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">URL de la photo</label>
-          <input
-            required
-            type="url"
+          <ImageUpload
+            label="Photo"
             value={form.url}
-            onChange={(e) => setForm({ ...form, url: e.target.value })}
-            placeholder="https://exemple.com/photo.jpg"
-            className={inputClass}
+            onChange={(url) => setForm({ ...form, url: url })}
           />
         </div>
 

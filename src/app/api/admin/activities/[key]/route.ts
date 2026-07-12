@@ -4,16 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { isFullAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-const VALID_KEYS = ["JEUX_DE_PLATEAU", "JEUX_DE_ROLE", "AIRSOFT"];
-
 export async function PUT(request: Request, { params }: { params: { key: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || !isFullAdmin(session.user.role)) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  if (!VALID_KEYS.includes(params.key)) {
-    return NextResponse.json({ error: "Activité invalide." }, { status: 400 });
+  const exists = await prisma.activity.findUnique({ where: { key: params.key } });
+  if (!exists) {
+    return NextResponse.json({ error: "Activité introuvable." }, { status: 404 });
   }
 
   const { content } = await request.json();

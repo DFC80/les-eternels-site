@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection } from "@/lib/permissions";
 
@@ -40,6 +40,60 @@ const STATUS_COLORS: Record<string, string> = {
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
+
+function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const urls = value.split("\n").map((u) => u.trim()).filter(Boolean);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        const next = [...urls, data.url].join("\n");
+        onChange(next);
+      }
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  function removeUrl(url: string) {
+    onChange(urls.filter((u) => u !== url).join("\n"));
+  }
+
+  const inputClass = "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
+
+  return (
+    <div className="mt-1 space-y-2">
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+      {urls.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {urls.map((url) => (
+            <div key={url} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
+              <button type="button" onClick={() => removeUrl(url)}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white hover:bg-red-500">
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
+        className="flex items-center gap-2 rounded-md border border-dashed border-primary-600 px-4 py-2 text-sm text-slate-400 hover:border-primary-400 hover:text-slate-200 disabled:opacity-50">
+        {uploading ? "Upload…" : "＋ Ajouter une photo"}
+      </button>
+    </div>
+  );
+}
 
 export default function AdminEquipementsPage() {
   const { data: session } = useSession();
@@ -233,14 +287,11 @@ export default function AdminEquipementsPage() {
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">
-            Photos (une URL par ligne, optionnel)
+            Photos (optionnel)
           </label>
-          <textarea
+          <PhotosUploadField
             value={form.photos}
-            onChange={(e) => setForm({ ...form, photos: e.target.value })}
-            rows={2}
-            placeholder="https://exemple.com/photo1.jpg"
-            className={inputClass}
+            onChange={(v) => setForm({ ...form, photos: v })}
           />
         </div>
 
