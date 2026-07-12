@@ -3,12 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// SQLite n'a pas de type enum natif : Role et activityType sont stockés en String
-// et contraints au niveau applicatif ("ADMIN"|"MEMBER" et "JEUX_DE_PLATEAU"|"JEUX_DE_ROLE"|"AIRSOFT"|"AUTRE").
 
 model BureauRole {
   id    String @id @default(cuid())

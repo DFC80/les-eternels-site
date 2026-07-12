@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.env.local
+.next
+node_modules
+prisma/migrations
+public/uploads/*
+!public/uploads/.gitkeep
+nginx
+docker-compose.yml
+docker-entrypoint.sh
+*.md
