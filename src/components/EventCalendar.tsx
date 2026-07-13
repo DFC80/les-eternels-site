@@ -239,7 +239,8 @@ export default function EventCalendar() {
     setMealNotes(myReg?.mealNotes ?? "");
     const initialQuantities: Record<string, number> = {};
     for (const order of myReg?.mealOrders ?? []) {
-      initialQuantities[order.menuId ?? GENERIC_MEAL_KEY] = order.quantity;
+      const key = order.menuId ?? GENERIC_MEAL_KEY;
+      initialQuantities[key] = (initialQuantities[key] ?? 0) + order.quantity;
     }
     setQuantities(initialQuantities);
 
@@ -731,11 +732,17 @@ export default function EventCalendar() {
                           <>
                             <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
                             <ul className="mt-2 space-y-1">
-                              {myReg.mealOrders.map((o) => {
-                                const label = o.menuId
-                                  ? selected.menus.find((m) => m.id === o.menuId)?.label ?? "Menu"
+                              {Object.entries(
+                                myReg.mealOrders.reduce((acc, o) => {
+                                  const key = o.menuId ?? "__null__";
+                                  acc[key] = { menuId: o.menuId, quantity: (acc[key]?.quantity ?? 0) + o.quantity };
+                                  return acc;
+                                }, {} as Record<string, { menuId: string | null; quantity: number }>)
+                              ).map(([key, { menuId, quantity }]) => {
+                                const label = menuId
+                                  ? selected.menus.find((m) => m.id === menuId)?.label ?? "Menu"
                                   : "Repas";
-                                return <li key={o.id}>{o.quantity}× {label}</li>;
+                                return <li key={key}>{quantity}× {label}</li>;
                               })}
                             </ul>
                             {myReg.mealNotes && (
