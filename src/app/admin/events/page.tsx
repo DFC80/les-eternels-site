@@ -82,6 +82,10 @@ const EMPTY_FORM = {
 
 type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string };
 
+type KioskMember = { id: string; firstName: string; name: string; balance: number };
+type KioskProduct = { id: string; category: string; name: string; price: number; stock: number };
+type KioskData = { members: KioskMember[]; products: KioskProduct[] };
+
 const MEAL_EXTRAS = [
   { key: "softs", label: "Boissons softs" },
   { key: "beer", label: "Bières (1€ / verre ou canette)" },
@@ -137,6 +141,13 @@ export default function AdminEventsPage() {
   const [registrationsFor, setRegistrationsFor] = useState<string | null>(null);
   const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationAdmin[]>([]);
   const [availableGames, setAvailableGames] = useState<AvailableGame[]>([]);
+  const [kiosqueFor, setKiosqueFor] = useState<string | null>(null);
+  const [kiosqueData, setKiosqueData] = useState<KioskData | null>(null);
+  const [kiosqueMemberId, setKiosqueMemberId] = useState<string | null>(null);
+  const [kiosqueCart, setKiosqueCart] = useState<Record<string, number>>({});
+  const [kiosqueBusy, setKiosqueBusy] = useState(false);
+  const [kiosqueError, setKiosqueError] = useState<string | null>(null);
+  const [kiosqueMessage, setKiosqueMessage] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/events");
@@ -310,6 +321,63 @@ export default function AdminEventsPage() {
     setRentalsFor(eventId);
   }
 
+  async function toggleKiosque(eventId: string) {
+    if (kiosqueFor === eventId) {
+      setKiosqueFor(null);
+      setKiosqueData(null);
+      setKiosqueMemberId(null);
+      setKiosqueCart({});
+      setKiosqueError(null);
+      setKiosqueMessage(null);
+      return;
+    }
+    const res = await fetch(`/api/admin/events/${eventId}/kiosk`);
+    if (res.ok) {
+      setKiosqueData(await res.json());
+      setKiosqueMemberId(null);
+      setKiosqueCart({});
+      setKiosqueError(null);
+      setKiosqueMessage(null);
+      setKiosqueFor(eventId);
+    }
+  }
+
+  async function reloadKiosque(eventId: string) {
+    const res = await fetch(`/api/admin/events/${eventId}/kiosk`);
+    if (res.ok) setKiosqueData(await res.json());
+  }
+
+  function kiosqueAddToCart(productId: string, delta: number) {
+    setKiosqueCart((prev) => {
+      const next = Math.max(0, (prev[productId] ?? 0) + delta);
+      const updated = { ...prev, [productId]: next };
+      if (next === 0) delete updated[productId];
+      return updated;
+    });
+  }
+
+  async function kiosqueConfirmOrder(eventId: string) {
+    if (!kiosqueMemberId || Object.keys(kiosqueCart).length === 0) return;
+    setKiosqueBusy(true);
+    setKiosqueError(null);
+    setKiosqueMessage(null);
+    const items = Object.entries(kiosqueCart).map(([productId, quantity]) => ({ productId, quantity }));
+    const res = await fetch("/api/admin/kiosk/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: kiosqueMemberId, items }),
+    });
+    setKiosqueBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setKiosqueError(body.error ?? "Erreur lors de la commande.");
+      return;
+    }
+    setKiosqueCart({});
+    setKiosqueMessage("Commande enregistrée !");
+    await reloadKiosque(eventId);
+  }
+
   async function loadEventRegistrations(eventId: string) {
     const res = await fetch(`/api/admin/events/${eventId}/registrations`);
     if (res.ok) setEventRegistrations(await res.json());
@@ -429,6 +497,12 @@ export default function AdminEventsPage() {
               {rentalsFor === ev.id ? "Masquer locations" : "Locations"}
             </button>
           )}
+          <button
+            onClick={() => toggleKiosque(ev.id)}
+            className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
+          >
+            {kiosqueFor === ev.id ? "Masquer comptoir" : "🛒 Comptoir"}
+          </button>
           {!isPast && (
             <button
               onClick={() => editEvent(ev)}
@@ -729,6 +803,105 @@ export default function AdminEventsPage() {
             )}
           </div>
         )}
+
+        {kiosqueFor === ev.id && kiosqueData && (() => {
+          const member = kiosqueData.members.find((m) => m.id === kiosqueMemberId) ?? null;
+          const cartLines = Object.entries(kiosqueCart)
+            .map(([id, qty]) => ({ product: kiosqueData.products.find((p) => p.id === id), qty }))
+            .filter((l) => l.product) as { product: KioskProduct; qty: number }[];
+          const cartTotal = cartLines.reduce((s, l) => s + l.product.price * l.qty, 0);
+          const byCategory: Record<string, KioskProduct[]> = {};
+          for (const p of kiosqueData.products) {
+            if (!byCategory[p.category]) byCategory[p.category] = [];
+            byCategory[p.category].push(p);
+          }
+          const CATEGORY_LABELS: Record<string, string> = { DRINK: "🥤 Boissons", SNACK: "🍬 Friandises" };
+
+          return (
+            <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
+              <p className="mb-3 font-semibold text-silver-100">🛒 Comptoir</p>
+
+              {/* Membres inscrits */}
+              <p className="mb-1 text-xs font-medium text-slate-400">Participant</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {kiosqueData.members.length === 0 && (
+                  <span className="text-slate-500">Aucun inscrit.</span>
+                )}
+                {kiosqueData.members.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setKiosqueMemberId(m.id); setKiosqueCart({}); setKiosqueError(null); setKiosqueMessage(null); }}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      kiosqueMemberId === m.id
+                        ? "border-primary-400 bg-primary-800 text-silver-100"
+                        : "border-primary-700 text-slate-300 hover:bg-primary-900"
+                    }`}
+                  >
+                    {m.firstName} {m.name}
+                    <span className="ml-1 text-slate-400">({(m.balance / 100).toFixed(2)}€)</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Produits */}
+              {kiosqueData.products.length === 0 ? (
+                <p className="text-slate-500">Aucun produit associé à cette activité.</p>
+              ) : (
+                Object.entries(byCategory).map(([cat, prods]) => (
+                  <div key={cat} className="mb-3">
+                    <p className="mb-1 text-xs font-medium text-slate-400">{CATEGORY_LABELS[cat] ?? cat}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {prods.map((p) => {
+                        const qty = kiosqueCart[p.id] ?? 0;
+                        return (
+                          <div key={p.id} className="flex items-center gap-1 rounded-md border border-primary-700 bg-primary-900/40 px-2 py-1">
+                            <span className="text-slate-200">{p.name}</span>
+                            <span className="text-xs text-slate-400 ml-1">{(p.price / 100).toFixed(2)}€</span>
+                            {p.stock === 0 && <span className="text-xs text-red-400 ml-1">Épuisé</span>}
+                            {p.stock > 0 && kiosqueMemberId && (
+                              <>
+                                <button onClick={() => kiosqueAddToCart(p.id, -1)} className="ml-2 w-5 h-5 rounded bg-primary-800 text-slate-300 hover:bg-primary-700 text-center leading-5">−</button>
+                                <span className="w-4 text-center text-slate-200">{qty}</span>
+                                <button onClick={() => kiosqueAddToCart(p.id, 1)} className="w-5 h-5 rounded bg-primary-800 text-slate-300 hover:bg-primary-700 text-center leading-5">+</button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Panier et validation */}
+              {cartLines.length > 0 && (
+                <div className="mt-3 rounded-lg border border-primary-700 bg-primary-900/40 p-3">
+                  <p className="text-xs font-medium text-slate-400 mb-1">Panier — {member?.firstName} {member?.name}</p>
+                  <ul className="mb-2 space-y-0.5">
+                    {cartLines.map((l) => (
+                      <li key={l.product.id} className="text-xs text-slate-300">
+                        {l.qty}× {l.product.name} — {((l.product.price * l.qty) / 100).toFixed(2)}€
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-100">Total : {(cartTotal / 100).toFixed(2)}€</span>
+                    <button
+                      onClick={() => kiosqueConfirmOrder(ev.id)}
+                      disabled={kiosqueBusy}
+                      className="rounded-md bg-primary-400 px-3 py-1.5 text-xs font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                    >
+                      {kiosqueBusy ? "Enregistrement…" : "Valider"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {kiosqueMessage && <p className="mt-2 text-xs text-emerald-400">{kiosqueMessage}</p>}
+              {kiosqueError && <p className="mt-2 text-xs text-red-400">{kiosqueError}</p>}
+            </div>
+          );
+        })()}
       </div>
     );
   }
