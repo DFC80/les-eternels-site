@@ -513,7 +513,7 @@ export default function AdminEventsPage() {
                     </li>
                   ))}
                   {showWithout && (
-                    <li>Sans menu précisé : <span className="font-semibold">{mealReport.withoutMenu}</span></li>
+                    <li>Repas (inscription avant ajout des menus) : <span className="font-semibold">{mealReport.withoutMenu}</span></li>
                   )}
                 </ul>
               );
