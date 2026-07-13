@@ -51,17 +51,19 @@ export async function sendNewEventRegistrationToAdmin(params: {
   wantsMeal: boolean;
   mealPrice: number;
   participationFee: number;
-  equipmentNames: string[];
+  equipment: { name: string; rentalCost: number }[];
 }) {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
   if (!adminEmail) return;
 
-  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipmentNames } = params;
+  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
 
   const prestations: string[] = [];
-  if (wantsMeal) prestations.push(`Repas inclus — ${mealPrice}€`);
+  if (wantsMeal) prestations.push(`Repas — ${mealPrice}€`);
   if (participationFee > 0) prestations.push(`Participation invité — ${participationFee / 100}€`);
-  if (equipmentNames.length > 0) prestations.push(`Locations : ${equipmentNames.join(", ")}`);
+  for (const eq of equipment) {
+    prestations.push(`Location ${eq.name} — ${eq.rentalCost}€`);
+  }
   const prestationsHtml = prestations.length > 0
     ? `<ul style="margin:8px 0;padding-left:20px;">${prestations.map((p) => `<li>${p}</li>`).join("")}</ul>`
     : `<p style="color:#888;">Aucune prestation supplémentaire.</p>`;
@@ -133,16 +135,21 @@ export async function sendEventRegistrationConfirmation(params: {
   wantsMeal: boolean;
   mealPrice: number;
   participationFee: number;
-  equipmentNames: string[];
+  equipment: { name: string; rentalCost: number }[];
 }) {
-  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipmentNames } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
 
   const lignes: { label: string; valeur: string }[] = [];
-  if (wantsMeal) lignes.push({ label: "Repas", valeur: `Oui — ${mealPrice}€` });
+  if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
   if (participationFee > 0) lignes.push({ label: "Participation invité", valeur: `${participationFee / 100}€` });
-  if (equipmentNames.length > 0) lignes.push({ label: "Locations demandées", valeur: equipmentNames.join(", ") });
+  for (const eq of equipment) {
+    lignes.push({ label: `Location — ${eq.name}`, valeur: `${eq.rentalCost}€` });
+  }
 
-  const totalEuros = (wantsMeal ? mealPrice : 0) + participationFee / 100;
+  const totalEuros =
+    (wantsMeal ? mealPrice : 0) +
+    participationFee / 100 +
+    equipment.reduce((sum, eq) => sum + eq.rentalCost, 0);
 
   const detailHtml = lignes.length > 0
     ? `

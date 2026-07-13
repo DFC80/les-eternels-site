@@ -101,10 +101,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const [user, equipmentList] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
     equipmentIds.length > 0
-      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { name: true } })
+      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { name: true, rentalCost: true } })
       : Promise.resolve([]),
   ]);
-  const equipmentNames = equipmentList.map((e) => e.name);
 
   if (user) {
     await Promise.all([
@@ -117,7 +116,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         wantsMeal,
         mealPrice: event.mealPrice,
         participationFee,
-        equipmentNames,
+        equipment: equipmentList,
       }),
       sendNewEventRegistrationToAdmin({
         memberName: `${user.firstName} ${user.name}`,
@@ -128,7 +127,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         wantsMeal,
         mealPrice: event.mealPrice,
         participationFee,
-        equipmentNames,
+        equipment: equipmentList,
       }),
     ]);
   }
