@@ -130,6 +130,7 @@ export default function AdminEventsPage() {
   const [financeFor, setFinanceFor] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [newExpenseLabel, setNewExpenseLabel] = useState("");
+  const [newCustomExtra, setNewCustomExtra] = useState("");
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [rentalsFor, setRentalsFor] = useState<string | null>(null);
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -921,6 +922,62 @@ export default function AdminEventsPage() {
                     </label>
                   ))}
                 </div>
+                {(() => {
+                  const predefinedKeys = MEAL_EXTRAS.map((e) => e.key as string);
+                  const customExtras = form.mealExtras.filter((k) => !predefinedKeys.includes(k));
+                  return (
+                    <>
+                      {customExtras.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {customExtras.map((label) => (
+                            <span key={label} className="flex items-center gap-1 rounded-full border border-primary-600 bg-primary-900/60 px-3 py-1 text-xs text-slate-200">
+                              {label}
+                              <button
+                                type="button"
+                                onClick={() => setForm({ ...form, mealExtras: form.mealExtras.filter((k) => k !== label) })}
+                                className="ml-1 text-slate-400 hover:text-red-400"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="text"
+                          value={newCustomExtra}
+                          onChange={(e) => setNewCustomExtra(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const v = newCustomExtra.trim();
+                              if (v && !form.mealExtras.includes(v)) {
+                                setForm({ ...form, mealExtras: [...form.mealExtras, v] });
+                              }
+                              setNewCustomExtra("");
+                            }
+                          }}
+                          placeholder="Ex: Pain, Salade…"
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const v = newCustomExtra.trim();
+                            if (v && !form.mealExtras.includes(v)) {
+                              setForm({ ...form, mealExtras: [...form.mealExtras, v] });
+                            }
+                            setNewCustomExtra("");
+                          }}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
+                        >
+                          + Ajouter
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div>
