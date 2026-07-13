@@ -98,7 +98,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     },
   });
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const [user, equipmentList] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.user.id } }),
+    equipmentIds.length > 0
+      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { name: true } })
+      : Promise.resolve([]),
+  ]);
+  const equipmentNames = equipmentList.map((e) => e.name);
+
   if (user) {
     await Promise.all([
       sendEventRegistrationConfirmation({
@@ -107,6 +114,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
         eventTitle: event.title,
         startsAt: event.startsAt,
         location: event.location,
+        wantsMeal,
+        mealPrice: event.mealPrice,
+        participationFee,
+        equipmentNames,
       }),
       sendNewEventRegistrationToAdmin({
         memberName: `${user.firstName} ${user.name}`,
@@ -115,6 +126,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
         startsAt: event.startsAt,
         location: event.location,
         wantsMeal,
+        mealPrice: event.mealPrice,
+        participationFee,
+        equipmentNames,
       }),
     ]);
   }
