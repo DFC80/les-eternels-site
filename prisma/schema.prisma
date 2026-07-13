@@ -87,6 +87,7 @@ model Event {
 
   hasMeal              Boolean   @default(false)
   mealInfo             String?
+  mealExtras           String    @default("")
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
 

@@ -17,6 +17,7 @@ type EventItem = {
   capacity: number | null;
   hasMeal: boolean;
   mealInfo: string | null;
+  mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
   menus: MenuItem[];
@@ -72,6 +73,7 @@ const EMPTY_FORM = {
   capacity: "",
   hasMeal: false,
   mealInfo: "",
+  mealExtras: [] as string[],
   mealPrice: "10",
   registrationDeadline: "",
   menus: [] as MenuFormItem[],
@@ -79,6 +81,13 @@ const EMPTY_FORM = {
 };
 
 type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string };
+
+const MEAL_EXTRAS = [
+  { key: "softs", label: "Boissons softs" },
+  { key: "beer", label: "Bières (1€ / verre ou canette)" },
+  { key: "cheese", label: "Fromage" },
+  { key: "dessert", label: "Dessert" },
+] as const;
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -164,6 +173,7 @@ export default function AdminEventsPage() {
       capacity: ev.capacity ? String(ev.capacity) : "",
       hasMeal: ev.hasMeal,
       mealInfo: ev.mealInfo ?? "",
+      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
       menus: ev.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
@@ -195,6 +205,7 @@ export default function AdminEventsPage() {
       capacity: form.capacity || null,
       hasMeal: form.hasMeal,
       mealInfo: form.mealInfo,
+      mealExtras: form.mealExtras,
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson || null })),
@@ -886,6 +897,30 @@ export default function AdminEventsPage() {
                   onChange={(e) => setForm({ ...form, mealPrice: e.target.value })}
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Le repas comprend également</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {MEAL_EXTRAS.map((extra) => (
+                    <label key={extra.key} className="flex items-center gap-2 rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={form.mealExtras.includes(extra.key)}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            mealExtras: e.target.checked
+                              ? [...form.mealExtras, extra.key]
+                              : form.mealExtras.filter((k) => k !== extra.key),
+                          })
+                        }
+                        className={checkboxClass}
+                      />
+                      {extra.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>

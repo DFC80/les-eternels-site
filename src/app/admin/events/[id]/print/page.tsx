@@ -183,6 +183,20 @@ export default async function PrintEventPage({ params }: { params: { id: string 
         )}
 
         {/* Repas */}
+        {event.hasMeal && (() => {
+          const EXTRAS_LABELS: Record<string, string> = {
+            softs: "🥤 Boissons softs",
+            beer: "🍺 Bières (1€ / verre ou canette)",
+            cheese: "🧀 Fromage",
+            dessert: "🍮 Dessert",
+          };
+          const extras = event.mealExtras ? event.mealExtras.split(",").filter(Boolean) : [];
+          return extras.length > 0 ? (
+            <p style={{ fontSize: 12, color: "#555", margin: "4px 0 0" }}>
+              Comprend également : {extras.map((k) => EXTRAS_LABELS[k] ?? k).join(" · ")}
+            </p>
+          ) : null;
+        })()}
         {event.hasMeal && (
           <>
             <h2>Repas — {diners.length} convive{diners.length > 1 ? "s" : ""} ({event.mealPrice}€/pers.)</h2>

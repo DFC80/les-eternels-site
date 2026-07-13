@@ -47,6 +47,7 @@ type CalendarEvent = {
   capacity: number | null;
   hasMeal: boolean;
   mealInfo: string | null;
+  mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
   menus: MealMenu[];
@@ -452,6 +453,24 @@ export default function EventCalendar() {
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5">
                 <p className="font-display text-lg text-silver-100">🍽️ Repas du jour</p>
                 {selected.mealInfo && <p className="mt-1 text-sm text-slate-300">{selected.mealInfo}</p>}
+                {selected.mealExtras && (() => {
+                  const EXTRAS_LABELS: Record<string, string> = {
+                    softs: "🥤 Boissons softs",
+                    beer: "🍺 Bières (1€ / verre ou canette)",
+                    cheese: "🧀 Fromage",
+                    dessert: "🍮 Dessert",
+                  };
+                  const extras = selected.mealExtras.split(",").filter(Boolean);
+                  return extras.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {extras.map((key) => (
+                        <span key={key} className="rounded-full border border-primary-700 bg-primary-900/60 px-2.5 py-0.5 text-xs text-slate-300">
+                          {EXTRAS_LABELS[key] ?? key}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
 
                 <label className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-200">
                   <input

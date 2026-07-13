@@ -24,6 +24,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     capacity,
     hasMeal,
     mealInfo,
+    mealExtras,
     mealPrice,
     menus,
     registrationDeadline,
@@ -38,6 +39,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     capacity?: string | number | null;
     hasMeal?: boolean;
     mealInfo?: string;
+    mealExtras?: string[];
     mealPrice?: string | number | null;
     menus?: MenuInput[];
     registrationDeadline?: string | null;
@@ -67,6 +69,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       capacity: capacity ? Number(capacity) : null,
       hasMeal: !!hasMeal,
       mealInfo: hasMeal ? mealInfo || null : null,
+      mealExtras: hasMeal && Array.isArray(mealExtras) ? mealExtras.join(",") : "",
       mealPrice: mealPrice ? Number(mealPrice) : MEAL_PRICE,
       registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
       menus: hasMeal && cleanedMenus.length > 0 ? { create: cleanedMenus } : undefined,
