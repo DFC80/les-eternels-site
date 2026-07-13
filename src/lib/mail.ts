@@ -353,3 +353,23 @@ export async function sendMembershipPaymentConfirmation(params: {
   );
   await sendMail(to, "Paiement de cotisation confirmé", html);
 }
+
+export async function sendPasswordResetEmail(params: { to: string; firstName: string; resetLink: string }) {
+  const { to, firstName, resetLink } = params;
+  const html = wrapHtml(
+    "Réinitialisation de votre mot de passe",
+    `
+      <p>Bonjour ${firstName},</p>
+      <p>Vous avez demandé à réinitialiser votre mot de passe sur le site des <strong>Éternels</strong>.</p>
+      <p>Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a href="${resetLink}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+          Réinitialiser mon mot de passe
+        </a>
+      </p>
+      <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${resetLink}</p>
+      <p>Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas effectué cette demande, ignorez cet email — votre mot de passe restera inchangé.</p>
+    `
+  );
+  await sendMail(to, "Réinitialisation de votre mot de passe — Les Éternels", html);
+}

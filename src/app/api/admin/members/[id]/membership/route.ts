@@ -12,19 +12,24 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { isPaid } = body as { isPaid?: boolean };
+  const { isPaid, validateSupplement } = body as { isPaid?: boolean; validateSupplement?: boolean };
 
   const membership = await prisma.membership.findUnique({ where: { userId: params.id } });
   if (!membership) {
     return NextResponse.json({ error: "Aucune adhésion trouvée pour ce membre." }, { status: 404 });
   }
 
+  const updateData: Record<string, unknown> = validateSupplement
+    ? { paidAmount: membership.amount }
+    : {
+        isPaid: !!isPaid,
+        paidAt: isPaid ? new Date() : null,
+        paidAmount: isPaid ? membership.amount : 0,
+      };
+
   const updated = await prisma.membership.update({
     where: { userId: params.id },
-    data: {
-      isPaid: !!isPaid,
-      paidAt: isPaid ? new Date() : null,
-    },
+    data: updateData,
   });
 
   if (isPaid) {

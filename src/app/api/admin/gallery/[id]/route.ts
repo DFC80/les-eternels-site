@@ -21,14 +21,27 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  const { visibility } = await request.json();
-  if (visibility !== "PUBLIC" && visibility !== "MEMBERS_ONLY") {
-    return NextResponse.json({ error: "Visibilité invalide." }, { status: 400 });
+  const body = await request.json();
+  const data: { visibility?: string; comment?: string | null } = {};
+
+  if ("visibility" in body) {
+    if (body.visibility !== "PUBLIC" && body.visibility !== "MEMBERS_ONLY") {
+      return NextResponse.json({ error: "Visibilité invalide." }, { status: 400 });
+    }
+    data.visibility = body.visibility;
+  }
+
+  if ("comment" in body) {
+    data.comment = body.comment ?? null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
   }
 
   const photo = await prisma.galleryPhoto.update({
     where: { id: params.id },
-    data: { visibility },
+    data,
   });
 
   return NextResponse.json(photo);

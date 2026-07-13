@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection, isFullAdmin } from "@/lib/permissions";
 
+type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean };
+
 type Membership = {
   year: number;
   wantsBoardGames: boolean;
@@ -11,7 +13,9 @@ type Membership = {
   wantsAirsoft: boolean;
   amount: number;
   isPaid: boolean;
+  paidAmount: number;
   expired: boolean;
+  extraActivities: { activityKey: string }[];
 } | null;
 
 type Member = {
@@ -57,14 +61,11 @@ type MemberDetail = {
 
 const GENDER_LABELS: Record<string, string> = { HOMME: "Homme", FEMME: "Femme", AUTRE: "Autre" };
 
-function activitiesLabel(m: { wantsBoardGames: boolean; wantsRolePlay: boolean; wantsAirsoft: boolean } | null) {
-  if (!m) return "—";
-  const labels = [];
-  if (m.wantsBoardGames) labels.push("Plateau");
-  if (m.wantsRolePlay) labels.push("Jeux de rôle");
-  if (m.wantsAirsoft) labels.push("Airsoft");
-  return labels.join(", ") || "—";
-}
+const CORE_ACTIVITY_KEYS: Record<string, string> = {
+  JEUX_DE_PLATEAU: "wantsBoardGames",
+  JEUX_DE_ROLE: "wantsRolePlay",
+  AIRSOFT: "wantsAirsoft",
+};
 
 function computeAge(dateOfBirth: string | null): number | null {
   if (!dateOfBirth) return null;
@@ -87,17 +88,20 @@ export default function AdminMembersPage() {
   const canEdit = isFullAdmin(role);
   const [members, setMembers] = useState<Member[]>([]);
   const [bureauRoles, setBureauRoles] = useState<BureauRole[]>([]);
+  const [activities, setActivities] = useState<ActivityDef[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<MemberDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   async function load() {
-    const [membersRes, rolesRes] = await Promise.all([
+    const [membersRes, rolesRes, actsRes] = await Promise.all([
       fetch("/api/admin/members"),
       fetch("/api/admin/bureau-roles"),
+      fetch("/api/activities"),
     ]);
     if (membersRes.ok) setMembers(await membersRes.json());
     if (rolesRes.ok) setBureauRoles(await rolesRes.json());
+    if (actsRes.ok) setActivities(await actsRes.json());
   }
 
   useEffect(() => {
@@ -129,6 +133,21 @@ export default function AdminMembersPage() {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Erreur lors de la mise à jour de la cotisation.");
+      return;
+    }
+    await load();
+  }
+
+  async function validateSupplement(id: string) {
+    setError(null);
+    const res = await fetch(`/api/admin/members/${id}/membership`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ validateSupplement: true }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Erreur lors de la validation du supplément.");
       return;
     }
     await load();
@@ -272,45 +291,89 @@ export default function AdminMembersPage() {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-300">{activitiesLabel(m.membership)}</td>
+                <td className="px-4 py-3">
+                  {m.membership ? (() => {
+                    const ms = m.membership!;
+                    const allKeys: string[] = [];
+                    if (ms.wantsBoardGames) allKeys.push("JEUX_DE_PLATEAU");
+                    if (ms.wantsRolePlay) allKeys.push("JEUX_DE_ROLE");
+                    if (ms.wantsAirsoft) allKeys.push("AIRSOFT");
+                    for (const ea of ms.extraActivities ?? []) allKeys.push(ea.activityKey);
+                    if (allKeys.length === 0) return <span className="text-slate-600">—</span>;
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {allKeys.map((key) => {
+                          const act = activities.find((a) => a.key === key);
+                          const label = act ? `${act.emoji} ${act.label}` : key;
+                          return (
+                            <span key={key} className="rounded bg-primary-800 px-1.5 py-0.5 text-xs text-slate-200">
+                              {label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })() : <span className="text-slate-600">—</span>}
+                </td>
                 <td className="px-4 py-3">
                   {m.membership ? (
                     m.membership.expired ? (
                       <span className="rounded bg-slate-800 px-2 py-1 text-xs font-medium text-slate-400">
                         Expirée ({m.membership.year})
                       </span>
-                    ) : canEdit ? (
-                      <button
-                        onClick={() => toggleMembershipPaid(m.id, !m.membership!.isPaid)}
-                        className={`rounded px-2 py-1 text-xs font-medium ${
-                          m.membership.isPaid
-                            ? "bg-emerald-950 text-emerald-300"
-                            : "bg-amber-950 text-amber-300"
-                        }`}
-                      >
-                        {m.membership.year} — {m.membership.amount}€ —{" "}
-                        {m.membership.isPaid ? "Payée" : "En attente"}
-                      </button>
-                    ) : (
-                      <span className={`rounded px-2 py-1 text-xs font-medium ${
-                        m.membership.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
-                      }`}>
-                        {m.membership.year} — {m.membership.amount}€ —{" "}
-                        {m.membership.isPaid ? "Payée" : "En attente"}
-                      </span>
-                    )
+                    ) : (() => {
+                      const ms = m.membership!;
+                      const supplement = ms.isPaid ? ms.amount - ms.paidAmount : 0;
+                      return (
+                        <div className="flex flex-col gap-1">
+                          {canEdit ? (
+                            <button
+                              onClick={() => toggleMembershipPaid(m.id, !ms.isPaid)}
+                              className={`rounded px-2 py-1 text-xs font-medium ${
+                                ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
+                              }`}
+                            >
+                              {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
+                            </button>
+                          ) : (
+                            <span className={`rounded px-2 py-1 text-xs font-medium ${
+                              ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
+                            }`}>
+                              {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
+                            </span>
+                          )}
+                          {supplement > 0 && (
+                            canEdit ? (
+                              <button
+                                onClick={() => validateSupplement(m.id)}
+                                className="rounded bg-amber-900 px-2 py-1 text-xs font-medium text-amber-200 hover:bg-amber-800"
+                                title="Cliquer pour valider l'encaissement du supplément"
+                              >
+                                +{supplement}€ à encaisser
+                              </button>
+                            ) : (
+                              <span className="rounded bg-amber-900/60 px-2 py-1 text-xs font-medium text-amber-300">
+                                +{supplement}€ à encaisser
+                              </span>
+                            )
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : (
                     <span className="text-slate-500">Pas d'adhésion</span>
                   )}
                 </td>
                 {canEdit && (
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => removeMember(m.id)}
-                      className="text-red-400 hover:underline"
-                    >
-                      Supprimer
-                    </button>
+                    {m.email !== "admin@les-eternels.fr" && (
+                      <button
+                        onClick={() => removeMember(m.id)}
+                        className="text-red-400 hover:underline"
+                      >
+                        Supprimer
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>

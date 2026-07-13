@@ -73,10 +73,39 @@ export async function POST(request: Request) {
 
   const currentYear = new Date().getFullYear();
 
+  const existing = await prisma.membership.findUnique({
+    where: { userId: session.user.id },
+    include: { extraActivities: true },
+  });
+  const isAlreadyPaid = !!(existing?.isPaid && existing?.year === currentYear);
+
+  // Quand la cotisation est déjà réglée, interdire la suppression d'activités validées
+  if (isAlreadyPaid) {
+    const removedCore =
+      (existing!.wantsBoardGames && !wantsBoardGames) ||
+      (existing!.wantsRolePlay && !wantsRolePlay) ||
+      (existing!.wantsAirsoft && !wantsAirsoft);
+    const existingExtraKeys = existing!.extraActivities.map((a) => a.activityKey);
+    const removedExtra = existingExtraKeys.some((k) => !extraActivityKeys.includes(k));
+    if (removedCore || removedExtra) {
+      return NextResponse.json(
+        { error: "Vous ne pouvez pas retirer une activité déjà validée au paiement." },
+        { status: 400 }
+      );
+    }
+  }
+
   const membership = await prisma.membership.upsert({
     where: { userId: session.user.id },
     create: { userId: session.user.id, year: currentYear, wantsBoardGames, wantsRolePlay, wantsAirsoft, amount },
-    update: { year: currentYear, wantsBoardGames, wantsRolePlay, wantsAirsoft, amount, isPaid: false, paidAt: null },
+    update: {
+      year: currentYear,
+      wantsBoardGames,
+      wantsRolePlay,
+      wantsAirsoft,
+      amount,
+      ...(isAlreadyPaid ? {} : { isPaid: false, paidAt: null }),
+    },
   });
 
   // Remplacer les activités supplémentaires

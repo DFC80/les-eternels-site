@@ -34,7 +34,9 @@ model User {
   role         String    @default("MEMBER")
   isActive          Boolean   @default(true)
   isPending         Boolean   @default(false)
-  verificationToken String?
+  verificationToken        String?
+  passwordResetToken       String?
+  passwordResetTokenExpiry DateTime?
   createdAt    DateTime  @default(now())
 
   bureauRoles  UserBureauRole[]
@@ -67,6 +69,7 @@ model Membership {
   amount          Int
   isPaid          Boolean   @default(false)
   paidAt          DateTime?
+  paidAmount      Int       @default(0)
   updatedAt       DateTime  @updatedAt
   createdAt       DateTime  @default(now())
 

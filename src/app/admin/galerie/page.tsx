@@ -31,6 +31,8 @@ export default function AdminGaleriePage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingComment, setEditingComment] = useState<{ id: string; value: string } | null>(null);
+  const [savingComment, setSavingComment] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin/gallery");
@@ -73,6 +75,20 @@ export default function AdminGaleriePage() {
     if (!confirm("Supprimer cette photo ?")) return;
     const res = await fetch(`/api/admin/gallery/${id}`, { method: "DELETE" });
     if (res.ok) await load();
+  }
+
+  async function saveComment(id: string, comment: string) {
+    setSavingComment(true);
+    const res = await fetch(`/api/admin/gallery/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment: comment.trim() || null }),
+    });
+    setSavingComment(false);
+    if (res.ok) {
+      setEditingComment(null);
+      await load();
+    }
   }
 
   async function toggleVisibility(photo: Photo) {
@@ -186,7 +202,44 @@ export default function AdminGaleriePage() {
                   {p.visibility === "MEMBERS_ONLY" ? "🔒 Membres" : "🌐 Public"}
                 </span>
               </div>
-              {p.comment && <p className="mt-1 text-sm text-slate-300">{p.comment}</p>}
+              {editingComment?.id === p.id ? (
+                <div className="mt-2">
+                  <textarea
+                    value={editingComment.value}
+                    onChange={(e) => setEditingComment({ id: p.id, value: e.target.value })}
+                    rows={2}
+                    autoFocus
+                    className="w-full rounded border border-primary-600 bg-primary-950 px-2 py-1 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-primary-400"
+                    placeholder="Description de la photo…"
+                  />
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      onClick={() => saveComment(p.id, editingComment.value)}
+                      disabled={savingComment}
+                      className="text-xs font-medium text-primary-400 hover:underline disabled:opacity-60"
+                    >
+                      {savingComment ? "Enregistrement…" : "Enregistrer"}
+                    </button>
+                    <button
+                      onClick={() => setEditingComment(null)}
+                      className="text-xs text-slate-400 hover:underline"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-1 flex items-start gap-1">
+                  <p className="flex-1 text-sm text-slate-300">{p.comment || <span className="italic text-slate-500">Aucune description</span>}</p>
+                  <button
+                    onClick={() => setEditingComment({ id: p.id, value: p.comment ?? "" })}
+                    className="shrink-0 text-xs text-slate-400 hover:text-slate-200"
+                    title="Modifier la description"
+                  >
+                    ✏️
+                  </button>
+                </div>
+              )}
               <div className="mt-2 flex items-center gap-3">
                 <button
                   onClick={() => toggleVisibility(p)}

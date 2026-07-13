@@ -36,6 +36,8 @@ export async function GET() {
           amount: true,
           isPaid: true,
           paidAt: true,
+          paidAmount: true,
+          extraActivities: { select: { activityKey: true } },
         },
       },
     },

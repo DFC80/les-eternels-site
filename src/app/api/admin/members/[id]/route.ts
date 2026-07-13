@@ -105,6 +105,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
+  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { email: true } });
+  if (target?.email === "admin@les-eternels.fr") {
+    return NextResponse.json({ error: "Ce compte administrateur ne peut pas être supprimé." }, { status: 403 });
+  }
+
   await prisma.user.delete({ where: { id: params.id } });
 
   return NextResponse.json({ ok: true });
