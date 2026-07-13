@@ -24,6 +24,7 @@ type EventItem = {
   registrations: {
     id: string;
     wantsMeal: boolean;
+    participationFee: number;
     rentals: { status: string; isFree: boolean; equipment: { rentalCost: number } }[];
   }[];
 };
@@ -539,7 +540,10 @@ export default function AdminEventsPage() {
                     .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost), 0),
                 0
               );
-              const income = mealIncome + equipmentIncome;
+              const participationIncome = Math.round(
+                ev.registrations.reduce((sum, r) => sum + (r.participationFee ?? 0), 0) / 100
+              );
+              const income = mealIncome + equipmentIncome + participationIncome;
               const expensesTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
               const profit = income - expensesTotal;
               return (
@@ -551,6 +555,12 @@ export default function AdminEventsPage() {
                     Gains location matériel :{" "}
                     <span className="font-semibold text-silver-100">{equipmentIncome}€</span>
                   </p>
+                  {participationIncome > 0 && (
+                    <p className="text-slate-300">
+                      Participations invités :{" "}
+                      <span className="font-semibold text-silver-100">{participationIncome}€</span>
+                    </p>
+                  )}
                   <p className="text-slate-300">
                     Dépenses : <span className="font-semibold text-silver-100">{expensesTotal}€</span>
                   </p>

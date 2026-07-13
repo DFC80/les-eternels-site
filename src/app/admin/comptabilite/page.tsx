@@ -11,6 +11,7 @@ type EventSummary = {
   startsAt: string;
   mealIncome: number;
   equipmentIncome: number;
+  participationIncome: number;
   income: number;
   expensesTotal: number;
   profit: number;
@@ -233,6 +234,7 @@ export default function ComptabilitePage() {
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Repas</th>
               <th className="px-4 py-3">Matériel</th>
+              <th className="px-4 py-3">Participations</th>
               <th className="px-4 py-3">Total gains</th>
               <th className="px-4 py-3">Dépenses</th>
               <th className="px-4 py-3">Résultat</th>
@@ -247,6 +249,9 @@ export default function ComptabilitePage() {
                 </td>
                 <td className="px-4 py-3 text-slate-400">{ev.mealIncome}€</td>
                 <td className="px-4 py-3 text-slate-400">{ev.equipmentIncome}€</td>
+                <td className="px-4 py-3 text-slate-400">
+                  {ev.participationIncome > 0 ? `${ev.participationIncome}€` : "—"}
+                </td>
                 <td className="px-4 py-3">{ev.income}€</td>
                 <td className="px-4 py-3">{ev.expensesTotal}€</td>
                 <td
