@@ -37,6 +37,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "Cet événement est complet." }, { status: 400 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
+  const wantsMeal = !!body.wantsMeal && event.hasMeal;
+  const mealNotes = wantsMeal ? body.mealNotes || null : null;
+  const mealOrders: MealOrderInput[] = wantsMeal && Array.isArray(body.mealOrders) ? body.mealOrders : [];
+  const equipmentIds: string[] = event.activityType === "AIRSOFT" && Array.isArray(body.equipmentIds) ? body.equipmentIds : [];
+
   // Vérification de l'adhésion selon le type d'activité
   if (event.activityType !== "AUTRE") {
     const activityDef = await prisma.activity.findUnique({ where: { key: event.activityType } });
@@ -70,13 +77,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     }
   }
-
-  const body = await request.json().catch(() => ({}));
-  const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
-  const wantsMeal = !!body.wantsMeal && event.hasMeal;
-  const mealNotes = wantsMeal ? body.mealNotes || null : null;
-  const mealOrders: MealOrderInput[] = wantsMeal && Array.isArray(body.mealOrders) ? body.mealOrders : [];
-  const equipmentIds: string[] = event.activityType === "AIRSOFT" && Array.isArray(body.equipmentIds) ? body.equipmentIds : [];
 
   const registration = await prisma.eventRegistration.create({
     data: {
