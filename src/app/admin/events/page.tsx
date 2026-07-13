@@ -425,6 +425,14 @@ export default function AdminEventsPage() {
               Modifier
             </button>
           )}
+          <a
+            href={`/admin/events/${ev.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
+          >
+            🖨️ Imprimer
+          </a>
           <button
             onClick={() => removeEvent(ev.id)}
             className="rounded-md border border-red-900 px-3 py-1.5 text-red-400 hover:bg-red-950/40"
