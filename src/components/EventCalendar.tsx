@@ -57,13 +57,14 @@ type Membership = {
   wantsBoardGames: boolean;
   wantsRolePlay: boolean;
   wantsAirsoft: boolean;
+  extraActivityKeys: string[];
   year: number;
   expired: boolean;
 } | null;
 
 const GENERIC_MEAL_KEY = "__generic__";
 
-type ActivityMeta = { key: string; label: string; emoji: string; color: string };
+type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean };
 
 const COLOR_BADGE: Record<string, string> = {
   emerald: "bg-emerald-950 text-emerald-300 border-emerald-700",
@@ -95,13 +96,47 @@ function buildMonthGrid(month: Date) {
   return cells;
 }
 
-function isEligibleByMembership(activityType: string, membership: Membership) {
-  if (activityType === "AUTRE") return true;
+function isEligibleByMembership(activityType: string, membership: Membership, activityMeta: ActivityMeta[]) {
+  const act = activityMeta.find((a) => a.key === activityType);
+  if (!act?.membershipRequired) return true;
   if (!membership || membership.expired) return false;
   if (activityType === "JEUX_DE_PLATEAU") return membership.wantsBoardGames;
   if (activityType === "JEUX_DE_ROLE") return membership.wantsRolePlay;
   if (activityType === "AIRSOFT") return membership.wantsAirsoft;
-  return false;
+  return membership.extraActivityKeys.includes(activityType);
+}
+
+function getMembershipWarning(ev: CalendarEvent, membership: Membership, activityMeta: ActivityMeta[]) {
+  const act = activityMeta.find((a) => a.key === ev.activityType);
+  const label = act ? `${act.emoji} ${act.label}` : ev.activityType;
+
+  if (!membership) {
+    return (
+      <p className="mt-4 text-sm text-amber-400">
+        Vous n&apos;êtes pas encore adhérent. Adhérez à l&apos;activité{" "}
+        <strong className="text-amber-300">{label}</strong> pour vous inscrire.{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">Gérer mon adhésion →</a>
+      </p>
+    );
+  }
+
+  if (membership.expired) {
+    return (
+      <p className="mt-4 text-sm text-amber-400">
+        Votre cotisation {membership.year} est expirée. Renouvelez votre adhésion en incluant{" "}
+        <strong className="text-amber-300">{label}</strong> pour vous inscrire.{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">Renouveler mon adhésion →</a>
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-4 text-sm text-amber-400">
+      Votre cotisation {membership.year} ne couvre pas l&apos;activité{" "}
+      <strong className="text-amber-300">{label}</strong>. Mettez à jour votre adhésion pour accéder à cet événement.{" "}
+      <a href="/mon-compte" className="underline hover:text-amber-200">Mettre à jour →</a>
+    </p>
+  );
 }
 
 export default function EventCalendar() {
@@ -147,7 +182,7 @@ export default function EventCalendar() {
     fetch("/api/activities")
       .then((r) => r.json())
       .then((data: ActivityMeta[]) =>
-        setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate" }])
+        setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate", membershipRequired: false }])
       );
   }, [session]);
 
@@ -178,7 +213,7 @@ export default function EventCalendar() {
   }
 
   function isEligible(ev: CalendarEvent) {
-    return isEligibleByMembership(ev.activityType, membership);
+    return isEligibleByMembership(ev.activityType, membership, activityMeta);
   }
 
   function isEventPast(ev: CalendarEvent) {
@@ -665,14 +700,9 @@ export default function EventCalendar() {
               </p>
             )}
 
-            {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) && (
-              <p className="mt-4 text-sm text-amber-400">
-                Vous devez avoir une cotisation en cours pour cette activité afin de vous inscrire.{" "}
-                <a href="/mon-compte" className="underline">
-                  Gérer mon adhésion
-                </a>
-              </p>
-            )}
+            {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) &&
+              getMembershipWarning(selected, membership, activityMeta)
+            }
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
