@@ -156,6 +156,7 @@ export default function EventCalendar() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
+  const [editingMeal, setEditingMeal] = useState(false);
 
   async function loadEvents(): Promise<CalendarEvent[]> {
     const res = await fetch("/api/events");
@@ -232,6 +233,7 @@ export default function EventCalendar() {
     setSelected(ev);
     setActionError(null);
     setParticipationAccepted(null);
+    setEditingMeal(false);
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
@@ -259,6 +261,32 @@ export default function EventCalendar() {
   const selectedEquipmentTotal = equipmentList
     .filter((eq) => selectedEquipmentIds.includes(eq.id))
     .reduce((sum, eq) => sum + eq.rentalCost, 0);
+
+  async function handleUpdateMeal(ev: CalendarEvent) {
+    if (wantsMeal && totalMealQuantity <= 0) {
+      setActionError("Veuillez indiquer au moins un repas (quantité supérieure à 0).");
+      return;
+    }
+    const mealOrders = Object.entries(quantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
+    setLoadingAction(true);
+    setActionError(null);
+    const res = await fetch(`/api/events/${ev.id}/register/meal`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wantsMeal, mealOrders, mealNotes }),
+    });
+    setLoadingAction(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error ?? "Une erreur est survenue.");
+      return;
+    }
+    setEditingMeal(false);
+    const fresh = await loadEvents();
+    setSelected((prev) => (prev ? fresh.find((e) => e.id === prev.id) ?? prev : prev));
+  }
 
   async function handleRegister(ev: CalendarEvent) {
     if (!session) {
@@ -624,35 +652,112 @@ export default function EventCalendar() {
 
             {selected.hasMeal && isRegistered(selected) && (
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5 text-sm text-slate-300">
-                {(() => {
-                  const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
-                  if (!myReg?.wantsMeal || myReg.mealOrders.length === 0) {
-                    return "Vous n'avez pas commandé de repas pour cet événement.";
-                  }
-                  return (
-                    <>
-                      <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
-                      <ul className="mt-2 space-y-1">
-                        {myReg.mealOrders.map((o) => {
-                          const label = o.menuId
-                            ? selected.menus.find((m) => m.id === o.menuId)?.label ?? "Menu"
-                            : "Repas";
-                          return (
-                            <li key={o.id}>
-                              {o.quantity}× {label}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      {myReg.mealNotes && (
-                        <p className="mt-2 text-amber-400">Intolérances signalées : {myReg.mealNotes}</p>
-                      )}
-                      <p className="mt-2 font-medium text-silver-100">
-                        Total : {selected.mealPrice}€ (forfait) à régler sur place
-                      </p>
-                    </>
-                  );
-                })()}
+                {editingMeal ? (
+                  <>
+                    <p className="font-medium text-silver-100">🍽️ Modifier votre commande repas</p>
+                    <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={wantsMeal}
+                        onChange={(e) => setWantsMeal(e.target.checked)}
+                        className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                      />
+                      Je souhaite manger sur place ({selected.mealPrice}€ forfait, à régler sur place)
+                    </label>
+                    {wantsMeal && (
+                      <>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {(selected.menus.length > 0
+                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson }))
+                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null }]
+                          ).map((item) => {
+                            const qty = quantities[item.key] ?? 0;
+                            const atMax = item.max != null && qty >= item.max;
+                            return (
+                              <div
+                                key={item.key}
+                                className={`rounded-xl border-2 p-4 text-center transition ${
+                                  qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                }`}
+                              >
+                                <p className="font-medium text-silver-100">{item.label}</p>
+                                {item.max != null && (
+                                  <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                )}
+                                <div className="mt-3 flex items-center justify-center gap-3">
+                                  <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
+                                  <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                  <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <textarea
+                          value={mealNotes}
+                          onChange={(e) => setMealNotes(e.target.value)}
+                          placeholder="Intolérances ou allergies alimentaires (optionnel)"
+                          rows={2}
+                          className="mt-3 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                        />
+                      </>
+                    )}
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => handleUpdateMeal(selected)}
+                        disabled={loadingAction}
+                        className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                      >
+                        {loadingAction ? "Enregistrement…" : "Enregistrer"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingMeal(false); openEvent(selected); }}
+                        className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800/60"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  (() => {
+                    const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+                    return (
+                      <>
+                        {!myReg?.wantsMeal || myReg.mealOrders.length === 0 ? (
+                          <p>Vous n'avez pas commandé de repas pour cet événement.</p>
+                        ) : (
+                          <>
+                            <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
+                            <ul className="mt-2 space-y-1">
+                              {myReg.mealOrders.map((o) => {
+                                const label = o.menuId
+                                  ? selected.menus.find((m) => m.id === o.menuId)?.label ?? "Menu"
+                                  : "Repas";
+                                return <li key={o.id}>{o.quantity}× {label}</li>;
+                              })}
+                            </ul>
+                            {myReg.mealNotes && (
+                              <p className="mt-2 text-amber-400">Intolérances signalées : {myReg.mealNotes}</p>
+                            )}
+                            <p className="mt-2 font-medium text-silver-100">
+                              Total : {selected.mealPrice}€ (forfait) à régler sur place
+                            </p>
+                          </>
+                        )}
+                        {!isRegistrationClosed(selected) && (
+                          <button
+                            onClick={() => setEditingMeal(true)}
+                            className="mt-3 rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-800/60"
+                          >
+                            ✏️ Modifier mes choix repas
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
               </div>
             )}
 
