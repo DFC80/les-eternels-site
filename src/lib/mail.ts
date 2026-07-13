@@ -92,8 +92,41 @@ export async function sendEventRegistrationApproved(params: {
   eventTitle: string;
   startsAt: Date;
   location: string;
+  wantsMeal: boolean;
+  mealPrice: number;
+  participationFee: number;
+  equipment: { name: string; rentalCost: number }[];
 }) {
-  const { to, firstName, eventTitle, startsAt, location } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+
+  const lignes: { label: string; valeur: string }[] = [];
+  if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
+  if (participationFee > 0) lignes.push({ label: "Participation invité", valeur: `${participationFee / 100}€` });
+  for (const eq of equipment) {
+    lignes.push({ label: `Location — ${eq.name}`, valeur: eq.rentalCost > 0 ? `${eq.rentalCost}€` : "Gratuit" });
+  }
+  const totalEuros =
+    (wantsMeal ? mealPrice : 0) +
+    participationFee / 100 +
+    equipment.reduce((sum, eq) => sum + eq.rentalCost, 0);
+
+  const detailHtml = lignes.length > 0
+    ? `
+      <p style="margin-top:20px;font-weight:bold;color:#555;">Détail de vos prestations :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        ${lignes.map((l, i) => `
+          <tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+            <td style="padding:6px 12px;font-weight:bold;color:#555;">${l.label}</td>
+            <td style="padding:6px 12px;">${l.valeur}</td>
+          </tr>`).join("")}
+        <tr style="border-top:2px solid #ddd;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Total à régler</td>
+          <td style="padding:8px 12px;font-weight:bold;">${totalEuros}€</td>
+        </tr>
+      </table>
+      <p style="font-size:12px;color:#888;margin-top:8px;">Le règlement s'effectue sur place le jour de l'événement.</p>`
+    : "";
+
   const html = wrapHtml(
     "Inscription validée ✅",
     `
@@ -103,7 +136,8 @@ export async function sendEventRegistrationApproved(params: {
         📅 ${startsAt.toLocaleString("fr-FR")}<br/>
         📍 ${location}
       </p>
-      <p>À bientôt !</p>
+      ${detailHtml}
+      <p style="margin-top:20px;">À bientôt !</p>
     `
   );
   await sendMail(to, `Inscription validée — ${eventTitle}`, html);

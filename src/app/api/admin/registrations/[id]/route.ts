@@ -23,17 +23,29 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     data: { status },
     include: {
       user: { select: { firstName: true, email: true } },
-      event: { select: { title: true, startsAt: true, location: true } },
+      event: { select: { title: true, startsAt: true, location: true, mealPrice: true } },
+      rentals: {
+        where: { status: "APPROVED" },
+        include: { equipment: { select: { name: true, rentalCost: true } } },
+      },
     },
   });
 
   if (status === "APPROVED") {
+    const approvedEquipment = registration.rentals.map((r) => ({
+      name: r.equipment.name,
+      rentalCost: r.isFree ? 0 : r.equipment.rentalCost,
+    }));
     await sendEventRegistrationApproved({
       to: registration.user.email,
       firstName: registration.user.firstName,
       eventTitle: registration.event.title,
       startsAt: registration.event.startsAt,
       location: registration.event.location,
+      wantsMeal: registration.wantsMeal,
+      mealPrice: registration.event.mealPrice,
+      participationFee: registration.participationFee,
+      equipment: approvedEquipment,
     });
   } else {
     await sendEventRegistrationRejected({
