@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function PrintTrigger() {
+  const triggered = useRef(false);
   useEffect(() => {
+    if (triggered.current) return;
+    triggered.current = true;
     window.print();
   }, []);
   return (
