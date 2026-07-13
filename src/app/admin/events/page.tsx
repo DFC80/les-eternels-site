@@ -500,28 +500,54 @@ export default function AdminEventsPage() {
             <p className="mt-1 text-xs text-slate-500">
               {mealReport.totalItems} portion(s) au total à préparer, tous menus confondus.
             </p>
-            {mealReport.byMenu.length > 0 && (
-              <ul className="mt-2 space-y-1 text-slate-300">
-                {mealReport.byMenu.map((m) => (
-                  <li key={m.menuId}>
-                    {m.label} : {m.count}
-                  </li>
-                ))}
-                {mealReport.withoutMenu > 0 && <li>Sans menu précisé : {mealReport.withoutMenu}</li>}
-              </ul>
-            )}
-            {mealReport.diners.length > 0 && (
-              <div className="mt-3">
-                <p className="text-slate-400">Liste des participants au repas :</p>
-                <ul className="mt-1 space-y-0.5 text-slate-300">
-                  {mealReport.diners.map((d, i) => (
-                    <li key={i}>
-                      {d.name} — {d.items.map((it) => `${it.quantity}× ${it.label}`).join(", ")}
-                      {d.notes && <span className="text-amber-400"> · Intolérances : {d.notes}</span>}
+            {/* Répartition par menu — uniquement les menus avec au moins 1 portion */}
+            {(() => {
+              const nonZeroMenus = mealReport.byMenu.filter((m) => m.count > 0);
+              const showWithout = mealReport.withoutMenu > 0;
+              if (nonZeroMenus.length === 0 && !showWithout) return null;
+              return (
+                <ul className="mt-2 space-y-1 text-slate-300">
+                  {nonZeroMenus.map((m) => (
+                    <li key={m.menuId}>
+                      {m.label} : <span className="font-semibold">{m.count}</span>
                     </li>
                   ))}
+                  {showWithout && (
+                    <li>Sans menu précisé : <span className="font-semibold">{mealReport.withoutMenu}</span></li>
+                  )}
+                </ul>
+              );
+            })()}
+            {mealReport.diners.length > 0 && (
+              <div className="mt-3 border-t border-primary-800 pt-3">
+                <p className="font-medium text-slate-300">Participants au repas :</p>
+                <ul className="mt-2 space-y-1 text-slate-300">
+                  {mealReport.diners.map((d, i) => {
+                    // Consolider les items de même label
+                    const consolidated = Object.values(
+                      d.items.reduce<Record<string, { label: string; quantity: number }>>((acc, it) => {
+                        if (acc[it.label]) acc[it.label].quantity += it.quantity;
+                        else acc[it.label] = { label: it.label, quantity: it.quantity };
+                        return acc;
+                      }, {})
+                    );
+                    return (
+                      <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-medium text-silver-100">{d.name}</span>
+                        <span className="text-slate-400">
+                          {consolidated.map((it) => `${it.quantity}× ${it.label}`).join(", ")}
+                        </span>
+                        {d.notes && (
+                          <span className="text-amber-400 text-xs">⚠ Intolérances : {d.notes}</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
+            )}
+            {mealReport.totalPeople === 0 && (
+              <p className="mt-2 text-slate-500">Aucune inscription repas pour le moment.</p>
             )}
           </div>
         )}
