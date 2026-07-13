@@ -31,6 +31,7 @@ type EventRegistration = {
   status: string;
   wantsMeal: boolean;
   mealNotes: string | null;
+  participationFee: number;
   mealOrders: MealOrder[];
   rentals: EquipmentRental[];
 };
@@ -154,6 +155,7 @@ export default function EventCalendar() {
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
 
   async function loadEvents(): Promise<CalendarEvent[]> {
     const res = await fetch("/api/events");
@@ -229,6 +231,7 @@ export default function EventCalendar() {
   function openEvent(ev: CalendarEvent) {
     setSelected(ev);
     setActionError(null);
+    setParticipationAccepted(null);
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
@@ -274,13 +277,14 @@ export default function EventCalendar() {
       .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
 
     const equipmentIds = wantsEquipment ? selectedEquipmentIds : [];
+    const participationFee = participationAccepted === true ? 500 : 0;
 
     setLoadingAction(true);
     setActionError(null);
     const res = await fetch(`/api/events/${ev.id}/register`, {
       method: registered ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds }),
+      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds, participationFee }),
     });
     setLoadingAction(false);
     if (!res.ok) {
@@ -602,13 +606,15 @@ export default function EventCalendar() {
             )}
 
             {!isRegistered(selected) &&
-              ((wantsMeal && totalMealQuantity > 0) || selectedEquipmentTotal > 0) && (
+              ((wantsMeal && totalMealQuantity > 0) || selectedEquipmentTotal > 0 || participationAccepted === true) && (
                 <div className="mt-4 rounded-xl border-2 border-primary-400 bg-primary-800/40 p-4 text-center">
                   <p className="text-sm uppercase tracking-wide text-slate-300">Total à régler sur place</p>
                   <p className="mt-1 font-display text-2xl text-silver-100">
-                    {(wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal}€
+                    {(wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal + (participationAccepted === true ? 5 : 0)}€
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
+                    {participationAccepted === true && "5€ participation invité"}
+                    {participationAccepted === true && (wantsMeal || selectedEquipmentTotal > 0) && " + "}
                     {wantsMeal && `${selected.mealPrice}€ repas`}
                     {wantsMeal && selectedEquipmentTotal > 0 && " + "}
                     {selectedEquipmentTotal > 0 && `${selectedEquipmentTotal}€ matériel`}
@@ -649,6 +655,18 @@ export default function EventCalendar() {
                 })()}
               </div>
             )}
+
+            {selected.activityType === "AIRSOFT" && isRegistered(selected) && (() => {
+              const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+              if (myReg?.participationFee && myReg.participationFee > 0) {
+                return (
+                  <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4 text-sm text-amber-300">
+                    💶 Participation invité : <strong>{myReg.participationFee / 100}€ à régler sur place</strong>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {selected.activityType === "AIRSOFT" && isRegistered(selected) && (
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5 text-sm text-slate-300">
@@ -700,9 +718,56 @@ export default function EventCalendar() {
               </p>
             )}
 
-            {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) &&
-              getMembershipWarning(selected, membership, activityMeta)
-            }
+            {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) && (
+              <>
+                {getMembershipWarning(selected, membership, activityMeta)}
+
+                {selected.activityType === "AIRSOFT" && (
+                  <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-5">
+                    <p className="font-display text-base text-amber-200">💶 Participation invité — 5€</p>
+                    <p className="mt-2 text-sm text-slate-300">
+                      Vous pouvez toutefois assister à cette sortie en réglant une participation de{" "}
+                      <strong className="text-white">5€ sur place</strong>. Acceptez-vous cette condition ?
+                    </p>
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setParticipationAccepted(true)}
+                        className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                          participationAccepted === true
+                            ? "bg-emerald-600 text-white"
+                            : "border border-emerald-700 text-emerald-300 hover:bg-emerald-900/40"
+                        }`}
+                      >
+                        ✓ Oui, je participe (5€)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setParticipationAccepted(false)}
+                        className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                          participationAccepted === false
+                            ? "bg-red-800 text-white"
+                            : "border border-red-900 text-red-400 hover:bg-red-950/40"
+                        }`}
+                      >
+                        ✗ Non, je refuse
+                      </button>
+                    </div>
+                    {participationAccepted === true && (
+                      <p className="mt-3 text-sm text-emerald-400">
+                        5€ à régler sur place le jour de l&apos;événement.
+                      </p>
+                    )}
+                    {participationAccepted === false && (
+                      <p className="mt-3 text-sm text-amber-400">
+                        Pour vous inscrire gratuitement, adhérez à l&apos;activité Airsoft.{" "}
+                        <a href="/mon-compte" className="underline hover:text-amber-200">Gérer mon adhésion →</a>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
@@ -717,7 +782,9 @@ export default function EventCalendar() {
                 onClick={() => handleRegister(selected)}
                 disabled={
                   loadingAction ||
-                  (!isRegistered(selected) && (!isEligible(selected) || isRegistrationClosed(selected)))
+                  isRegistrationClosed(selected) ||
+                  (!isRegistered(selected) && !isEligible(selected) &&
+                    !(selected.activityType === "AIRSOFT" && participationAccepted === true))
                 }
                 className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
                   isRegistered(selected)

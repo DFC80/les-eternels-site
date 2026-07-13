@@ -44,21 +44,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     if (membershipRequired) {
       const currentYear = new Date().getFullYear();
-      const membership = await prisma.membership.findUnique({ where: { userId: session.user.id } });
+      const membership = await prisma.membership.findUnique({
+        where: { userId: session.user.id },
+        include: { extraActivities: true },
+      });
       const validMembership = membership && membership.year === currentYear;
       let covered = false;
       if (validMembership) {
         if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;
         else if (event.activityType === "JEUX_DE_ROLE") covered = membership.wantsRolePlay;
         else if (event.activityType === "AIRSOFT") covered = membership.wantsAirsoft;
-        else {
-          // activité personnalisée : vérifier la présence dans MembershipActivity
-          const mAct = await prisma.membershipActivity.findUnique({
-            where: { membershipId_activityKey: { membershipId: membership.id, activityKey: event.activityType } },
-          });
-          covered = !!mAct;
-        }
+        else covered = membership.extraActivities.some((a) => a.activityKey === event.activityType);
       }
+
+      // Airsoft : participation invité (5€) acceptée en remplacement de la cotisation
+      if (!covered && event.activityType === "AIRSOFT" && participationFee === 500) {
+        covered = true;
+      }
+
       if (!covered) {
         return NextResponse.json(
           { error: "Vous devez avoir une cotisation en cours pour cette activité afin de vous inscrire." },
@@ -69,6 +72,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const body = await request.json().catch(() => ({}));
+  const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
   const wantsMeal = !!body.wantsMeal && event.hasMeal;
   const mealNotes = wantsMeal ? body.mealNotes || null : null;
   const mealOrders: MealOrderInput[] = wantsMeal && Array.isArray(body.mealOrders) ? body.mealOrders : [];
@@ -80,6 +84,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       eventId: event.id,
       wantsMeal,
       mealNotes,
+      participationFee,
       mealOrders: mealOrders.length > 0
         ? {
             create: mealOrders

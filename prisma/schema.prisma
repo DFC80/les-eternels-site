@@ -142,11 +142,12 @@ model MealMenu {
 model EventRegistration {
   id         String   @id @default(cuid())
   userId     String
-  eventId    String
-  wantsMeal  Boolean  @default(false)
-  mealNotes  String?
-  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
-  createdAt  DateTime @default(now())
+  eventId          String
+  wantsMeal        Boolean  @default(false)
+  mealNotes        String?
+  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  participationFee Int      @default(0)          // 0 = membre, 500 = 5€ participation invité airsoft
+  createdAt        DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
