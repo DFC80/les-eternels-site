@@ -4,6 +4,17 @@ import { authOptions } from "@/lib/auth";
 import { isFullAdmin, canAccessSection } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import PrintTrigger from "./PrintTrigger";
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const event = await prisma.event.findUnique({
+    where: { id: params.id },
+    select: { title: true, startsAt: true },
+  });
+  if (!event) return { title: "Événement" };
+  const date = event.startsAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return { title: `${event.title} ${date}` };
+}
 
 const ACTIVITY_LABELS: Record<string, string> = {
   JEUX_DE_PLATEAU: "Jeux de plateau",
