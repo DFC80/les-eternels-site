@@ -36,7 +36,7 @@ export async function GET() {
   const eventSummaries = events.map((ev) => {
     const mealIncome = ev.hasMeal ? ev.registrations.filter((r) => r.wantsMeal).length * ev.mealPrice : 0;
     const equipmentIncome = ev.registrations.reduce(
-      (sum, r) => sum + r.rentals.reduce((s, rental) => s + (rental.isFree ? 0 : rental.equipment.rentalCost), 0),
+      (sum, r) => sum + r.rentals.reduce((s, rental) => s + (rental.isFree ? 0 : rental.equipment.rentalCost * (rental.quantity ?? 1)), 0),
       0
     );
     // participationFee stocké en centimes (500 = 5€) → converti en euros entiers

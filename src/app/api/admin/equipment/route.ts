@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { isFullAdmin, canAccessSection } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-const VALID_CATEGORIES = ["REPLIQUE", "EQUIPEMENT"];
 const VALID_STATUSES = ["DISPONIBLE", "HORS_SERVICE", "INDISPONIBLE"];
 
 export async function GET() {
@@ -24,19 +23,20 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { category, name, photos, status, rentalCost, magazineCount, info } = body as {
+  const { category, name, photos, status, rentalCost, stock, magazineCount, info } = body as {
     category?: string;
     name?: string;
     photos?: string;
     status?: string;
     rentalCost?: string | number;
+    stock?: string | number;
     magazineCount?: string | number | null;
     info?: string;
   };
 
-  if (!category || !VALID_CATEGORIES.includes(category)) {
-    return NextResponse.json({ error: "Catégorie invalide." }, { status: 400 });
-  }
+  if (!category) return NextResponse.json({ error: "Catégorie requise." }, { status: 400 });
+  const validCat = await prisma.equipmentCategory.findUnique({ where: { key: category } });
+  if (!validCat) return NextResponse.json({ error: "Catégorie invalide." }, { status: 400 });
   if (!name || rentalCost === undefined || rentalCost === null || rentalCost === "") {
     return NextResponse.json({ error: "Nom et coût de location requis." }, { status: 400 });
   }
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       photos: photos || null,
       status: status || "DISPONIBLE",
       rentalCost: Math.round(Number(rentalCost)),
-      magazineCount: category === "REPLIQUE" && magazineCount ? Number(magazineCount) : null,
+      stock: stock ? Math.max(1, Math.round(Number(stock))) : 1,
+      magazineCount: magazineCount ? Number(magazineCount) : null,
       info: info || null,
     },
   });

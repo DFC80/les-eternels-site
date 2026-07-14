@@ -171,13 +171,22 @@ model MealOrderItem {
   menu         MealMenu?         @relation(fields: [menuId], references: [id], onDelete: SetNull)
 }
 
+model EquipmentCategory {
+  id    String @id @default(cuid())
+  key   String @unique
+  label String
+  emoji String @default("🔫")
+  order Int    @default(0)
+}
+
 model Equipment {
   id            String   @id @default(cuid())
-  category      String // "REPLIQUE" | "EQUIPEMENT"
+  category      String // clé d'une EquipmentCategory
   name          String
   photos        String? // URLs séparées par des retours à la ligne
   status        String   @default("DISPONIBLE") // DISPONIBLE | HORS_SERVICE | INDISPONIBLE
   rentalCost    Int
+  stock         Int      @default(1)
   magazineCount Int? // uniquement pour les répliques
   info          String?
   createdAt     DateTime @default(now())
@@ -275,6 +284,7 @@ model EquipmentRental {
   id             String   @id @default(cuid())
   registrationId String
   equipmentId    String
+  quantity       Int      @default(1)
   status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
   isFree         Boolean  @default(false)
   createdAt      DateTime @default(now())

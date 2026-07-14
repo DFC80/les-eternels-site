@@ -26,7 +26,7 @@ type EventItem = {
     id: string;
     wantsMeal: boolean;
     participationFee: number;
-    rentals: { status: string; isFree: boolean; equipment: { rentalCost: number } }[];
+    rentals: { status: string; isFree: boolean; quantity: number; equipment: { rentalCost: number } }[];
   }[];
 };
 
@@ -49,6 +49,7 @@ type Rental = {
   id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   isFree: boolean;
+  quantity: number;
   memberName: string;
   equipment: { id: string; name: string; rentalCost: number };
 };
@@ -657,7 +658,7 @@ export default function AdminEventsPage() {
                   sum +
                   r.rentals
                     .filter((rt) => rt.status === "APPROVED")
-                    .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost), 0),
+                    .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost * (rt.quantity ?? 1)), 0),
                 0
               );
               const participationIncome = Math.round(
@@ -748,10 +749,10 @@ export default function AdminEventsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-slate-200">
-                          {r.memberName} — <span className="font-medium">{r.equipment.name}</span>
+                          {r.memberName} — <span className="font-medium">{r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name}</span>
                         </p>
                         <p className="text-xs text-slate-400">
-                          {r.isFree ? "Gratuit" : `${r.equipment.rentalCost}€`} ·{" "}
+                          {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} ·{" "}
                           <span
                             className={
                               r.status === "APPROVED"

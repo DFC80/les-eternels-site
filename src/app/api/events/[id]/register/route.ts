@@ -42,7 +42,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const wantsMeal = !!body.wantsMeal && event.hasMeal;
   const mealNotes = wantsMeal ? body.mealNotes || null : null;
   const mealOrders: MealOrderInput[] = wantsMeal && Array.isArray(body.mealOrders) ? body.mealOrders : [];
-  const equipmentIds: string[] = event.activityType === "AIRSOFT" && Array.isArray(body.equipmentIds) ? body.equipmentIds : [];
+  type EquipmentSelection = { id: string; quantity: number };
+  const equipmentSelections: EquipmentSelection[] =
+    event.activityType === "AIRSOFT" && Array.isArray(body.equipmentSelections)
+      ? (body.equipmentSelections as EquipmentSelection[]).filter((s) => s.id && s.quantity > 0)
+      : [];
 
   // Vérification de l'adhésion selon le type d'activité
   if (event.activityType !== "AUTRE") {
@@ -92,12 +96,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
               .map((o) => ({ menuId: o.menuId || null, quantity: o.quantity })),
           }
         : undefined,
-      rentals: equipmentIds.length > 0
-        ? { create: equipmentIds.map((equipmentId) => ({ equipmentId })) }
+      rentals: equipmentSelections.length > 0
+        ? { create: equipmentSelections.map(({ id, quantity }) => ({ equipmentId: id, quantity: Math.max(1, Number(quantity)) })) }
         : undefined,
     },
   });
 
+  const equipmentIds = equipmentSelections.map((s) => s.id);
   const [user, equipmentList] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
     equipmentIds.length > 0

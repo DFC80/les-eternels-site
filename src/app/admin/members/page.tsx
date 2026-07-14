@@ -455,7 +455,7 @@ export default function AdminMembersPage() {
                   <p className="text-sm font-medium text-silver-100">Adhésion</p>
                   {detail.membership ? (
                     <p className="mt-1 text-sm text-slate-300">
-                      {detail.membership.year} — {activitiesLabel(detail.membership)} —{" "}
+                      {detail.membership.year} — {[detail.membership.wantsBoardGames && "Jeux de plateau", detail.membership.wantsRolePlay && "Jeux de rôle", detail.membership.wantsAirsoft && "Airsoft"].filter(Boolean).join(", ") || "Aucune activité"} —{" "}
                       {detail.membership.amount}€ —{" "}
                       {detail.membership.isPaid ? "Payée" : "En attente"}
                     </p>

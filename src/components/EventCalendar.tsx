@@ -13,6 +13,7 @@ type Equipment = {
   photos: string | null;
   status: "DISPONIBLE" | "HORS_SERVICE" | "INDISPONIBLE";
   rentalCost: number;
+  stock: number;
   magazineCount: number | null;
   info: string | null;
 };
@@ -20,6 +21,7 @@ type Equipment = {
 type EquipmentRental = {
   id: string;
   equipmentId: string;
+  quantity: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
   isFree: boolean;
   equipment: Equipment;
@@ -152,8 +154,9 @@ export default function EventCalendar() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [mealNotes, setMealNotes] = useState("");
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [equipmentCategories, setEquipmentCategories] = useState<{ key: string; label: string; emoji: string }[]>([]);
   const [wantsEquipment, setWantsEquipment] = useState(false);
-  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<Record<string, number>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
@@ -175,8 +178,12 @@ export default function EventCalendar() {
 
   async function loadEquipment() {
     if (!session) return;
-    const res = await fetch("/api/equipment");
-    if (res.ok) setEquipmentList(await res.json());
+    const [eqRes, catRes] = await Promise.all([
+      fetch("/api/equipment"),
+      fetch("/api/equipment-categories"),
+    ]);
+    if (eqRes.ok) setEquipmentList(await eqRes.json());
+    if (catRes.ok) setEquipmentCategories(await catRes.json());
   }
 
   useEffect(() => {
@@ -204,13 +211,15 @@ export default function EventCalendar() {
   const isRegistered = (ev: CalendarEvent) =>
     !!session && ev.registrations.some((r) => r.userId === session.user.id);
 
-  // Équipements déjà réservés (en attente ou validés) par un AUTRE membre pour cet événement.
-  function takenEquipmentIds(ev: CalendarEvent): Set<string> {
-    const taken = new Set<string>();
+  // Somme des quantités déjà louées (en attente ou validées) par d'AUTRES membres pour cet événement.
+  function takenEquipmentQuantities(ev: CalendarEvent): Map<string, number> {
+    const taken = new Map<string, number>();
     for (const reg of ev.registrations) {
       if (session && reg.userId === session.user.id) continue;
       for (const rental of reg.rentals) {
-        if (rental.status !== "REJECTED") taken.add(rental.equipmentId);
+        if (rental.status !== "REJECTED") {
+          taken.set(rental.equipmentId, (taken.get(rental.equipmentId) ?? 0) + (rental.quantity ?? 1));
+        }
       }
     }
     return taken;
@@ -245,24 +254,22 @@ export default function EventCalendar() {
     }
     setQuantities(initialQuantities);
 
-    const rentedIds = myReg?.rentals.map((r) => r.equipmentId) ?? [];
-    setSelectedEquipmentIds(rentedIds);
-    setWantsEquipment(rentedIds.length > 0);
+    const rentedEquipment: Record<string, number> = {};
+    for (const r of myReg?.rentals ?? []) {
+      rentedEquipment[r.equipmentId] = r.quantity ?? 1;
+    }
+    setSelectedEquipment(rentedEquipment);
+    setWantsEquipment(Object.keys(rentedEquipment).length > 0);
   }
 
   function setQuantity(key: string, value: number) {
     setQuantities((prev) => ({ ...prev, [key]: Math.max(0, value) }));
   }
 
-  function toggleEquipment(id: string) {
-    setSelectedEquipmentIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  }
-
   const totalMealQuantity = Object.values(quantities).reduce((sum, q) => sum + (q || 0), 0);
 
   const selectedEquipmentTotal = equipmentList
-    .filter((eq) => selectedEquipmentIds.includes(eq.id))
-    .reduce((sum, eq) => sum + eq.rentalCost, 0);
+    .reduce((sum, eq) => sum + eq.rentalCost * (selectedEquipment[eq.id] ?? 0), 0);
 
   async function handleUpdateMeal(ev: CalendarEvent) {
     if (wantsMeal && totalMealQuantity <= 0) {
@@ -306,7 +313,9 @@ export default function EventCalendar() {
       .filter(([, qty]) => qty > 0)
       .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
 
-    const equipmentIds = wantsEquipment ? selectedEquipmentIds : [];
+    const equipmentSelections = wantsEquipment
+      ? Object.entries(selectedEquipment).filter(([, qty]) => qty > 0).map(([id, quantity]) => ({ id, quantity }))
+      : [];
     const participationFee = participationAccepted === true ? 500 : 0;
 
     setLoadingAction(true);
@@ -314,7 +323,7 @@ export default function EventCalendar() {
     const res = await fetch(`/api/events/${ev.id}/register`, {
       method: registered ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds, participationFee }),
+      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentSelections, participationFee }),
     });
     setLoadingAction(false);
     if (!res.ok) {
@@ -568,7 +577,7 @@ export default function EventCalendar() {
                     checked={wantsEquipment}
                     onChange={(e) => {
                       setWantsEquipment(e.target.checked);
-                      if (!e.target.checked) setSelectedEquipmentIds([]);
+                      if (!e.target.checked) setSelectedEquipment({});
                     }}
                     className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
                   />
@@ -577,64 +586,98 @@ export default function EventCalendar() {
 
                 {wantsEquipment &&
                   (() => {
-                    const taken = takenEquipmentIds(selected);
-                    return ["REPLIQUE", "EQUIPEMENT"].map((cat) => {
-                      const items = equipmentList.filter((eq) => eq.category === cat);
+                    const taken = takenEquipmentQuantities(selected);
+                    const cats = equipmentCategories.length > 0
+                      ? equipmentCategories
+                      : [...new Set(equipmentList.map(eq => eq.category))].map(k => ({ key: k, label: k, emoji: "📦" }));
+                    return cats.map((cat) => {
+                      const items = equipmentList.filter((eq) => eq.category === cat.key);
                       if (items.length === 0) return null;
                       return (
-                        <div key={cat} className="mt-4">
+                        <div key={cat.key} className="mt-4">
                           <p className="text-sm font-medium text-slate-300">
-                            {cat === "REPLIQUE" ? "Répliques" : "Équipements"}
+                            {cat.emoji} {cat.label}
                           </p>
                           <div className="mt-2 grid gap-3 sm:grid-cols-2">
                             {items.map((eq) => {
-                              const checked = selectedEquipmentIds.includes(eq.id);
-                              const isTaken = taken.has(eq.id);
-                              const disabled = eq.status !== "DISPONIBLE" || isTaken;
+                              const qty = selectedEquipment[eq.id] ?? 0;
+                              const takenQty = taken.get(eq.id) ?? 0;
+                              const available = Math.max(0, (eq.stock ?? 1) - takenQty);
+                              const isFull = available <= 0;
+                              const disabled = eq.status !== "DISPONIBLE" || isFull;
                               const firstPhoto = eq.photos
                                 ?.split("\n")
                                 .map((p) => p.trim())
                                 .filter(Boolean)[0];
                               return (
-                                <button
-                                  type="button"
+                                <div
                                   key={eq.id}
-                                  disabled={disabled}
-                                  onClick={() => toggleEquipment(eq.id)}
-                                  className={`flex gap-3 rounded-xl border-2 p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    checked
-                                      ? "border-primary-400 bg-primary-800/50"
-                                      : "border-primary-800 bg-primary-950/60"
-                                  }`}
+                                  className={`rounded-xl border-2 p-3 transition ${
+                                    qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                  } ${disabled && qty === 0 ? "opacity-50" : ""}`}
                                 >
-                                  {firstPhoto && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={firstPhoto}
-                                      alt={eq.name}
-                                      className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                                    />
-                                  )}
-                                  <div>
-                                    <p className="font-medium text-silver-100">{eq.name}</p>
-                                    <p className="text-xs text-slate-400">
-                                      {eq.rentalCost}€
-                                      {eq.magazineCount != null && ` · ${eq.magazineCount} chargeur(s)`}
-                                    </p>
-                                    {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
-                                    {isTaken ? (
-                                      <p className="mt-1 text-xs text-amber-400">
-                                        Déjà réservé pour cet événement
+                                  <button
+                                    type="button"
+                                    disabled={disabled && qty === 0}
+                                    onClick={() => {
+                                      if (qty > 0) {
+                                        setSelectedEquipment((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                      } else if (!disabled) {
+                                        setSelectedEquipment((prev) => ({ ...prev, [eq.id]: 1 }));
+                                      }
+                                    }}
+                                    className="flex w-full gap-3 text-left disabled:cursor-not-allowed"
+                                  >
+                                    {firstPhoto && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={firstPhoto}
+                                        alt={eq.name}
+                                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                                      />
+                                    )}
+                                    <div>
+                                      <p className="font-medium text-silver-100">{eq.name}</p>
+                                      <p className="text-xs text-slate-400">
+                                        {eq.rentalCost}€ · {available}/{eq.stock ?? 1} dispo.
+                                        {eq.magazineCount != null && ` · ${eq.magazineCount} chargeur(s)`}
                                       </p>
-                                    ) : (
-                                      eq.status !== "DISPONIBLE" && (
+                                      {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
+                                      {isFull ? (
+                                        <p className="mt-1 text-xs text-amber-400">Plus disponible pour cet événement</p>
+                                      ) : eq.status !== "DISPONIBLE" && (
                                         <p className="mt-1 text-xs text-amber-400">
                                           {eq.status === "HORS_SERVICE" ? "Hors-service" : "Indisponible"}
                                         </p>
-                                      )
-                                    )}
-                                  </div>
-                                </button>
+                                      )}
+                                    </div>
+                                  </button>
+                                  {qty > 0 && (
+                                    <div className="mt-3 flex items-center gap-2 border-t border-primary-700 pt-3">
+                                      <span className="text-xs text-slate-400">Quantité :</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (qty <= 1) {
+                                            setSelectedEquipment((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                          } else {
+                                            setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty - 1 }));
+                                          }
+                                        }}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800"
+                                      >−</button>
+                                      <span className="w-6 text-center text-sm font-medium text-silver-100">{qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (qty < available) setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty + 1 }));
+                                        }}
+                                        disabled={qty >= available}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                                      >+</button>
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
@@ -808,7 +851,7 @@ export default function EventCalendar() {
                   }
                   const total = myReg.rentals
                     .filter((r) => r.status !== "REJECTED")
-                    .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost), 0);
+                    .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost * (r.quantity ?? 1)), 0);
                   const statusLabel = (s: string) =>
                     s === "APPROVED" ? "Validée" : s === "REJECTED" ? "Refusée" : "En attente de validation";
                   return (
@@ -817,7 +860,7 @@ export default function EventCalendar() {
                       <ul className="mt-2 space-y-1">
                         {myReg.rentals.map((r) => (
                           <li key={r.id}>
-                            {r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost}€`} —{" "}
+                            {r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} —{" "}
                             <span
                               className={
                                 r.status === "APPROVED"
