@@ -17,6 +17,7 @@ type EventItem = {
   capacity: number | null;
   hasMeal: boolean;
   mealInfo: string | null;
+  mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
   menus: MenuItem[];
@@ -24,6 +25,7 @@ type EventItem = {
   registrations: {
     id: string;
     wantsMeal: boolean;
+    participationFee: number;
     rentals: { status: string; isFree: boolean; equipment: { rentalCost: number } }[];
   }[];
 };
@@ -71,6 +73,7 @@ const EMPTY_FORM = {
   capacity: "",
   hasMeal: false,
   mealInfo: "",
+  mealExtras: [] as string[],
   mealPrice: "10",
   registrationDeadline: "",
   menus: [] as MenuFormItem[],
@@ -78,6 +81,17 @@ const EMPTY_FORM = {
 };
 
 type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string };
+
+type KioskMember = { id: string; firstName: string; name: string; balance: number };
+type KioskProduct = { id: string; category: string; name: string; price: number; stock: number };
+type KioskData = { members: KioskMember[]; products: KioskProduct[] };
+
+const MEAL_EXTRAS = [
+  { key: "softs", label: "Boissons softs" },
+  { key: "beer", label: "Bières (1€ / verre ou canette)" },
+  { key: "cheese", label: "Fromage" },
+  { key: "dessert", label: "Dessert" },
+] as const;
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -120,12 +134,20 @@ export default function AdminEventsPage() {
   const [financeFor, setFinanceFor] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [newExpenseLabel, setNewExpenseLabel] = useState("");
+  const [newCustomExtra, setNewCustomExtra] = useState("");
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [rentalsFor, setRentalsFor] = useState<string | null>(null);
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [registrationsFor, setRegistrationsFor] = useState<string | null>(null);
   const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationAdmin[]>([]);
   const [availableGames, setAvailableGames] = useState<AvailableGame[]>([]);
+  const [kiosqueFor, setKiosqueFor] = useState<string | null>(null);
+  const [kiosqueData, setKiosqueData] = useState<KioskData | null>(null);
+  const [kiosqueMemberId, setKiosqueMemberId] = useState<string | null>(null);
+  const [kiosqueCart, setKiosqueCart] = useState<Record<string, number>>({});
+  const [kiosqueBusy, setKiosqueBusy] = useState(false);
+  const [kiosqueError, setKiosqueError] = useState<string | null>(null);
+  const [kiosqueMessage, setKiosqueMessage] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/events");
@@ -163,6 +185,7 @@ export default function AdminEventsPage() {
       capacity: ev.capacity ? String(ev.capacity) : "",
       hasMeal: ev.hasMeal,
       mealInfo: ev.mealInfo ?? "",
+      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
       menus: ev.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
@@ -194,6 +217,7 @@ export default function AdminEventsPage() {
       capacity: form.capacity || null,
       hasMeal: form.hasMeal,
       mealInfo: form.mealInfo,
+      mealExtras: form.mealExtras,
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson || null })),
@@ -295,6 +319,63 @@ export default function AdminEventsPage() {
     }
     await loadRentals(eventId);
     setRentalsFor(eventId);
+  }
+
+  async function toggleKiosque(eventId: string) {
+    if (kiosqueFor === eventId) {
+      setKiosqueFor(null);
+      setKiosqueData(null);
+      setKiosqueMemberId(null);
+      setKiosqueCart({});
+      setKiosqueError(null);
+      setKiosqueMessage(null);
+      return;
+    }
+    const res = await fetch(`/api/admin/events/${eventId}/kiosk`);
+    if (res.ok) {
+      setKiosqueData(await res.json());
+      setKiosqueMemberId(null);
+      setKiosqueCart({});
+      setKiosqueError(null);
+      setKiosqueMessage(null);
+      setKiosqueFor(eventId);
+    }
+  }
+
+  async function reloadKiosque(eventId: string) {
+    const res = await fetch(`/api/admin/events/${eventId}/kiosk`);
+    if (res.ok) setKiosqueData(await res.json());
+  }
+
+  function kiosqueAddToCart(productId: string, delta: number) {
+    setKiosqueCart((prev) => {
+      const next = Math.max(0, (prev[productId] ?? 0) + delta);
+      const updated = { ...prev, [productId]: next };
+      if (next === 0) delete updated[productId];
+      return updated;
+    });
+  }
+
+  async function kiosqueConfirmOrder(eventId: string) {
+    if (!kiosqueMemberId || Object.keys(kiosqueCart).length === 0) return;
+    setKiosqueBusy(true);
+    setKiosqueError(null);
+    setKiosqueMessage(null);
+    const items = Object.entries(kiosqueCart).map(([productId, quantity]) => ({ productId, quantity }));
+    const res = await fetch("/api/admin/kiosk/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: kiosqueMemberId, items }),
+    });
+    setKiosqueBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setKiosqueError(body.error ?? "Erreur lors de la commande.");
+      return;
+    }
+    setKiosqueCart({});
+    setKiosqueMessage("Commande enregistrée !");
+    await reloadKiosque(eventId);
   }
 
   async function loadEventRegistrations(eventId: string) {
@@ -416,6 +497,12 @@ export default function AdminEventsPage() {
               {rentalsFor === ev.id ? "Masquer locations" : "Locations"}
             </button>
           )}
+          <button
+            onClick={() => toggleKiosque(ev.id)}
+            className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
+          >
+            {kiosqueFor === ev.id ? "Masquer comptoir" : "🛒 Comptoir"}
+          </button>
           {!isPast && (
             <button
               onClick={() => editEvent(ev)}
@@ -424,6 +511,14 @@ export default function AdminEventsPage() {
               Modifier
             </button>
           )}
+          <a
+            href={`/admin/events/${ev.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
+          >
+            🖨️ Imprimer
+          </a>
           <button
             onClick={() => removeEvent(ev.id)}
             className="rounded-md border border-red-900 px-3 py-1.5 text-red-400 hover:bg-red-950/40"
@@ -499,28 +594,54 @@ export default function AdminEventsPage() {
             <p className="mt-1 text-xs text-slate-500">
               {mealReport.totalItems} portion(s) au total à préparer, tous menus confondus.
             </p>
-            {mealReport.byMenu.length > 0 && (
-              <ul className="mt-2 space-y-1 text-slate-300">
-                {mealReport.byMenu.map((m) => (
-                  <li key={m.menuId}>
-                    {m.label} : {m.count}
-                  </li>
-                ))}
-                {mealReport.withoutMenu > 0 && <li>Sans menu précisé : {mealReport.withoutMenu}</li>}
-              </ul>
-            )}
-            {mealReport.diners.length > 0 && (
-              <div className="mt-3">
-                <p className="text-slate-400">Liste des participants au repas :</p>
-                <ul className="mt-1 space-y-0.5 text-slate-300">
-                  {mealReport.diners.map((d, i) => (
-                    <li key={i}>
-                      {d.name} — {d.items.map((it) => `${it.quantity}× ${it.label}`).join(", ")}
-                      {d.notes && <span className="text-amber-400"> · Intolérances : {d.notes}</span>}
+            {/* Répartition par menu — uniquement les menus avec au moins 1 portion */}
+            {(() => {
+              const nonZeroMenus = mealReport.byMenu.filter((m) => m.count > 0);
+              const showWithout = mealReport.withoutMenu > 0;
+              if (nonZeroMenus.length === 0 && !showWithout) return null;
+              return (
+                <ul className="mt-2 space-y-1 text-slate-300">
+                  {nonZeroMenus.map((m) => (
+                    <li key={m.menuId}>
+                      {m.label} : <span className="font-semibold">{m.count}</span>
                     </li>
                   ))}
+                  {showWithout && (
+                    <li>Repas (inscription avant ajout des menus) : <span className="font-semibold">{mealReport.withoutMenu}</span></li>
+                  )}
+                </ul>
+              );
+            })()}
+            {mealReport.diners.length > 0 && (
+              <div className="mt-3 border-t border-primary-800 pt-3">
+                <p className="font-medium text-slate-300">Participants au repas :</p>
+                <ul className="mt-2 space-y-1 text-slate-300">
+                  {mealReport.diners.map((d, i) => {
+                    // Consolider les items de même label
+                    const consolidated = Object.values(
+                      d.items.reduce<Record<string, { label: string; quantity: number }>>((acc, it) => {
+                        if (acc[it.label]) acc[it.label].quantity += it.quantity;
+                        else acc[it.label] = { label: it.label, quantity: it.quantity };
+                        return acc;
+                      }, {})
+                    );
+                    return (
+                      <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-medium text-silver-100">{d.name}</span>
+                        <span className="text-slate-400">
+                          {consolidated.map((it) => `${it.quantity}× ${it.label}`).join(", ")}
+                        </span>
+                        {d.notes && (
+                          <span className="text-amber-400 text-xs">⚠ Intolérances : {d.notes}</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
+            )}
+            {mealReport.totalPeople === 0 && (
+              <p className="mt-2 text-slate-500">Aucune inscription repas pour le moment.</p>
             )}
           </div>
         )}
@@ -539,7 +660,10 @@ export default function AdminEventsPage() {
                     .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost), 0),
                 0
               );
-              const income = mealIncome + equipmentIncome;
+              const participationIncome = Math.round(
+                ev.registrations.reduce((sum, r) => sum + (r.participationFee ?? 0), 0) / 100
+              );
+              const income = mealIncome + equipmentIncome + participationIncome;
               const expensesTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
               const profit = income - expensesTotal;
               return (
@@ -551,6 +675,12 @@ export default function AdminEventsPage() {
                     Gains location matériel :{" "}
                     <span className="font-semibold text-silver-100">{equipmentIncome}€</span>
                   </p>
+                  {participationIncome > 0 && (
+                    <p className="text-slate-300">
+                      Participations invités :{" "}
+                      <span className="font-semibold text-silver-100">{participationIncome}€</span>
+                    </p>
+                  )}
                   <p className="text-slate-300">
                     Dépenses : <span className="font-semibold text-silver-100">{expensesTotal}€</span>
                   </p>
@@ -673,6 +803,105 @@ export default function AdminEventsPage() {
             )}
           </div>
         )}
+
+        {kiosqueFor === ev.id && kiosqueData && (() => {
+          const member = kiosqueData.members.find((m) => m.id === kiosqueMemberId) ?? null;
+          const cartLines = Object.entries(kiosqueCart)
+            .map(([id, qty]) => ({ product: kiosqueData.products.find((p) => p.id === id), qty }))
+            .filter((l) => l.product) as { product: KioskProduct; qty: number }[];
+          const cartTotal = cartLines.reduce((s, l) => s + l.product.price * l.qty, 0);
+          const byCategory: Record<string, KioskProduct[]> = {};
+          for (const p of kiosqueData.products) {
+            if (!byCategory[p.category]) byCategory[p.category] = [];
+            byCategory[p.category].push(p);
+          }
+          const CATEGORY_LABELS: Record<string, string> = { DRINK: "🥤 Boissons", SNACK: "🍬 Friandises" };
+
+          return (
+            <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
+              <p className="mb-3 font-semibold text-silver-100">🛒 Comptoir</p>
+
+              {/* Membres inscrits */}
+              <p className="mb-1 text-xs font-medium text-slate-400">Participant</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {kiosqueData.members.length === 0 && (
+                  <span className="text-slate-500">Aucun inscrit.</span>
+                )}
+                {kiosqueData.members.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setKiosqueMemberId(m.id); setKiosqueCart({}); setKiosqueError(null); setKiosqueMessage(null); }}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      kiosqueMemberId === m.id
+                        ? "border-primary-400 bg-primary-800 text-silver-100"
+                        : "border-primary-700 text-slate-300 hover:bg-primary-900"
+                    }`}
+                  >
+                    {m.firstName} {m.name}
+                    <span className="ml-1 text-slate-400">({(m.balance / 100).toFixed(2)}€)</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Produits */}
+              {kiosqueData.products.length === 0 ? (
+                <p className="text-slate-500">Aucun produit associé à cette activité.</p>
+              ) : (
+                Object.entries(byCategory).map(([cat, prods]) => (
+                  <div key={cat} className="mb-3">
+                    <p className="mb-1 text-xs font-medium text-slate-400">{CATEGORY_LABELS[cat] ?? cat}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {prods.map((p) => {
+                        const qty = kiosqueCart[p.id] ?? 0;
+                        return (
+                          <div key={p.id} className="flex items-center gap-1 rounded-md border border-primary-700 bg-primary-900/40 px-2 py-1">
+                            <span className="text-slate-200">{p.name}</span>
+                            <span className="text-xs text-slate-400 ml-1">{(p.price / 100).toFixed(2)}€</span>
+                            {p.stock === 0 && <span className="text-xs text-red-400 ml-1">Épuisé</span>}
+                            {p.stock > 0 && kiosqueMemberId && (
+                              <>
+                                <button onClick={() => kiosqueAddToCart(p.id, -1)} className="ml-2 w-5 h-5 rounded bg-primary-800 text-slate-300 hover:bg-primary-700 text-center leading-5">−</button>
+                                <span className="w-4 text-center text-slate-200">{qty}</span>
+                                <button onClick={() => kiosqueAddToCart(p.id, 1)} className="w-5 h-5 rounded bg-primary-800 text-slate-300 hover:bg-primary-700 text-center leading-5">+</button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Panier et validation */}
+              {cartLines.length > 0 && (
+                <div className="mt-3 rounded-lg border border-primary-700 bg-primary-900/40 p-3">
+                  <p className="text-xs font-medium text-slate-400 mb-1">Panier — {member?.firstName} {member?.name}</p>
+                  <ul className="mb-2 space-y-0.5">
+                    {cartLines.map((l) => (
+                      <li key={l.product.id} className="text-xs text-slate-300">
+                        {l.qty}× {l.product.name} — {((l.product.price * l.qty) / 100).toFixed(2)}€
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-100">Total : {(cartTotal / 100).toFixed(2)}€</span>
+                    <button
+                      onClick={() => kiosqueConfirmOrder(ev.id)}
+                      disabled={kiosqueBusy}
+                      className="rounded-md bg-primary-400 px-3 py-1.5 text-xs font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                    >
+                      {kiosqueBusy ? "Enregistrement…" : "Valider"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {kiosqueMessage && <p className="mt-2 text-xs text-emerald-400">{kiosqueMessage}</p>}
+              {kiosqueError && <p className="mt-2 text-xs text-red-400">{kiosqueError}</p>}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -842,6 +1071,86 @@ export default function AdminEventsPage() {
                   onChange={(e) => setForm({ ...form, mealPrice: e.target.value })}
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Le repas comprend également</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {MEAL_EXTRAS.map((extra) => (
+                    <label key={extra.key} className="flex items-center gap-2 rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={form.mealExtras.includes(extra.key)}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            mealExtras: e.target.checked
+                              ? [...form.mealExtras, extra.key]
+                              : form.mealExtras.filter((k) => k !== extra.key),
+                          })
+                        }
+                        className={checkboxClass}
+                      />
+                      {extra.label}
+                    </label>
+                  ))}
+                </div>
+                {(() => {
+                  const predefinedKeys = MEAL_EXTRAS.map((e) => e.key as string);
+                  const customExtras = form.mealExtras.filter((k) => !predefinedKeys.includes(k));
+                  return (
+                    <>
+                      {customExtras.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {customExtras.map((label) => (
+                            <span key={label} className="flex items-center gap-1 rounded-full border border-primary-600 bg-primary-900/60 px-3 py-1 text-xs text-slate-200">
+                              {label}
+                              <button
+                                type="button"
+                                onClick={() => setForm({ ...form, mealExtras: form.mealExtras.filter((k) => k !== label) })}
+                                className="ml-1 text-slate-400 hover:text-red-400"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="text"
+                          value={newCustomExtra}
+                          onChange={(e) => setNewCustomExtra(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const v = newCustomExtra.trim();
+                              if (v && !form.mealExtras.includes(v)) {
+                                setForm({ ...form, mealExtras: [...form.mealExtras, v] });
+                              }
+                              setNewCustomExtra("");
+                            }
+                          }}
+                          placeholder="Ex: Pain, Salade…"
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const v = newCustomExtra.trim();
+                            if (v && !form.mealExtras.includes(v)) {
+                              setForm({ ...form, mealExtras: [...form.mealExtras, v] });
+                            }
+                            setNewCustomExtra("");
+                          }}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
+                        >
+                          + Ajouter
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div>

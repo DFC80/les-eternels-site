@@ -39,7 +39,11 @@ export async function GET() {
       (sum, r) => sum + r.rentals.reduce((s, rental) => s + (rental.isFree ? 0 : rental.equipment.rentalCost), 0),
       0
     );
-    const income = mealIncome + equipmentIncome;
+    // participationFee stocké en centimes (500 = 5€) → converti en euros entiers
+    const participationIncome = Math.round(
+      ev.registrations.reduce((sum, r) => sum + (r.participationFee ?? 0), 0) / 100
+    );
+    const income = mealIncome + equipmentIncome + participationIncome;
     const expensesTotal = ev.expenses.reduce((sum, e) => sum + e.amount, 0);
     return {
       eventId: ev.id,
@@ -47,6 +51,7 @@ export async function GET() {
       startsAt: ev.startsAt,
       mealIncome,
       equipmentIncome,
+      participationIncome,
       income,
       expensesTotal,
       profit: income - expensesTotal,

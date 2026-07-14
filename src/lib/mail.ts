@@ -49,11 +49,25 @@ export async function sendNewEventRegistrationToAdmin(params: {
   startsAt: Date;
   location: string;
   wantsMeal: boolean;
+  mealPrice: number;
+  participationFee: number;
+  equipment: { name: string; rentalCost: number }[];
 }) {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
   if (!adminEmail) return;
 
-  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal } = params;
+  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+
+  const prestations: string[] = [];
+  if (wantsMeal) prestations.push(`Repas — ${mealPrice}€`);
+  if (participationFee > 0) prestations.push(`Participation invité — ${participationFee / 100}€`);
+  for (const eq of equipment) {
+    prestations.push(`Location ${eq.name} — ${eq.rentalCost}€`);
+  }
+  const prestationsHtml = prestations.length > 0
+    ? `<ul style="margin:8px 0;padding-left:20px;">${prestations.map((p) => `<li>${p}</li>`).join("")}</ul>`
+    : `<p style="color:#888;">Aucune prestation supplémentaire.</p>`;
+
   const html = wrapHtml(
     "Nouvelle inscription à un événement",
     `
@@ -63,8 +77,9 @@ export async function sendNewEventRegistrationToAdmin(params: {
         <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Événement</td><td style="padding: 6px 12px;">${eventTitle}</td></tr>
         <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${startsAt.toLocaleString("fr-FR")}</td></tr>
         <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;">${location}</td></tr>
-        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Repas</td><td style="padding: 6px 12px;">${wantsMeal ? "Oui" : "Non"}</td></tr>
       </table>
+      <p style="margin-top: 16px; font-weight: bold; color: #555;">Prestations choisies :</p>
+      ${prestationsHtml}
       <p style="margin-top: 16px;">Rendez-vous dans le panneau d'administration pour valider ou refuser cette inscription.</p>
     `
   );
@@ -77,8 +92,41 @@ export async function sendEventRegistrationApproved(params: {
   eventTitle: string;
   startsAt: Date;
   location: string;
+  wantsMeal: boolean;
+  mealPrice: number;
+  participationFee: number;
+  equipment: { name: string; rentalCost: number }[];
 }) {
-  const { to, firstName, eventTitle, startsAt, location } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+
+  const lignes: { label: string; valeur: string }[] = [];
+  if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
+  if (participationFee > 0) lignes.push({ label: "Participation invité", valeur: `${participationFee / 100}€` });
+  for (const eq of equipment) {
+    lignes.push({ label: `Location — ${eq.name}`, valeur: eq.rentalCost > 0 ? `${eq.rentalCost}€` : "Gratuit" });
+  }
+  const totalEuros =
+    (wantsMeal ? mealPrice : 0) +
+    participationFee / 100 +
+    equipment.reduce((sum, eq) => sum + eq.rentalCost, 0);
+
+  const detailHtml = lignes.length > 0
+    ? `
+      <p style="margin-top:20px;font-weight:bold;color:#555;">Détail de vos prestations :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        ${lignes.map((l, i) => `
+          <tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+            <td style="padding:6px 12px;font-weight:bold;color:#555;">${l.label}</td>
+            <td style="padding:6px 12px;">${l.valeur}</td>
+          </tr>`).join("")}
+        <tr style="border-top:2px solid #ddd;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Total à régler</td>
+          <td style="padding:8px 12px;font-weight:bold;">${totalEuros}€</td>
+        </tr>
+      </table>
+      <p style="font-size:12px;color:#888;margin-top:8px;">Le règlement s'effectue sur place le jour de l'événement.</p>`
+    : "";
+
   const html = wrapHtml(
     "Inscription validée ✅",
     `
@@ -88,7 +136,8 @@ export async function sendEventRegistrationApproved(params: {
         📅 ${startsAt.toLocaleString("fr-FR")}<br/>
         📍 ${location}
       </p>
-      <p>À bientôt !</p>
+      ${detailHtml}
+      <p style="margin-top:20px;">À bientôt !</p>
     `
   );
   await sendMail(to, `Inscription validée — ${eventTitle}`, html);
@@ -117,8 +166,42 @@ export async function sendEventRegistrationConfirmation(params: {
   eventTitle: string;
   startsAt: Date;
   location: string;
+  wantsMeal: boolean;
+  mealPrice: number;
+  participationFee: number;
+  equipment: { name: string; rentalCost: number }[];
 }) {
-  const { to, firstName, eventTitle, startsAt, location } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+
+  const lignes: { label: string; valeur: string }[] = [];
+  if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
+  if (participationFee > 0) lignes.push({ label: "Participation invité", valeur: `${participationFee / 100}€` });
+  for (const eq of equipment) {
+    lignes.push({ label: `Location — ${eq.name}`, valeur: `${eq.rentalCost}€` });
+  }
+
+  const totalEuros =
+    (wantsMeal ? mealPrice : 0) +
+    participationFee / 100 +
+    equipment.reduce((sum, eq) => sum + eq.rentalCost, 0);
+
+  const detailHtml = lignes.length > 0
+    ? `
+      <p style="margin-top:20px;font-weight:bold;color:#555;">Détail de votre inscription :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        ${lignes.map((l, i) => `
+          <tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+            <td style="padding:6px 12px;font-weight:bold;color:#555;">${l.label}</td>
+            <td style="padding:6px 12px;">${l.valeur}</td>
+          </tr>`).join("")}
+        <tr style="border-top:2px solid #ddd;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Total à régler</td>
+          <td style="padding:8px 12px;font-weight:bold;">${totalEuros}€</td>
+        </tr>
+      </table>
+      <p style="font-size:12px;color:#888;margin-top:8px;">Le règlement s'effectue sur place le jour de l'événement.</p>`
+    : "";
+
   const html = wrapHtml(
     "Inscription reçue — en attente de validation ⏳",
     `
@@ -128,7 +211,8 @@ export async function sendEventRegistrationConfirmation(params: {
         📅 ${startsAt.toLocaleString("fr-FR")}<br/>
         📍 ${location}
       </p>
-      <p>Vous recevrez un email dès que votre inscription aura été traitée.</p>
+      ${detailHtml}
+      <p style="margin-top:20px;">Vous recevrez un email dès que votre inscription aura été traitée.</p>
     `
   );
   await sendMail(to, `Inscription reçue — ${eventTitle}`, html);

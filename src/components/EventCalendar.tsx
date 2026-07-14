@@ -31,6 +31,7 @@ type EventRegistration = {
   status: string;
   wantsMeal: boolean;
   mealNotes: string | null;
+  participationFee: number;
   mealOrders: MealOrder[];
   rentals: EquipmentRental[];
 };
@@ -46,6 +47,7 @@ type CalendarEvent = {
   capacity: number | null;
   hasMeal: boolean;
   mealInfo: string | null;
+  mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
   menus: MealMenu[];
@@ -57,13 +59,14 @@ type Membership = {
   wantsBoardGames: boolean;
   wantsRolePlay: boolean;
   wantsAirsoft: boolean;
+  extraActivityKeys: string[];
   year: number;
   expired: boolean;
 } | null;
 
 const GENERIC_MEAL_KEY = "__generic__";
 
-type ActivityMeta = { key: string; label: string; emoji: string; color: string };
+type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean };
 
 const COLOR_BADGE: Record<string, string> = {
   emerald: "bg-emerald-950 text-emerald-300 border-emerald-700",
@@ -95,13 +98,47 @@ function buildMonthGrid(month: Date) {
   return cells;
 }
 
-function isEligibleByMembership(activityType: string, membership: Membership) {
-  if (activityType === "AUTRE") return true;
+function isEligibleByMembership(activityType: string, membership: Membership, activityMeta: ActivityMeta[]) {
+  const act = activityMeta.find((a) => a.key === activityType);
+  if (!act?.membershipRequired) return true;
   if (!membership || membership.expired) return false;
   if (activityType === "JEUX_DE_PLATEAU") return membership.wantsBoardGames;
   if (activityType === "JEUX_DE_ROLE") return membership.wantsRolePlay;
   if (activityType === "AIRSOFT") return membership.wantsAirsoft;
-  return false;
+  return membership.extraActivityKeys.includes(activityType);
+}
+
+function getMembershipWarning(ev: CalendarEvent, membership: Membership, activityMeta: ActivityMeta[]) {
+  const act = activityMeta.find((a) => a.key === ev.activityType);
+  const label = act ? `${act.emoji} ${act.label}` : ev.activityType;
+
+  if (!membership) {
+    return (
+      <p className="mt-4 text-sm text-amber-400">
+        Vous n&apos;êtes pas encore adhérent. Adhérez à l&apos;activité{" "}
+        <strong className="text-amber-300">{label}</strong> pour vous inscrire.{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">Gérer mon adhésion →</a>
+      </p>
+    );
+  }
+
+  if (membership.expired) {
+    return (
+      <p className="mt-4 text-sm text-amber-400">
+        Votre cotisation {membership.year} est expirée. Renouvelez votre adhésion en incluant{" "}
+        <strong className="text-amber-300">{label}</strong> pour vous inscrire.{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">Renouveler mon adhésion →</a>
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-4 text-sm text-amber-400">
+      Votre cotisation {membership.year} ne couvre pas l&apos;activité{" "}
+      <strong className="text-amber-300">{label}</strong>. Mettez à jour votre adhésion pour accéder à cet événement.{" "}
+      <a href="/mon-compte" className="underline hover:text-amber-200">Mettre à jour →</a>
+    </p>
+  );
 }
 
 export default function EventCalendar() {
@@ -119,6 +156,8 @@ export default function EventCalendar() {
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
+  const [editingMeal, setEditingMeal] = useState(false);
 
   async function loadEvents(): Promise<CalendarEvent[]> {
     const res = await fetch("/api/events");
@@ -147,7 +186,7 @@ export default function EventCalendar() {
     fetch("/api/activities")
       .then((r) => r.json())
       .then((data: ActivityMeta[]) =>
-        setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate" }])
+        setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate", membershipRequired: false }])
       );
   }, [session]);
 
@@ -178,7 +217,7 @@ export default function EventCalendar() {
   }
 
   function isEligible(ev: CalendarEvent) {
-    return isEligibleByMembership(ev.activityType, membership);
+    return isEligibleByMembership(ev.activityType, membership, activityMeta);
   }
 
   function isEventPast(ev: CalendarEvent) {
@@ -194,12 +233,15 @@ export default function EventCalendar() {
   function openEvent(ev: CalendarEvent) {
     setSelected(ev);
     setActionError(null);
+    setParticipationAccepted(null);
+    setEditingMeal(false);
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
     const initialQuantities: Record<string, number> = {};
     for (const order of myReg?.mealOrders ?? []) {
-      initialQuantities[order.menuId ?? GENERIC_MEAL_KEY] = order.quantity;
+      const key = order.menuId ?? GENERIC_MEAL_KEY;
+      initialQuantities[key] = (initialQuantities[key] ?? 0) + order.quantity;
     }
     setQuantities(initialQuantities);
 
@@ -222,6 +264,32 @@ export default function EventCalendar() {
     .filter((eq) => selectedEquipmentIds.includes(eq.id))
     .reduce((sum, eq) => sum + eq.rentalCost, 0);
 
+  async function handleUpdateMeal(ev: CalendarEvent) {
+    if (wantsMeal && totalMealQuantity <= 0) {
+      setActionError("Veuillez indiquer au moins un repas (quantité supérieure à 0).");
+      return;
+    }
+    const mealOrders = Object.entries(quantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
+    setLoadingAction(true);
+    setActionError(null);
+    const res = await fetch(`/api/events/${ev.id}/register/meal`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wantsMeal, mealOrders, mealNotes }),
+    });
+    setLoadingAction(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error ?? "Une erreur est survenue.");
+      return;
+    }
+    setEditingMeal(false);
+    const fresh = await loadEvents();
+    setSelected((prev) => (prev ? fresh.find((e) => e.id === prev.id) ?? prev : prev));
+  }
+
   async function handleRegister(ev: CalendarEvent) {
     if (!session) {
       window.location.href = "/login";
@@ -239,13 +307,14 @@ export default function EventCalendar() {
       .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
 
     const equipmentIds = wantsEquipment ? selectedEquipmentIds : [];
+    const participationFee = participationAccepted === true ? 500 : 0;
 
     setLoadingAction(true);
     setActionError(null);
     const res = await fetch(`/api/events/${ev.id}/register`, {
       method: registered ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds }),
+      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds, participationFee }),
     });
     setLoadingAction(false);
     if (!res.ok) {
@@ -384,6 +453,24 @@ export default function EventCalendar() {
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5">
                 <p className="font-display text-lg text-silver-100">🍽️ Repas du jour</p>
                 {selected.mealInfo && <p className="mt-1 text-sm text-slate-300">{selected.mealInfo}</p>}
+                {selected.mealExtras && (() => {
+                  const EXTRAS_LABELS: Record<string, string> = {
+                    softs: "🥤 Boissons softs",
+                    beer: "🍺 Bières (1€ / verre ou canette)",
+                    cheese: "🧀 Fromage",
+                    dessert: "🍮 Dessert",
+                  };
+                  const extras = selected.mealExtras.split(",").filter(Boolean);
+                  return extras.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {extras.map((key) => (
+                        <span key={key} className="rounded-full border border-primary-700 bg-primary-900/60 px-2.5 py-0.5 text-xs text-slate-300">
+                          {EXTRAS_LABELS[key] ?? key}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
 
                 <label className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-200">
                   <input
@@ -567,13 +654,15 @@ export default function EventCalendar() {
             )}
 
             {!isRegistered(selected) &&
-              ((wantsMeal && totalMealQuantity > 0) || selectedEquipmentTotal > 0) && (
+              ((wantsMeal && totalMealQuantity > 0) || selectedEquipmentTotal > 0 || participationAccepted === true) && (
                 <div className="mt-4 rounded-xl border-2 border-primary-400 bg-primary-800/40 p-4 text-center">
                   <p className="text-sm uppercase tracking-wide text-slate-300">Total à régler sur place</p>
                   <p className="mt-1 font-display text-2xl text-silver-100">
-                    {(wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal}€
+                    {(wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal + (participationAccepted === true ? 5 : 0)}€
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
+                    {participationAccepted === true && "5€ participation invité"}
+                    {participationAccepted === true && (wantsMeal || selectedEquipmentTotal > 0) && " + "}
                     {wantsMeal && `${selected.mealPrice}€ repas`}
                     {wantsMeal && selectedEquipmentTotal > 0 && " + "}
                     {selectedEquipmentTotal > 0 && `${selectedEquipmentTotal}€ matériel`}
@@ -583,37 +672,132 @@ export default function EventCalendar() {
 
             {selected.hasMeal && isRegistered(selected) && (
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5 text-sm text-slate-300">
-                {(() => {
-                  const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
-                  if (!myReg?.wantsMeal || myReg.mealOrders.length === 0) {
-                    return "Vous n'avez pas commandé de repas pour cet événement.";
-                  }
-                  return (
-                    <>
-                      <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
-                      <ul className="mt-2 space-y-1">
-                        {myReg.mealOrders.map((o) => {
-                          const label = o.menuId
-                            ? selected.menus.find((m) => m.id === o.menuId)?.label ?? "Menu"
-                            : "Repas";
-                          return (
-                            <li key={o.id}>
-                              {o.quantity}× {label}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      {myReg.mealNotes && (
-                        <p className="mt-2 text-amber-400">Intolérances signalées : {myReg.mealNotes}</p>
-                      )}
-                      <p className="mt-2 font-medium text-silver-100">
-                        Total : {selected.mealPrice}€ (forfait) à régler sur place
-                      </p>
-                    </>
-                  );
-                })()}
+                {editingMeal ? (
+                  <>
+                    <p className="font-medium text-silver-100">🍽️ Modifier votre commande repas</p>
+                    <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={wantsMeal}
+                        onChange={(e) => setWantsMeal(e.target.checked)}
+                        className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                      />
+                      Je souhaite manger sur place ({selected.mealPrice}€ forfait, à régler sur place)
+                    </label>
+                    {wantsMeal && (
+                      <>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {(selected.menus.length > 0
+                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson }))
+                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null }]
+                          ).map((item) => {
+                            const qty = quantities[item.key] ?? 0;
+                            const atMax = item.max != null && qty >= item.max;
+                            return (
+                              <div
+                                key={item.key}
+                                className={`rounded-xl border-2 p-4 text-center transition ${
+                                  qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                }`}
+                              >
+                                <p className="font-medium text-silver-100">{item.label}</p>
+                                {item.max != null && (
+                                  <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                )}
+                                <div className="mt-3 flex items-center justify-center gap-3">
+                                  <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
+                                  <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                  <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <textarea
+                          value={mealNotes}
+                          onChange={(e) => setMealNotes(e.target.value)}
+                          placeholder="Intolérances ou allergies alimentaires (optionnel)"
+                          rows={2}
+                          className="mt-3 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                        />
+                      </>
+                    )}
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => handleUpdateMeal(selected)}
+                        disabled={loadingAction}
+                        className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                      >
+                        {loadingAction ? "Enregistrement…" : "Enregistrer"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingMeal(false); openEvent(selected); }}
+                        className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800/60"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  (() => {
+                    const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+                    return (
+                      <>
+                        {!myReg?.wantsMeal || myReg.mealOrders.length === 0 ? (
+                          <p>Vous n'avez pas commandé de repas pour cet événement.</p>
+                        ) : (
+                          <>
+                            <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
+                            <ul className="mt-2 space-y-1">
+                              {Object.entries(
+                                myReg.mealOrders.reduce((acc, o) => {
+                                  const key = o.menuId ?? "__null__";
+                                  acc[key] = { menuId: o.menuId, quantity: (acc[key]?.quantity ?? 0) + o.quantity };
+                                  return acc;
+                                }, {} as Record<string, { menuId: string | null; quantity: number }>)
+                              ).map(([key, { menuId, quantity }]) => {
+                                const label = menuId
+                                  ? selected.menus.find((m) => m.id === menuId)?.label ?? "Menu"
+                                  : "Repas";
+                                return <li key={key}>{quantity}× {label}</li>;
+                              })}
+                            </ul>
+                            {myReg.mealNotes && (
+                              <p className="mt-2 text-amber-400">Intolérances signalées : {myReg.mealNotes}</p>
+                            )}
+                            <p className="mt-2 font-medium text-silver-100">
+                              Total : {selected.mealPrice}€ (forfait) à régler sur place
+                            </p>
+                          </>
+                        )}
+                        {!isRegistrationClosed(selected) && (
+                          <button
+                            onClick={() => setEditingMeal(true)}
+                            className="mt-3 rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-800/60"
+                          >
+                            ✏️ Modifier mes choix repas
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
               </div>
             )}
+
+            {selected.activityType === "AIRSOFT" && isRegistered(selected) && (() => {
+              const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+              if (myReg?.participationFee && myReg.participationFee > 0) {
+                return (
+                  <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4 text-sm text-amber-300">
+                    💶 Participation invité : <strong>{myReg.participationFee / 100}€ à régler sur place</strong>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {selected.activityType === "AIRSOFT" && isRegistered(selected) && (
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5 text-sm text-slate-300">
@@ -666,12 +850,54 @@ export default function EventCalendar() {
             )}
 
             {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) && (
-              <p className="mt-4 text-sm text-amber-400">
-                Vous devez avoir une cotisation en cours pour cette activité afin de vous inscrire.{" "}
-                <a href="/mon-compte" className="underline">
-                  Gérer mon adhésion
-                </a>
-              </p>
+              <>
+                {getMembershipWarning(selected, membership, activityMeta)}
+
+                {selected.activityType === "AIRSOFT" && (
+                  <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-5">
+                    <p className="font-display text-base text-amber-200">💶 Participation invité — 5€</p>
+                    <p className="mt-2 text-sm text-slate-300">
+                      Vous pouvez toutefois assister à cette sortie en réglant une participation de{" "}
+                      <strong className="text-white">5€ sur place</strong>. Acceptez-vous cette condition ?
+                    </p>
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setParticipationAccepted(true)}
+                        className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                          participationAccepted === true
+                            ? "bg-emerald-600 text-white"
+                            : "border border-emerald-700 text-emerald-300 hover:bg-emerald-900/40"
+                        }`}
+                      >
+                        ✓ Oui, je participe (5€)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setParticipationAccepted(false)}
+                        className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                          participationAccepted === false
+                            ? "bg-red-800 text-white"
+                            : "border border-red-900 text-red-400 hover:bg-red-950/40"
+                        }`}
+                      >
+                        ✗ Non, je refuse
+                      </button>
+                    </div>
+                    {participationAccepted === true && (
+                      <p className="mt-3 text-sm text-emerald-400">
+                        5€ à régler sur place le jour de l&apos;événement.
+                      </p>
+                    )}
+                    {participationAccepted === false && (
+                      <p className="mt-3 text-sm text-amber-400">
+                        Pour vous inscrire gratuitement, adhérez à l&apos;activité Airsoft.{" "}
+                        <a href="/mon-compte" className="underline hover:text-amber-200">Gérer mon adhésion →</a>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
@@ -687,7 +913,9 @@ export default function EventCalendar() {
                 onClick={() => handleRegister(selected)}
                 disabled={
                   loadingAction ||
-                  (!isRegistered(selected) && (!isEligible(selected) || isRegistrationClosed(selected)))
+                  isRegistrationClosed(selected) ||
+                  (!isRegistered(selected) && !isEligible(selected) &&
+                    !(selected.activityType === "AIRSOFT" && participationAccepted === true))
                 }
                 className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
                   isRegistered(selected)

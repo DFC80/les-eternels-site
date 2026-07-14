@@ -7,9 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// SQLite n'a pas de type enum natif : Role et activityType sont stockés en String
-// et contraints au niveau applicatif ("ADMIN"|"MEMBER" et "JEUX_DE_PLATEAU"|"JEUX_DE_ROLE"|"AIRSOFT"|"AUTRE").
-
 model BureauRole {
   id    String @id @default(cuid())
   label String @unique
@@ -90,6 +87,7 @@ model Event {
 
   hasMeal              Boolean   @default(false)
   mealInfo             String?
+  mealExtras           String    @default("")
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
 
@@ -145,11 +143,12 @@ model MealMenu {
 model EventRegistration {
   id         String   @id @default(cuid())
   userId     String
-  eventId    String
-  wantsMeal  Boolean  @default(false)
-  mealNotes  String?
-  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
-  createdAt  DateTime @default(now())
+  eventId          String
+  wantsMeal        Boolean  @default(false)
+  mealNotes        String?
+  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  participationFee Int      @default(0)          // 0 = membre, 500 = 5€ participation invité airsoft
+  createdAt        DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
