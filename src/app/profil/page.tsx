@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import BalanceTopUpCard from "@/components/BalanceTopUpCard";
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -107,18 +108,19 @@ export default function ProfilePage() {
         </Link>
       </div>
 
-      <p className="mt-6 text-slate-400">
-        La date de naissance, l'adresse et le genre sont obligatoires pour adhérer
-        à l'association. Le téléphone et le contact d'urgence sont optionnels.
+      <p className="mt-6 text-sm text-slate-400">
+        Les champs marqués <span className="text-red-400 font-semibold">*</span> sont obligatoires pour adhérer à l'association.
       </p>
 
       <form
         onSubmit={handleSubmit}
-        className="mt-8 space-y-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6"
+        className="mt-6 space-y-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-slate-300">Prénom</label>
+            <label className="block text-sm font-medium text-slate-300">
+              Prénom <span className="text-red-400">*</span>
+            </label>
             <input
               required
               value={firstName}
@@ -127,7 +129,9 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300">Nom</label>
+            <label className="block text-sm font-medium text-slate-300">
+              Nom <span className="text-red-400">*</span>
+            </label>
             <input
               required
               value={name}
@@ -142,7 +146,9 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Date de naissance</label>
+          <label className="block text-sm font-medium text-slate-300">
+            Date de naissance <span className="text-red-400">*</span>
+          </label>
           <div className="flex items-center gap-3">
             <input
               type="date"
@@ -159,7 +165,10 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Numéro de téléphone</label>
+          <label className="block text-sm font-medium text-slate-300">
+            Numéro de téléphone{" "}
+            <span className="text-xs font-normal text-slate-500">(optionnel)</span>
+          </label>
           <input
             type="tel"
             value={phone}
@@ -170,7 +179,9 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Rue</label>
+          <label className="block text-sm font-medium text-slate-300">
+            Rue <span className="text-red-400">*</span>
+          </label>
           <input
             value={addressStreet}
             onChange={(e) => setAddressStreet(e.target.value)}
@@ -181,7 +192,9 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="sm:col-span-1">
-            <label className="block text-sm font-medium text-slate-300">Code postal</label>
+            <label className="block text-sm font-medium text-slate-300">
+              Code postal <span className="text-red-400">*</span>
+            </label>
             <input
               value={addressPostalCode}
               onChange={(e) => setAddressPostalCode(e.target.value)}
@@ -190,7 +203,9 @@ export default function ProfilePage() {
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-300">Ville</label>
+            <label className="block text-sm font-medium text-slate-300">
+              Ville <span className="text-red-400">*</span>
+            </label>
             <input
               value={addressCity}
               onChange={(e) => setAddressCity(e.target.value)}
@@ -201,7 +216,9 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Genre</label>
+          <label className="block text-sm font-medium text-slate-300">
+            Genre <span className="text-red-400">*</span>
+          </label>
           <select value={gender} onChange={(e) => setGender(e.target.value)} className={inputClass}>
             <option value="">Sélectionner...</option>
             <option value="HOMME">Homme</option>
@@ -256,6 +273,8 @@ export default function ProfilePage() {
           {saving ? "Enregistrement..." : "Enregistrer"}
         </button>
       </form>
+
+      <BalanceTopUpCard />
 
       <p className="mt-6 text-sm text-slate-400">
         <Link href="/mon-compte" className="font-medium text-primary-300 hover:text-silver-200 hover:underline">

@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev", "--", "--port", "3001"],
       "port": 3001,
       "autoPort": false
+    },
+    {
+      "name": "petit-louis-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Users\\frede\\Documents\\Sites\\Petit_Louis", "run", "dev"],
+      "port": 3000
     }
   ]
 }

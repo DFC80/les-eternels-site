@@ -8,14 +8,17 @@ type MealOrder = { id: string; menuId: string | null; quantity: number };
 
 type Equipment = {
   id: string;
-  category: "REPLIQUE" | "EQUIPEMENT";
+  category: string;
   name: string;
   photos: string | null;
   status: "DISPONIBLE" | "HORS_SERVICE" | "INDISPONIBLE";
   rentalCost: number;
   stock: number;
-  magazineCount: number | null;
+  fps: number | null;
+  bbWeight: number | null;
+  propulsion: string | null;
   info: string | null;
+  associations: { itemId: string; quantity: number }[];
 };
 
 type EquipmentRental = {
@@ -34,6 +37,8 @@ type EventRegistration = {
   wantsMeal: boolean;
   mealNotes: string | null;
   participationFee: number;
+  isTrialDay: boolean;
+  isPaid: boolean;
   mealOrders: MealOrder[];
   rentals: EquipmentRental[];
 };
@@ -65,6 +70,8 @@ type Membership = {
   year: number;
   expired: boolean;
 } | null;
+
+type MembershipResponse = (Membership & { airsoftTrialDay?: boolean }) | { airsoftTrialDay?: boolean } | null;
 
 const GENERIC_MEAL_KEY = "__generic__";
 
@@ -147,6 +154,7 @@ export default function EventCalendar() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [membership, setMembership] = useState<Membership>(null);
+  const [airsoftTrialDay, setAirsoftTrialDay] = useState(false);
   const [activityMeta, setActivityMeta] = useState<ActivityMeta[]>([]);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
@@ -161,6 +169,36 @@ export default function EventCalendar() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
   const [editingMeal, setEditingMeal] = useState(false);
+  const [eventDocs, setEventDocs] = useState<{ id: string; name: string }[]>([]);
+  const [docMsg, setDocMsg] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [payingEvent, setPayingEvent] = useState(false);
+
+  async function payEventOnline(registrationId: string) {
+    setActionError(null);
+    setPayingEvent(true);
+    const res = await fetch("/api/payments/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "EVENT", registrationId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    setActionError(data.error ?? "Impossible de démarrer le paiement en ligne.");
+    setPayingEvent(false);
+  }
+
+  // Total dû en centimes pour une inscription (repas + participation + locations VALIDÉES payantes)
+  function registrationDueCents(ev: CalendarEvent, reg: EventRegistration): number {
+    const mealCents = ev.hasMeal && reg.wantsMeal ? ev.mealPrice * 100 : 0;
+    const rentalsCents = reg.rentals
+      .filter((r) => r.status === "APPROVED" && !r.isFree)
+      .reduce((sum, r) => sum + r.equipment.rentalCost * (r.quantity ?? 1) * 100, 0);
+    return mealCents + reg.participationFee + rentalsCents;
+  }
 
   async function loadEvents(): Promise<CalendarEvent[]> {
     const res = await fetch("/api/events");
@@ -173,7 +211,12 @@ export default function EventCalendar() {
   async function loadMembership() {
     if (!session) return;
     const res = await fetch("/api/membership");
-    if (res.ok) setMembership(await res.json());
+    if (!res.ok) return;
+    const data: MembershipResponse = await res.json();
+    setAirsoftTrialDay((data as { airsoftTrialDay?: boolean } | null)?.airsoftTrialDay ?? false);
+    // Only treat as a real membership if it has a year field
+    if (data && "year" in data) setMembership(data as Membership);
+    else setMembership(null);
   }
 
   async function loadEquipment() {
@@ -226,6 +269,7 @@ export default function EventCalendar() {
   }
 
   function isEligible(ev: CalendarEvent) {
+    if (ev.activityType === "AIRSOFT" && airsoftTrialDay) return true;
     return isEligibleByMembership(ev.activityType, membership, activityMeta);
   }
 
@@ -239,11 +283,29 @@ export default function EventCalendar() {
     return false;
   }
 
+  async function openDoc(id: string) {
+    setDocMsg(null);
+    const res = await fetch(`/api/docs/${id}`);
+    if (res.status === 401) { setDocMsg("Connectez-vous pour accéder à ce document."); return; }
+    if (res.status === 403) { setDocMsg("Votre cotisation ne couvre pas cette activité."); return; }
+    if (!res.ok) { setDocMsg("Erreur lors de l'ouverture du document."); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+
   function openEvent(ev: CalendarEvent) {
     setSelected(ev);
     setActionError(null);
     setParticipationAccepted(null);
     setEditingMeal(false);
+    setEventDocs([]);
+    setDocMsg(null);
+    setShowConfirmation(false);
+    fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setEventDocs)
+      .catch(() => {});
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
@@ -414,8 +476,11 @@ export default function EventCalendar() {
               })()}
               <h3 className="mt-2 font-display text-xl text-silver-100">{selected.title}</h3>
               <p className="mt-1 text-sm text-slate-400">
-                {new Date(selected.startsAt).toLocaleString("fr-FR")} —{" "}
-                {new Date(selected.endsAt).toLocaleString("fr-FR")}
+                {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                {" de "}
+                {new Date(selected.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                {" à "}
+                {new Date(selected.endsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
               </p>
               <p className="mt-1 text-sm text-slate-400">📍 {selected.location}</p>
               {selected.location && (
@@ -442,6 +507,25 @@ export default function EventCalendar() {
               )}
             </div>
 
+            {eventDocs.length > 0 && (
+              <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-4">
+                <p className="text-sm font-medium text-slate-300">📄 Documents</p>
+                <ul className="mt-2 space-y-1">
+                  {eventDocs.map((d) => (
+                    <li key={d.id}>
+                      <button
+                        onClick={() => openDoc(d.id)}
+                        className="text-sm text-primary-300 hover:underline"
+                      >
+                        {d.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {docMsg && <p className="mt-2 text-xs text-amber-400">{docMsg}</p>}
+              </div>
+            )}
+
             {isRegistered(selected) && (() => {
               const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
               if (!myReg) return null;
@@ -451,10 +535,42 @@ export default function EventCalendar() {
                 PENDING:  { label: "Inscription en attente de validation", color: "border-amber-700 bg-amber-950 text-amber-300" },
               };
               const cfg = statusConfig[myReg.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+              const dueCents = registrationDueCents(selected, myReg);
+              const hasPendingRentals = myReg.rentals.some((r) => r.status === "PENDING");
               return (
-                <div className={`mt-4 rounded-lg border px-4 py-3 text-sm font-medium ${cfg.color}`}>
-                  {cfg.label}
-                </div>
+                <>
+                  <div className={`mt-4 rounded-lg border px-4 py-3 text-sm font-medium ${cfg.color}`}>
+                    {cfg.label}
+                  </div>
+                  {myReg.isPaid ? (
+                    <div className="mt-3 rounded-lg border border-emerald-700 bg-emerald-950 px-4 py-3 text-sm text-emerald-300">
+                      ✅ Frais de l&apos;événement réglés.
+                    </div>
+                  ) : hasPendingRentals ? (
+                    <div className="mt-3 rounded-lg border border-amber-700 bg-amber-950 px-4 py-3 text-sm text-amber-300">
+                      ⏳ Le paiement sera disponible une fois vos locations d&apos;équipement validées
+                      par un administrateur. Vous recevrez le récapitulatif des frais par email.
+                    </div>
+                  ) : dueCents > 0 && myReg.status !== "REJECTED" ? (
+                    <div className="mt-3 rounded-lg border border-primary-700 bg-primary-900/40 px-4 py-3">
+                      <p className="text-sm text-slate-300">
+                        Total à régler (repas, participation, locations) :{" "}
+                        <strong className="text-silver-100">{(dueCents / 100).toLocaleString("fr-FR")}€</strong>
+                      </p>
+                      <button
+                        type="button"
+                        disabled
+                        className="mt-2 rounded-md border border-primary-700 bg-primary-900 px-4 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                      >
+                        💳 Payer en ligne (indisponible)
+                      </button>
+                      <p className="mt-1.5 text-sm text-amber-400/80">
+                        💡 Le paiement s'effectue sur place le jour de l'événement.
+                      </p>
+                      {actionError && <p className="mt-2 text-xs text-red-400">{actionError}</p>}
+                    </div>
+                  ) : null}
+                </>
               );
             })()}
 
@@ -640,9 +756,24 @@ export default function EventCalendar() {
                                       <p className="font-medium text-silver-100">{eq.name}</p>
                                       <p className="text-xs text-slate-400">
                                         {eq.rentalCost}€ · {available}/{eq.stock ?? 1} dispo.
-                                        {eq.magazineCount != null && ` · ${eq.magazineCount} chargeur(s)`}
+                                        {eq.propulsion && ` · ${eq.propulsion.split(",").map((v) => v.trim()).join(", ")}`}
+                                        {eq.fps != null && ` · ${eq.fps} FPS`}
+                                        {eq.bbWeight != null && ` · ${eq.bbWeight}g`}
                                       </p>
                                       {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
+                                      {eq.associations.length > 0 && (
+                                        <ul className="mt-1.5 space-y-0.5">
+                                          {eq.associations.map((a) => {
+                                            const item = equipmentList.find((e) => e.id === a.itemId);
+                                            if (!item) return null;
+                                            return (
+                                              <li key={a.itemId} className="text-xs text-slate-500">
+                                                + {a.quantity > 1 ? `${a.quantity}× ` : ""}{item.name}
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      )}
                                       {isFull ? (
                                         <p className="mt-1 text-xs text-amber-400">Plus disponible pour cet événement</p>
                                       ) : eq.status !== "DISPONIBLE" && (
@@ -832,6 +963,13 @@ export default function EventCalendar() {
 
             {selected.activityType === "AIRSOFT" && isRegistered(selected) && (() => {
               const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+              if (myReg?.isTrialDay) {
+                return (
+                  <div className="mt-4 rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-4 text-sm text-emerald-300">
+                    🎯 Vous participez en <strong>journée d'essai airsoft</strong> — aucun frais à régler.
+                  </div>
+                );
+              }
               if (myReg?.participationFee && myReg.participationFee > 0) {
                 return (
                   <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4 text-sm text-amber-300">
@@ -945,6 +1083,87 @@ export default function EventCalendar() {
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
+            {showConfirmation && !isRegistered(selected) && (
+              <div className="mt-4 rounded-xl border-2 border-primary-500 bg-primary-900/60 p-5">
+                <p className="font-display text-base text-silver-100">Récapitulatif de votre inscription</p>
+
+                <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
+                  <li>📅 <strong className="text-silver-100">{selected.title}</strong></li>
+                  <li>
+                    {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {" de "}
+                    {new Date(selected.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    {" à "}
+                    {new Date(selected.endsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </li>
+                  {airsoftTrialDay && selected.activityType === "AIRSOFT" && (
+                    <li>🎯 <span className="text-emerald-300">Journée d&apos;essai airsoft — participation gratuite</span></li>
+                  )}
+                  {participationAccepted === true && (
+                    <li>💶 Participation invité : <strong className="text-white">5€ à régler sur place</strong></li>
+                  )}
+                  {wantsMeal && (
+                    <li>🍽️ Repas : <strong className="text-white">{selected.mealPrice}€ forfait</strong> à régler sur place
+                      {Object.entries(quantities).filter(([, q]) => q > 0).map(([key, qty]) => {
+                        const label = key === GENERIC_MEAL_KEY ? "Repas" : selected.menus.find((m) => m.id === key)?.label ?? "Menu";
+                        return <span key={key} className="ml-1 text-slate-400">({qty}× {label})</span>;
+                      })}
+                    </li>
+                  )}
+                  {selectedEquipmentTotal > 0 && (
+                    <li>🔫 Matériel loué : <strong className="text-white">{selectedEquipmentTotal}€</strong> à régler sur place
+                      <ul className="ml-4 mt-1 space-y-0.5 text-slate-400">
+                        {Object.entries(selectedEquipment).filter(([, q]) => q > 0).map(([id, qty]) => {
+                          const eq = equipmentList.find((e) => e.id === id);
+                          return eq ? <li key={id}>{qty}× {eq.name}</li> : null;
+                        })}
+                      </ul>
+                    </li>
+                  )}
+                  {(participationAccepted === true || wantsMeal || selectedEquipmentTotal > 0) && (
+                    <li className="border-t border-primary-700 pt-2 font-medium text-silver-100">
+                      Total à régler sur place :{" "}
+                      {(participationAccepted === true ? 5 : 0) + (wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal}€
+                    </li>
+                  )}
+                </ul>
+
+                {eventDocs.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-3 text-sm">
+                    <p className="text-slate-300">
+                      En vous inscrivant, vous acceptez les termes des documents suivants :
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {eventDocs.map((d) => (
+                        <li key={d.id}>
+                          <button onClick={() => openDoc(d.id)} className="text-primary-300 hover:underline">
+                            📄 {d.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {docMsg && <p className="mt-2 text-xs text-amber-400">{docMsg}</p>}
+                  </div>
+                )}
+
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => handleRegister(selected)}
+                    disabled={loadingAction}
+                    className="rounded-md bg-primary-400 px-5 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                  >
+                    {loadingAction ? "Inscription…" : "Confirmer l'inscription"}
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmation(false)}
+                    className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800/60"
+                  >
+                    Retour
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setSelected(null)}
@@ -952,22 +1171,27 @@ export default function EventCalendar() {
               >
                 Fermer
               </button>
-              <button
-                onClick={() => handleRegister(selected)}
-                disabled={
-                  loadingAction ||
-                  isRegistrationClosed(selected) ||
-                  (!isRegistered(selected) && !isEligible(selected) &&
-                    !(selected.activityType === "AIRSOFT" && participationAccepted === true))
-                }
-                className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
-                  isRegistered(selected)
-                    ? "bg-red-700 text-white hover:bg-red-600"
-                    : "bg-primary-400 text-primary-950 hover:bg-silver-300"
-                }`}
-              >
-                {isRegistered(selected) ? "Se désinscrire" : "S'inscrire"}
-              </button>
+              {isRegistered(selected) ? (
+                <button
+                  onClick={() => handleRegister(selected)}
+                  disabled={loadingAction}
+                  className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                >
+                  Se désinscrire
+                </button>
+              ) : !showConfirmation && (
+                <button
+                  onClick={() => setShowConfirmation(true)}
+                  disabled={
+                    loadingAction ||
+                    isRegistrationClosed(selected) ||
+                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true))
+                  }
+                  className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                >
+                  S&apos;inscrire
+                </button>
+              )}
             </div>
           </div>
         </div>

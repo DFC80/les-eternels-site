@@ -16,13 +16,20 @@ export async function GET() {
     include: { extraActivities: true },
   });
 
-  if (!membership) return NextResponse.json(null);
+  const userRecord = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { airsoftTrialDay: true },
+  });
+  const airsoftTrialDay = userRecord?.airsoftTrialDay ?? false;
+
+  if (!membership) return NextResponse.json({ airsoftTrialDay });
 
   const currentYear = new Date().getFullYear();
   return NextResponse.json({
     ...membership,
     expired: membership.year !== currentYear,
     extraActivityKeys: membership.extraActivities.map((a) => a.activityKey),
+    airsoftTrialDay,
   });
 }
 

@@ -49,36 +49,44 @@ export async function POST(request: Request, { params }: { params: { id: string 
       : [];
 
   // Vérification de l'adhésion selon le type d'activité
+  let isTrialDay = false;
   if (event.activityType !== "AUTRE") {
-    const activityDef = await prisma.activity.findUnique({ where: { key: event.activityType } });
-    const membershipRequired = activityDef?.membershipRequired ?? false;
+    const currentYear = new Date().getFullYear();
+    const membership = await prisma.membership.findUnique({
+      where: { userId: session.user.id },
+      include: { extraActivities: true },
+    });
+    const validMembership = membership && membership.year === currentYear;
+    let covered = false;
+    if (validMembership) {
+      if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;
+      else if (event.activityType === "JEUX_DE_ROLE") covered = membership.wantsRolePlay;
+      else if (event.activityType === "AIRSOFT") covered = membership.wantsAirsoft;
+      else covered = membership.extraActivities.some((a) => a.activityKey === event.activityType);
+    }
 
-    if (membershipRequired) {
-      const currentYear = new Date().getFullYear();
-      const membership = await prisma.membership.findUnique({
-        where: { userId: session.user.id },
-        include: { extraActivities: true },
+    // Airsoft : journée d'essai (gratuit, pas de cotisation requise)
+    if (!covered && event.activityType === "AIRSOFT") {
+      const userRecord = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { airsoftTrialDay: true },
       });
-      const validMembership = membership && membership.year === currentYear;
-      let covered = false;
-      if (validMembership) {
-        if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;
-        else if (event.activityType === "JEUX_DE_ROLE") covered = membership.wantsRolePlay;
-        else if (event.activityType === "AIRSOFT") covered = membership.wantsAirsoft;
-        else covered = membership.extraActivities.some((a) => a.activityKey === event.activityType);
-      }
-
-      // Airsoft : participation invité (5€) acceptée en remplacement de la cotisation
-      if (!covered && event.activityType === "AIRSOFT" && participationFee === 500) {
+      if (userRecord?.airsoftTrialDay) {
         covered = true;
+        isTrialDay = true;
       }
+    }
 
-      if (!covered) {
-        return NextResponse.json(
-          { error: "Vous devez avoir une cotisation en cours pour cette activité afin de vous inscrire." },
-          { status: 403 }
-        );
-      }
+    // Airsoft : participation invité (5€) acceptée en remplacement de la cotisation
+    if (!covered && event.activityType === "AIRSOFT" && participationFee === 500) {
+      covered = true;
+    }
+
+    if (!covered) {
+      return NextResponse.json(
+        { error: "Vous devez avoir une cotisation en cours pour cette activité afin de vous inscrire." },
+        { status: 403 }
+      );
     }
   }
 
@@ -89,6 +97,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       wantsMeal,
       mealNotes,
       participationFee,
+      isTrialDay,
+      status: "APPROVED",
       mealOrders: mealOrders.length > 0
         ? {
             create: mealOrders
@@ -103,12 +113,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
   });
 
   const equipmentIds = equipmentSelections.map((s) => s.id);
-  const [user, equipmentList] = await Promise.all([
+  const [user, equipmentRecords] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
     equipmentIds.length > 0
-      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { name: true, rentalCost: true } })
+      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { id: true, name: true, rentalCost: true } })
       : Promise.resolve([]),
   ]);
+
+  // Associe chaque équipement à la quantité demandée pour le récap email
+  const equipmentList = equipmentRecords.map((eq) => ({
+    name: eq.name,
+    rentalCost: eq.rentalCost,
+    quantity: Math.max(1, Number(equipmentSelections.find((s) => s.id === eq.id)?.quantity ?? 1)),
+  }));
 
   if (user) {
     await Promise.all([

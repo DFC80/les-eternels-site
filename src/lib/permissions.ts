@@ -13,7 +13,20 @@ export type AdminSection =
   | "parametres"
   | "activites"
   | "bureau"
-  | "jeux";
+  | "jeux"
+  | "content"
+  | "sondages";
+
+// Permissions par défaut (avant toute configuration en DB)
+export const HARDCODED_SECTION_MAP: Record<string, AdminSection[]> = {
+  Secrétaire: ["members"],
+  Trésorier: ["members", "comptabilite"],
+  Comptoir: ["kiosque"],
+  Airsoft: ["events", "equipements", "galerie"],
+  "Jeux de rôle": ["events", "galerie"],
+  "Jeux de plateau": ["events", "galerie"],
+  "Jeux de figurine": ["events", "galerie"],
+};
 
 export function isFullAdmin(role: string): boolean {
   return FULL_ADMIN_ROLES.includes(role);
@@ -36,17 +49,28 @@ export function getAllowedActivityTypes(role: string): string[] | null {
   return map[role] ?? null;
 }
 
-// Vérifie si un rôle peut accéder à une section
+// Vérifie si un rôle peut accéder à une section (fallback hardcodé)
 export function canAccessSection(role: string, section: AdminSection): boolean {
   if (isFullAdmin(role)) return true;
-  const map: Record<string, AdminSection[]> = {
-    Secrétaire: ["members"],
-    Trésorier: ["members", "comptabilite"],
-    Comptoir: ["kiosque"],
-    Airsoft: ["events", "equipements", "galerie"],
-    "Jeux de rôle": ["events", "galerie"],
-    "Jeux de plateau": ["events", "galerie"],
-    "Jeux de figurine": ["events", "galerie"],
-  };
-  return (map[role] ?? []).includes(section);
+  return (HARDCODED_SECTION_MAP[role] ?? []).includes(section);
+}
+
+type SessionUser = {
+  role?: string;
+  allowedSections?: string[] | null;
+};
+
+// Vérifie l'accès à une section depuis un objet session.user
+// Utilise allowedSections du JWT si présent, sinon fallback hardcodé
+export function sessionHasAccess(
+  user: SessionUser | null | undefined,
+  section: AdminSection
+): boolean {
+  const role = user?.role ?? "";
+  if (isFullAdmin(role)) return true;
+  const sections = (user as { allowedSections?: string[] | null } | null)?.allowedSections;
+  if (sections !== undefined) {
+    return Array.isArray(sections) && sections.includes(section);
+  }
+  return canAccessSection(role, section);
 }

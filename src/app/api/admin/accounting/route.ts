@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "comptabilite"))) {
+  if (!session || !sessionHasAccess(session.user, "comptabilite")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -28,9 +28,15 @@ export async function GET() {
     orderBy: { paidAt: "desc" },
   });
 
-  const snackOrders = await prisma.snackOrder.findMany({
-    include: { user: { select: { firstName: true, name: true } }, items: true },
+  const balanceTopUps = await prisma.balanceTopUp.findMany({
+    include: { user: { select: { firstName: true, name: true } } },
     orderBy: { createdAt: "desc" },
+  });
+
+  const onlinePayments = await prisma.payment.findMany({
+    where: { status: "PAID" },
+    include: { user: { select: { firstName: true, name: true } } },
+    orderBy: { paidAt: "desc" },
   });
 
   const eventSummaries = events.map((ev) => {
@@ -67,36 +73,52 @@ export async function GET() {
     paidAt: m.paidAt,
   }));
 
-  const snackSales = snackOrders.map((o) => ({
-    id: o.id,
-    memberName: `${o.user.firstName} ${o.user.name}`,
-    createdAt: o.createdAt,
-    totalAmount: o.totalAmount,
-    items: o.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+  const balanceTopUpSummaries = balanceTopUps.map((t) => ({
+    id: t.id,
+    memberName: `${t.user.firstName} ${t.user.name}`,
+    amount: t.amount,
+    createdAt: t.createdAt,
+  }));
+
+  const onlinePaymentSummaries = onlinePayments.map((p) => ({
+    id: p.id,
+    memberName: `${p.user.firstName} ${p.user.name}`,
+    type: p.type,
+    label: p.label,
+    amount: p.amount,
+    stripeFeesCents: p.stripeFeesCents,
+    paidAt: p.paidAt,
   }));
 
   const totalEventIncome = eventSummaries.reduce((sum, e) => sum + e.income, 0);
   const totalEventExpenses = eventSummaries.reduce((sum, e) => sum + e.expensesTotal, 0);
   const totalGeneralExpenses = generalExpenses.reduce((sum, e) => sum + e.amount, 0);
   const totalMembershipIncome = membershipSummaries.reduce((sum, m) => sum + m.amount, 0);
-  // Le solde du comptoir (friandises/boissons) est en centimes, le reste est en euros entiers :
-  // on combine tout en centimes pour le résultat net afin de gérer les décimales du comptoir.
-  const totalSnackIncome = snackSales.reduce((sum, s) => sum + s.totalAmount, 0);
+  // Tout en centimes pour gérer les décimales du comptoir.
+  const totalBalanceTopUps = balanceTopUpSummaries.reduce((sum, t) => sum + t.amount, 0);
+  // Les ventes comptoir (totalSnackIncome) ne sont PAS comptées : elles débitent le solde
+  // adhérent déjà encaissé via les recharges (totalBalanceTopUps). Les compter serait un double-compte.
   const netResultCents =
     (totalMembershipIncome + totalEventIncome - totalEventExpenses - totalGeneralExpenses) * 100 +
-    totalSnackIncome;
+    totalBalanceTopUps;
+
+  // Total encaissé en ligne (informatif : déjà inclus dans les catégories ci-dessus —
+  // cotisations, recharges, frais d'événements — donc pas ajouté au résultat net).
+  const totalOnlinePaymentsCents = onlinePaymentSummaries.reduce((sum, p) => sum + p.amount, 0);
 
   return NextResponse.json({
     events: eventSummaries,
     generalExpenses,
     memberships: membershipSummaries,
-    snackSales,
+    balanceTopUps: balanceTopUpSummaries,
+    onlinePayments: onlinePaymentSummaries,
     totals: {
       totalMembershipIncome,
       totalEventIncome,
       totalEventExpenses,
       totalGeneralExpenses,
-      totalSnackIncome,
+      totalBalanceTopUps,
+      totalOnlinePaymentsCents,
       netResultCents,
     },
   });

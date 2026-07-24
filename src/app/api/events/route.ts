@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 import { sendNewEventNotification } from "@/lib/mail";
@@ -23,7 +23,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "events"))) {
+  if (!session || !sessionHasAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -94,33 +94,23 @@ export async function POST(request: Request) {
     include: { menus: true, boardGames: true },
   });
 
-  if (event.activityType !== "AUTRE") {
-    const activityField =
-      event.activityType === "JEUX_DE_PLATEAU"
-        ? "wantsBoardGames"
-        : event.activityType === "JEUX_DE_ROLE"
-          ? "wantsRolePlay"
-          : "wantsAirsoft";
+  const allUsers = await prisma.user.findMany({
+    where: { isActive: true, isPending: false },
+    select: { firstName: true, email: true },
+  });
 
-    const currentYear = new Date().getFullYear();
-    const interestedMembers = await prisma.user.findMany({
-      where: { membership: { year: currentYear, [activityField]: true } },
-      select: { firstName: true, email: true },
-    });
-
-    await Promise.all(
-      interestedMembers.map((member) =>
-        sendNewEventNotification({
-          to: member.email,
-          firstName: member.firstName,
-          eventTitle: event.title,
-          description: event.description,
-          startsAt: event.startsAt,
-          location: event.location,
-        })
-      )
-    );
-  }
+  await Promise.all(
+    allUsers.map((user) =>
+      sendNewEventNotification({
+        to: user.email,
+        firstName: user.firstName,
+        eventTitle: event.title,
+        description: event.description,
+        startsAt: event.startsAt,
+        location: event.location,
+      })
+    )
+  );
 
   return NextResponse.json(event, { status: 201 });
 }

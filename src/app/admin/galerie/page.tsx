@@ -13,13 +13,13 @@ type Photo = {
   date: string;
   comment: string | null;
   activityType: string;
-  visibility: string;
+  isFavorite: boolean;
 };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-const EMPTY_FORM = { url: "", date: "", comment: "", activityType: "AUTRE", visibility: "PUBLIC" };
+const EMPTY_FORM = { url: "", date: "", comment: "", activityType: "AUTRE" };
 
 export default function AdminGaleriePage() {
   const { data: session } = useSession();
@@ -91,12 +91,11 @@ export default function AdminGaleriePage() {
     }
   }
 
-  async function toggleVisibility(photo: Photo) {
-    const next = photo.visibility === "PUBLIC" ? "MEMBERS_ONLY" : "PUBLIC";
+  async function toggleFavorite(photo: Photo) {
     const res = await fetch(`/api/admin/gallery/${photo.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visibility: next }),
+      body: JSON.stringify({ isFavorite: !photo.isFavorite }),
     });
     if (res.ok) await load();
   }
@@ -146,18 +145,6 @@ export default function AdminGaleriePage() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-300">Visibilité</label>
-          <select
-            value={form.visibility}
-            onChange={(e) => setForm({ ...form, visibility: e.target.value })}
-            className={inputClass}
-          >
-            <option value="PUBLIC">🌐 Publique — visible par tous</option>
-            <option value="MEMBERS_ONLY">🔒 Membres — cotisation requise</option>
-          </select>
-        </div>
-
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">Commentaire (optionnel)</label>
           <textarea
@@ -192,15 +179,6 @@ export default function AdminGaleriePage() {
                     ? `${activityOptions.find((a) => a.key === p.activityType)!.emoji} ${activityOptions.find((a) => a.key === p.activityType)!.label}`
                     : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
                 </p>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    p.visibility === "MEMBERS_ONLY"
-                      ? "bg-amber-900/60 text-amber-300"
-                      : "bg-emerald-900/60 text-emerald-300"
-                  }`}
-                >
-                  {p.visibility === "MEMBERS_ONLY" ? "🔒 Membres" : "🌐 Public"}
-                </span>
               </div>
               {editingComment?.id === p.id ? (
                 <div className="mt-2">
@@ -242,12 +220,11 @@ export default function AdminGaleriePage() {
               )}
               <div className="mt-2 flex items-center gap-3">
                 <button
-                  onClick={() => toggleVisibility(p)}
-                  className={`text-xs font-medium hover:underline ${
-                    p.visibility === "MEMBERS_ONLY" ? "text-amber-400" : "text-emerald-400"
-                  }`}
+                  onClick={() => toggleFavorite(p)}
+                  title={p.isFavorite ? "Retirer du carrousel d'accueil" : "Mettre en favori (carrousel d'accueil)"}
+                  className={`text-base transition-transform hover:scale-110 ${p.isFavorite ? "opacity-100" : "opacity-30 hover:opacity-70"}`}
                 >
-                  {p.visibility === "MEMBERS_ONLY" ? "🔒 Rendre publique" : "🌐 Rendre privée"}
+                  ⭐
                 </button>
                 <button onClick={() => removePhoto(p.id)} className="text-sm text-red-400 hover:underline">
                   Supprimer

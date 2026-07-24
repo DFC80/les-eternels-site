@@ -32,18 +32,18 @@ export async function POST(request: Request) {
     durationMinutes?: string | number;
   };
 
-  if (!name || minPlayers == null || maxPlayers == null || durationMinutes == null) {
+  if (!name || minPlayers == null || maxPlayers == null) {
     return NextResponse.json(
-      { error: "Nom, nombre de joueurs et durée d'une partie sont requis." },
+      { error: "Nom et nombre de joueurs sont requis." },
       { status: 400 }
     );
   }
 
   const min = Math.round(Number(minPlayers));
   const max = Math.round(Number(maxPlayers));
-  const duration = Math.round(Number(durationMinutes));
+  const duration = durationMinutes != null && durationMinutes !== "" ? Math.round(Number(durationMinutes)) : null;
 
-  if (Number.isNaN(min) || Number.isNaN(max) || Number.isNaN(duration) || min <= 0 || max < min || duration <= 0) {
+  if (Number.isNaN(min) || Number.isNaN(max) || min <= 0 || max < min || (duration !== null && duration <= 0)) {
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 

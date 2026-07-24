@@ -1,13 +1,13 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { sendMembershipPaymentConfirmation } from "@/lib/mail";
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) {
+  if (!session || !sessionHasAccess(session.user, "members")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -19,11 +19,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "Aucune adhésion trouvée pour ce membre." }, { status: 404 });
   }
 
+  const now = new Date();
   const updateData: Record<string, unknown> = validateSupplement
-    ? { paidAmount: membership.amount }
+    ? { paidAmount: membership.amount, paidAt: now }
     : {
         isPaid: !!isPaid,
-        paidAt: isPaid ? new Date() : null,
+        paidAt: isPaid ? now : null,
         paidAmount: isPaid ? membership.amount : 0,
       };
 

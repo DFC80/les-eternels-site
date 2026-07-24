@@ -4,6 +4,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CORE_ACTIVITIES } from "@/lib/activity-colors";
+import HomePollWidget from "@/components/HomePollWidget";
+import HomeCarouselWidget from "@/components/HomeCarouselWidget";
+
+async function getLatestArticle() {
+  return prisma.newsArticle.findFirst({
+    where: { published: true },
+    orderBy: { date: "desc" },
+    include: { _count: { select: { comments: true } } },
+  });
+}
 
 async function getActivities() {
   for (const a of CORE_ACTIVITIES) {
@@ -25,11 +35,16 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, activities, { description, logoSrc }] = await Promise.all([
+  const [session, activities, { description, logoSrc }, latestArticle] = await Promise.all([
     getServerSession(authOptions),
     getActivities(),
     getSettings(),
+    getLatestArticle(),
   ]);
+
+  const userHasMembership = session
+    ? !!(await prisma.membership.findUnique({ where: { userId: session.user.id }, select: { id: true } }))
+    : false;
 
   return (
     <div>
@@ -44,7 +59,7 @@ export default async function HomePage() {
             className="mx-auto rounded-lg shadow-2xl shadow-black/50"
             priority
           />
-          <h1 className="mt-8 font-brand text-5xl text-silver-100 sm:text-6xl">Les Éternels</h1>
+          <h1 className="mt-8 font-brand text-4xl text-silver-100 sm:text-5xl lg:text-6xl">Les Éternels</h1>
           <p className="mx-auto mt-4 max-w-2xl font-display text-lg tracking-wide text-silver-300">
             {description}
           </p>
@@ -81,7 +96,7 @@ export default async function HomePage() {
             <Link
               key={a.key}
               href={`/activites?activite=${a.key}`}
-              className="rounded-xl border border-primary-800 bg-primary-900/60 p-6 shadow-lg shadow-black/30 transition hover:border-primary-600 hover:bg-primary-800/60"
+              className="rounded-xl border border-primary-800 bg-primary-900/60 p-4 shadow-lg shadow-black/30 transition hover:border-primary-600 hover:bg-primary-800/60 sm:p-6"
             >
               <div className="text-4xl">{a.emoji}</div>
               <h3 className="mt-4 font-display text-lg text-silver-100">{a.label}</h3>
@@ -94,6 +109,37 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+
+      {userHasMembership && <HomePollWidget />}
+      <HomeCarouselWidget />
+
+      {latestArticle && (
+        <section className="mx-auto max-w-6xl px-4 pb-4 pt-2">
+          <h2 className="font-display text-2xl text-silver-100">Dernière actualité</h2>
+          <Link href={`/actualites/${latestArticle.id}`}
+            className="mt-4 flex flex-col gap-3 rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60 sm:flex-row sm:gap-5 sm:p-5">
+            {latestArticle.photos?.split("\n").find((u) => u.trim()) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={latestArticle.photos.split("\n").find((u) => u.trim())!} alt=""
+                className="h-44 w-full rounded-lg object-cover sm:h-28 sm:w-28 sm:flex-shrink-0" />
+            )}
+            <div className="min-w-0">
+              <h3 className="font-display text-lg text-silver-100">{latestArticle.title}</h3>
+              <p className="mt-1 text-xs text-slate-400">
+                {new Date(latestArticle.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                {" · "}
+                {latestArticle._count.comments} commentaire{latestArticle._count.comments !== 1 ? "s" : ""}
+              </p>
+              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                {latestArticle.content.length > 200 ? latestArticle.content.slice(0, 200) + "…" : latestArticle.content}
+              </p>
+            </div>
+          </Link>
+          <div className="mt-3 text-right">
+            <Link href="/actualites" className="text-sm text-primary-300 hover:underline">Toutes les actualités →</Link>
+          </div>
+        </section>
+      )}
 
       {!session && (
         <section className="border-t border-primary-800 bg-primary-900/40 py-16">

@@ -69,7 +69,14 @@
       "Skill(run)",
       "Skill(run:*)",
       "Bash(gh auth *)",
-      "PowerShell(gh auth status 2>&1)"
+      "PowerShell(gh auth status 2>&1)",
+      "Bash(gh pr create --base main --head feat/email-verification --title 'feat: vérification email à l'\\\\''inscription' --body ' *)",
+      "PowerShell(Test-NetConnection -ComputerName localhost -Port 3001 -InformationLevel Quiet 2>$null)",
+      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/k\", \"cd /d `\"C:\\\\Users\\\\frede\\\\Documents\\\\Sites\\\\les eternels`\" && npm run dev -- --port 3001\" -WindowStyle Normal)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)"
     ]
   }
 }

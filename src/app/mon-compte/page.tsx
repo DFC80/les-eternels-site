@@ -23,6 +23,7 @@ type Membership = {
   extraActivityKeys: string[];
   amount: number;
   isPaid: boolean;
+  paidAmount: number;
   paidAt: string | null;
   year: number;
   expired: boolean;
@@ -43,6 +44,24 @@ export default function MonComptePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [paying, setPaying] = useState(false);
+
+  async function payOnline() {
+    setError(null);
+    setPaying(true);
+    const res = await fetch("/api/payments/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "MEMBERSHIP" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    setError(data.error ?? "Impossible de démarrer le paiement en ligne.");
+    setPaying(false);
+  }
 
   async function load() {
     const [memberRes, actRes] = await Promise.all([
@@ -58,7 +77,9 @@ export default function MonComptePage() {
     }
 
     if (memberRes.ok) {
-      const data: Membership = await memberRes.json();
+      const raw = await memberRes.json();
+      // Sans adhésion, l'API renvoie { airsoftTrialDay } : ne le traite pas comme une adhésion
+      const data: Membership = raw && "year" in raw ? raw : null;
       setMembership(data);
       if (data && !data.expired) {
         const keys = new Set<string>();
@@ -172,9 +193,9 @@ export default function MonComptePage() {
       <h1 className="font-display text-3xl text-silver-100">Mon adhésion</h1>
       <p className="mt-2 text-slate-400">
         Choisissez les activités auxquelles vous souhaitez participer pour calculer le montant
-        de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait sur place,
-        en espèces ou par chèque. La cotisation n'est valable que pour l'année en cours et doit
-        être renouvelée chaque 1er janvier.
+        de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait en ligne
+        par carte bancaire, ou sur place en espèces ou par chèque. La cotisation n'est valable que
+        pour l'année en cours et doit être renouvelée chaque 1er janvier.
       </p>
 
       {membership && membership.expired && (
@@ -184,17 +205,36 @@ export default function MonComptePage() {
         </div>
       )}
 
-      {membership && !membership.expired && (
-        <div className={`mt-6 rounded-md border px-4 py-3 text-sm ${
-          membership.isPaid
-            ? "border-emerald-700 bg-emerald-950 text-emerald-300"
-            : "border-amber-700 bg-amber-950 text-amber-300"
-        }`}>
-          {membership.isPaid
-            ? `Cotisation ${membership.year} de ${membership.amount}€ réglée${membership.paidAt ? ` le ${new Date(membership.paidAt).toLocaleDateString("fr-FR")}` : ""}.`
-            : `Cotisation ${membership.year} de ${membership.amount}€ en attente de règlement sur place.`}
-        </div>
-      )}
+      {membership && !membership.expired && (() => {
+        const dueOnline = membership.amount - (membership.isPaid ? membership.paidAmount : 0);
+        return (
+          <div className={`mt-6 rounded-md border px-4 py-3 text-sm ${
+            membership.isPaid && dueOnline <= 0
+              ? "border-emerald-700 bg-emerald-950 text-emerald-300"
+              : "border-amber-700 bg-amber-950 text-amber-300"
+          }`}>
+            {membership.isPaid && dueOnline <= 0
+              ? `Cotisation ${membership.year} de ${membership.amount}€ réglée${membership.paidAt ? ` le ${new Date(membership.paidAt).toLocaleDateString("fr-FR")}` : ""}.`
+              : membership.isPaid
+              ? `Supplément de ${dueOnline}€ à régler (nouvelles activités ajoutées).`
+              : `Cotisation ${membership.year} de ${membership.amount}€ en attente de règlement.`}
+            {dueOnline > 0 && (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  className="mt-3 block w-full rounded-md bg-primary-900 px-4 py-2.5 text-center font-semibold text-slate-500 border border-primary-700 cursor-not-allowed opacity-60 sm:w-auto sm:px-6"
+                >
+                  💳 Payer {dueOnline}€ en ligne (indisponible)
+                </button>
+                <p className="mt-2 text-xs opacity-80">
+                  Le paiement s'effectue sur place à un administrateur.
+                </p>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <form onSubmit={handleSubmit} className="mt-8">
         {coreActivities.length > 0 && (

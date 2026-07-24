@@ -28,27 +28,44 @@ type MembershipSummary = {
   paidAt: string | null;
 };
 
-type SnackSale = {
+type BalanceTopUp = {
   id: string;
   memberName: string;
+  amount: number;
   createdAt: string;
-  totalAmount: number;
-  items: { name: string; quantity: number; unitPrice: number }[];
+};
+
+type OnlinePayment = {
+  id: string;
+  memberName: string;
+  type: "MEMBERSHIP" | "EVENT" | "BALANCE_TOPUP";
+  label: string;
+  amount: number;
+  stripeFeesCents: number;
+  paidAt: string | null;
 };
 
 type Accounting = {
   events: EventSummary[];
   generalExpenses: GeneralExpense[];
   memberships: MembershipSummary[];
-  snackSales: SnackSale[];
+  balanceTopUps: BalanceTopUp[];
+  onlinePayments: OnlinePayment[];
   totals: {
     totalMembershipIncome: number;
     totalEventIncome: number;
     totalEventExpenses: number;
     totalGeneralExpenses: number;
-    totalSnackIncome: number;
+    totalBalanceTopUps: number;
+    totalOnlinePaymentsCents: number;
     netResultCents: number;
   };
+};
+
+const PAYMENT_TYPE_LABELS: Record<OnlinePayment["type"], string> = {
+  MEMBERSHIP: "Cotisation",
+  EVENT: "Événement",
+  BALANCE_TOPUP: "Recharge solde",
 };
 
 const inputClass =
@@ -122,31 +139,31 @@ export default function ComptabilitePage() {
         l'association.
       </p>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-6">
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Cotisations adhésions</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Cotisations</p>
           <p className="mt-1 font-display text-2xl text-emerald-400">{totals.totalMembershipIncome}€</p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Gains événements</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Gains événements</p>
           <p className="mt-1 font-display text-2xl text-emerald-400">{totals.totalEventIncome}€</p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Gains comptoir</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Recharges solde</p>
           <p className="mt-1 font-display text-2xl text-emerald-400">
-            {formatCentsToEuros(totals.totalSnackIncome)}
+            {formatCentsToEuros(totals.totalBalanceTopUps)}
           </p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Dépenses événements</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Dépenses événements</p>
           <p className="mt-1 font-display text-2xl text-red-400">{totals.totalEventExpenses}€</p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Dépenses générales</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Dépenses générales</p>
           <p className="mt-1 font-display text-2xl text-red-400">{totals.totalGeneralExpenses}€</p>
         </div>
         <div className="rounded-xl border-2 border-primary-400 bg-primary-800/50 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-slate-300">Résultat net</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-300 sm:text-xs">Résultat net</p>
           <p
             className={`mt-1 font-display text-2xl ${
               totals.netResultCents >= 0 ? "text-emerald-400" : "text-red-400"
@@ -190,34 +207,76 @@ export default function ComptabilitePage() {
         </table>
       </div>
 
-      <h2 className="mt-10 font-display text-xl text-silver-100">Ventes comptoir (friandises & boissons)</h2>
+      <h2 className="mt-10 font-display text-xl text-silver-100">Recharges de solde adhérent</h2>
       <div className="mt-4 overflow-x-auto rounded-xl border border-primary-800 bg-primary-900/40">
         <table className="w-full text-sm">
           <thead className="bg-primary-950/60 text-left text-slate-400">
             <tr>
               <th className="px-4 py-3">Membre</th>
-              <th className="px-4 py-3">Articles</th>
-              <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Montant rechargé</th>
               <th className="px-4 py-3">Date</th>
             </tr>
           </thead>
           <tbody>
-            {data.snackSales.map((s) => (
-              <tr key={s.id} className="border-t border-primary-800 text-slate-200">
-                <td className="px-4 py-3 font-medium">{s.memberName}</td>
+            {data.balanceTopUps.map((t) => (
+              <tr key={t.id} className="border-t border-primary-800 text-slate-200">
+                <td className="px-4 py-3 font-medium">{t.memberName}</td>
+                <td className="px-4 py-3 text-emerald-400">{formatCentsToEuros(t.amount)}</td>
                 <td className="px-4 py-3 text-slate-400">
-                  {s.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
-                </td>
-                <td className="px-4 py-3">{formatCentsToEuros(s.totalAmount)}</td>
-                <td className="px-4 py-3 text-slate-400">
-                  {new Date(s.createdAt).toLocaleString("fr-FR")}
+                  {new Date(t.createdAt).toLocaleString("fr-FR")}
                 </td>
               </tr>
             ))}
-            {data.snackSales.length === 0 && (
+            {data.balanceTopUps.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-3 text-slate-500">
-                  Aucune vente comptoir enregistrée pour le moment.
+                <td colSpan={3} className="px-4 py-3 text-slate-500">
+                  Aucune recharge de solde enregistrée.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-10 font-display text-xl text-silver-100">
+        💳 Paiements en ligne (Stripe) —{" "}
+        <span className="text-emerald-400">{formatCentsToEuros(data.totals.totalOnlinePaymentsCents)}</span>
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Montants déjà comptés dans les catégories ci-dessus (cotisations, recharges, gains
+        événements) — ce tableau détaille la part encaissée par carte bancaire.
+      </p>
+      <div className="mt-4 overflow-x-auto rounded-xl border border-primary-800 bg-primary-900/40">
+        <table className="w-full text-sm">
+          <thead className="bg-primary-950/60 text-left text-slate-400">
+            <tr>
+              <th className="px-4 py-3">Membre</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Libellé</th>
+              <th className="px-4 py-3">Montant</th>
+              <th className="px-4 py-3 text-amber-400/80" title="Frais Stripe (non comptabilisés)">Frais</th>
+              <th className="px-4 py-3">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.onlinePayments.map((p) => (
+              <tr key={p.id} className="border-t border-primary-800 text-slate-200">
+                <td className="px-4 py-3 font-medium">{p.memberName}</td>
+                <td className="px-4 py-3 text-slate-400">{PAYMENT_TYPE_LABELS[p.type] ?? p.type}</td>
+                <td className="px-4 py-3 text-slate-400">{p.label}</td>
+                <td className="px-4 py-3 text-emerald-400">{formatCentsToEuros(p.amount)}</td>
+                <td className="px-4 py-3 text-amber-400/80 text-xs">
+                  {p.stripeFeesCents > 0 ? formatCentsToEuros(p.stripeFeesCents) : "—"}
+                </td>
+                <td className="px-4 py-3 text-slate-400">
+                  {p.paidAt ? new Date(p.paidAt).toLocaleString("fr-FR") : "—"}
+                </td>
+              </tr>
+            ))}
+            {data.onlinePayments.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-3 text-slate-500">
+                  Aucun paiement en ligne pour le moment.
                 </td>
               </tr>
             )}

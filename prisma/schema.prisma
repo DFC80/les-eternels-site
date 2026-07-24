@@ -34,6 +34,7 @@ model User {
   role         String    @default("MEMBER")
   isActive          Boolean   @default(true)
   isPending         Boolean   @default(false)
+  airsoftTrialDay   Boolean   @default(false)
   verificationToken        String?
   passwordResetToken       String?
   passwordResetTokenExpiry DateTime?
@@ -52,11 +53,14 @@ model User {
   emergencyContactLastName  String?
   emergencyContactPhone     String?
 
-  registrations EventRegistration[]
-  membership    Membership?
-  snackOrders   SnackOrder[]
-  balance       Int                  @default(0)
-  boardGames    BoardGame[]
+  registrations   EventRegistration[]
+  membership      Membership?
+  snackOrders     SnackOrder[]
+  balance         Int                  @default(0)
+  balanceTopUps   BalanceTopUp[]
+  boardGames      BoardGame[]
+  newsComments    NewsComment[]
+  payments        Payment[]
 }
 
 model Membership {
@@ -107,8 +111,9 @@ model BoardGame {
   photoUrl        String?
   minPlayers      Int
   maxPlayers      Int
-  durationMinutes Int
+  durationMinutes Int?
   status          String   @default("DISPONIBLE") // DISPONIBLE | INDISPONIBLE
+  isPublic        Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -149,8 +154,11 @@ model EventRegistration {
   eventId          String
   wantsMeal        Boolean  @default(false)
   mealNotes        String?
-  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  status           String   @default("APPROVED") // APPROVED par défaut | PENDING | REJECTED
   participationFee Int      @default(0)          // 0 = membre, 500 = 5€ participation invité airsoft
+  isTrialDay       Boolean  @default(false)       // inscription en journée d'essai airsoft
+  isPaid           Boolean  @default(false)       // frais (repas, participation, locations) payés en ligne
+  paidAt           DateTime?
   createdAt        DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -187,11 +195,24 @@ model Equipment {
   status        String   @default("DISPONIBLE") // DISPONIBLE | HORS_SERVICE | INDISPONIBLE
   rentalCost    Int
   stock         Int      @default(1)
-  magazineCount Int? // uniquement pour les répliques
+  fps           Int?
+  bbWeight      Float?
+  propulsion    String?
   info          String?
   createdAt     DateTime @default(now())
 
-  rentals EquipmentRental[]
+  rentals        EquipmentRental[]
+  associations   EquipmentAssociation[] @relation("ReplicaAssociations")
+  associatedWith EquipmentAssociation[] @relation("ItemAssociations")
+}
+
+model EquipmentAssociation {
+  replicaId String
+  itemId    String
+  quantity  Int       @default(1)
+  replica   Equipment @relation("ReplicaAssociations", fields: [replicaId], references: [id], onDelete: Cascade)
+  item      Equipment @relation("ItemAssociations",    fields: [itemId],    references: [id], onDelete: Cascade)
+  @@id([replicaId, itemId])
 }
 
 model GalleryPhoto {
@@ -201,6 +222,7 @@ model GalleryPhoto {
   comment      String?
   activityType String   @default("AUTRE") // JEUX_DE_PLATEAU | JEUX_DE_ROLE | AIRSOFT | AUTRE
   visibility   String   @default("PUBLIC") // PUBLIC | MEMBERS_ONLY
+  isFavorite   Boolean  @default(false)
   createdAt    DateTime @default(now())
 }
 
@@ -225,6 +247,15 @@ model ProductActivity {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, activityKey])
+}
+
+model BalanceTopUp {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SnackOrder {
@@ -295,7 +326,115 @@ model EquipmentRental {
   @@unique([registrationId, equipmentId])
 }
 
+model NewsArticle {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  photos    String?  // URLs séparées par des retours à la ligne
+  date      DateTime @default(now())
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments NewsComment[]
+}
+
+model NewsComment {
+  id        String   @id @default(cuid())
+  articleId String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  article NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id               String    @id @default(cuid())
+  userId           String
+  type             String    // MEMBERSHIP | EVENT | BALANCE_TOPUP
+  amount           Int       // centimes (hors frais Stripe)
+  stripeFeesCents  Int       @default(0) // frais de traitement affichés au membre
+  status           String    @default("PENDING") // PENDING | PAID | CANCELED
+  stripeSessionId  String    @unique
+  registrationId   String?   // pour type EVENT
+  label            String
+  createdAt        DateTime  @default(now())
+  paidAt           DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model SiteSetting {
   key   String @id
   value String
+}
+
+model RolePermission {
+  id        String @id @default(cuid())
+  roleLabel String
+  section   String
+
+  @@unique([roleLabel, section])
+}
+
+model ActivityDocument {
+  id             String   @id @default(cuid())
+  activityKey    String
+  name           String
+  filename       String
+  showInEvents   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Poll {
+  id            String    @id @default(cuid())
+  question      String
+  published     Boolean   @default(false)
+  allowMultiple Boolean   @default(false)
+  activityKey   String?
+  closedAt      DateTime?
+  publishNotificationSentAt DateTime?
+  resultNotificationSentAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  options     PollOption[]
+  votes       PollVote[]
+  voteChanges PollVoteChange[]
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  label  String
+  order  Int    @default(0)
+
+  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId, optionId])
+}
+
+model PollVoteChange {
+  id        String   @id @default(cuid())
+  pollId    String
+  userId    String
+  changedAt DateTime @default(now())
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
 }

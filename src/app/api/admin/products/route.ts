@@ -1,20 +1,20 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { parseEurosToCents } from "@/lib/money";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "produits"))) return null;
+  if (!session || !sessionHasAccess(session.user, "produits")) return null;
   return session;
 }
 
 export async function GET() {
   // Le rôle kiosque peut lire les produits (pour la page comptoir tablette)
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "produits") && !canAccessSection(session.user.role, "kiosque"))) {
+  if (!session || (!sessionHasAccess(session.user, "produits") && !sessionHasAccess(session.user, "kiosque"))) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 

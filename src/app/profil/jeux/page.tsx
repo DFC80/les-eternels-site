@@ -10,8 +10,9 @@ type BoardGame = {
   photoUrl: string | null;
   minPlayers: number;
   maxPlayers: number;
-  durationMinutes: number;
+  durationMinutes: number | null;
   status: "DISPONIBLE" | "INDISPONIBLE";
+  isPublic: boolean;
 };
 
 const EMPTY_FORM = {
@@ -21,6 +22,7 @@ const EMPTY_FORM = {
   minPlayers: "",
   maxPlayers: "",
   durationMinutes: "",
+  isPublic: true,
 };
 
 const inputClass =
@@ -31,19 +33,16 @@ export default function MesJeuxPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/board-games");
     if (res.ok) setGames(await res.json());
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  function resetForm() {
-    setForm(EMPTY_FORM);
-  }
+  function resetForm() { setForm(EMPTY_FORM); }
 
   function editGame(game: BoardGame) {
     setForm({
@@ -53,37 +52,53 @@ export default function MesJeuxPage() {
       minPlayers: String(game.minPlayers),
       maxPlayers: String(game.maxPlayers),
       durationMinutes: String(game.durationMinutes),
+      isPublic: game.isPublic,
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
-
     const payload = {
       name: form.name,
       photoUrl: form.photoUrl,
       minPlayers: form.minPlayers,
       maxPlayers: form.maxPlayers,
       durationMinutes: form.durationMinutes,
+      isPublic: form.isPublic,
     };
-
     const res = await fetch(form.id ? `/api/board-games/${form.id}` : "/api/board-games", {
       method: form.id ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-
     setSaving(false);
-
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Erreur lors de l'enregistrement.");
       return;
     }
-
     resetForm();
+    await load();
+  }
+
+  async function togglePublic(game: BoardGame) {
+    setToggling(game.id);
+    await fetch(`/api/board-games/${game.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: game.name,
+        photoUrl: game.photoUrl,
+        minPlayers: game.minPlayers,
+        maxPlayers: game.maxPlayers,
+        durationMinutes: game.durationMinutes,
+        isPublic: !game.isPublic,
+      }),
+    });
+    setToggling(null);
     await load();
   }
 
@@ -107,8 +122,8 @@ export default function MesJeuxPage() {
       </div>
 
       <p className="mt-6 text-slate-400">
-        Prêtez vos jeux de société à l'association pour les soirées jeux. Ils pourront être
-        sélectionnés par les administrateurs lors de la création d'un événement.
+        Prêtez vos jeux de société à l'association pour les soirées jeux. Activez la visibilité pour
+        qu'ils puissent être sélectionnés par les organisateurs lors de la création d'un événement.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
@@ -129,41 +144,23 @@ export default function MesJeuxPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Joueurs min.</label>
-          <input
-            type="number"
-            min={1}
-            required
-            value={form.minPlayers}
+          <input type="number" min={1} required value={form.minPlayers}
             onChange={(e) => setForm({ ...form, minPlayers: e.target.value })}
-            placeholder="2"
-            className={inputClass}
-          />
+            placeholder="2" className={inputClass} />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Joueurs max.</label>
-          <input
-            type="number"
-            min={1}
-            required
-            value={form.maxPlayers}
+          <input type="number" min={1} required value={form.maxPlayers}
             onChange={(e) => setForm({ ...form, maxPlayers: e.target.value })}
-            placeholder="4"
-            className={inputClass}
-          />
+            placeholder="4" className={inputClass} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Durée d'une partie (min)</label>
-          <input
-            type="number"
-            min={1}
-            required
-            value={form.durationMinutes}
+          <label className="block text-sm font-medium text-slate-300">Durée d'une partie (min) <span className="text-slate-500 font-normal">— optionnel</span></label>
+          <input type="number" min={1} value={form.durationMinutes}
             onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-            placeholder="40"
-            className={inputClass}
-          />
+            placeholder="40" className={inputClass} />
         </div>
 
         <div>
@@ -174,18 +171,34 @@ export default function MesJeuxPage() {
           />
         </div>
 
+        <div className="col-span-full">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={form.isPublic}
+              onChange={(e) => setForm({ ...form, isPublic: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-primary-400"
+            />
+            <span className="text-sm text-slate-300">
+              <span className="font-medium text-slate-100">Visible pour les organisateurs</span>
+              <br />
+              <span className="text-slate-400">
+                Les administrateurs et responsables Jeux de plateau pourront sélectionner ce jeu lors de la création d'un événement.
+              </span>
+            </span>
+          </label>
+        </div>
+
         {error && <p className="col-span-full text-sm text-red-400">{error}</p>}
 
         <div className="col-span-full flex gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-primary-400 px-5 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
-          >
+          <button type="submit" disabled={saving}
+            className="rounded-md bg-primary-400 px-5 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60">
             {saving ? "Enregistrement..." : form.id ? "Mettre à jour" : "Ajouter"}
           </button>
           {form.id && (
-            <button type="button" onClick={resetForm} className="rounded-md px-5 py-2 font-medium text-slate-300 hover:bg-primary-900">
+            <button type="button" onClick={resetForm}
+              className="rounded-md px-5 py-2 font-medium text-slate-300 hover:bg-primary-900">
               Annuler
             </button>
           )}
@@ -200,25 +213,43 @@ export default function MesJeuxPage() {
             <div className="flex gap-4">
               {game.photoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={game.photoUrl} alt={game.name} className="h-20 w-20 rounded-lg object-cover" />
+                <img src={game.photoUrl} alt={game.name} className="h-20 w-20 flex-shrink-0 rounded-lg object-cover" />
               )}
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-slate-100">{game.name}</p>
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
-                    }`}
-                  >
+                  <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
+                  }`}>
                     {game.status === "DISPONIBLE" ? "Disponible" : "Indisponible"}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-400">
                   {game.minPlayers === game.maxPlayers
                     ? `${game.minPlayers} joueur(s)`
-                    : `${game.minPlayers} à ${game.maxPlayers} joueurs`}{" "}
-                  · {game.durationMinutes} min
+                    : `${game.minPlayers} à ${game.maxPlayers} joueurs`}
+                  {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
                 </p>
+
+                {/* Visibilité toggle */}
+                <button
+                  onClick={() => togglePublic(game)}
+                  disabled={toggling === game.id}
+                  className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
+                    game.isPublic
+                      ? "bg-primary-900 text-primary-300 hover:bg-primary-800"
+                      : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                  } disabled:opacity-50`}
+                >
+                  {toggling === game.id ? (
+                    "…"
+                  ) : game.isPublic ? (
+                    <>👁 Visible par les organisateurs</>
+                  ) : (
+                    <>🔒 Privé — cliquer pour rendre visible</>
+                  )}
+                </button>
+
                 <div className="mt-2 flex gap-3 text-sm">
                   <button onClick={() => editGame(game)} className="text-primary-300 hover:text-silver-200 hover:underline">
                     Modifier

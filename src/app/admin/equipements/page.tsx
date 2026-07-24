@@ -14,8 +14,11 @@ type EquipmentItem = {
   status: "DISPONIBLE" | "HORS_SERVICE" | "INDISPONIBLE";
   rentalCost: number;
   stock: number;
-  magazineCount: number | null;
+  fps: number | null;
+  bbWeight: number | null;
+  propulsion: string | null;
   info: string | null;
+  associations: { itemId: string; quantity: number }[];
 };
 
 const EMPTY_FORM = {
@@ -26,11 +29,30 @@ const EMPTY_FORM = {
   status: "DISPONIBLE" as "DISPONIBLE" | "HORS_SERVICE" | "INDISPONIBLE",
   rentalCost: "",
   stock: "1",
-  magazineCount: "",
+  fps: "",
+  bbWeight: "",
+  propulsion: "",
   info: "",
 };
 
 const EMPTY_CAT_FORM = { id: "", label: "", emoji: "📦" };
+
+const PROPULSION_OPTIONS: { value: string; label: string }[] = [
+  { value: "AEG", label: "AEG" },
+  { value: "AEP", label: "AEP" },
+  { value: "GAZ", label: "GAZ" },
+  { value: "CO2", label: "CO2" },
+  { value: "HPA", label: "HPA" },
+  { value: "ELECTRIQUE", label: "ELECTRIQUE" },
+  { value: "VERROU", label: "Rechargement manuel (Verrou)" },
+];
+
+function togglePropulsion(current: string, value: string): string {
+  const set = new Set(current.split(",").map((v) => v.trim()).filter(Boolean));
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+  return Array.from(set).join(",");
+}
 
 const STATUS_LABELS: Record<string, string> = {
   DISPONIBLE: "Disponible",
@@ -102,6 +124,11 @@ export default function AdminEquipementsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Associations réplique → items
+  const [expandedAssoc, setExpandedAssoc] = useState<string | null>(null);
+  const [assocDraft, setAssocDraft] = useState<Record<string, { itemId: string; quantity: number }[]>>({});
+  const [savingAssoc, setSavingAssoc] = useState<string | null>(null);
+
   // Category management
   const [catForm, setCatForm] = useState(EMPTY_CAT_FORM);
   const [catError, setCatError] = useState<string | null>(null);
@@ -140,7 +167,9 @@ export default function AdminEquipementsPage() {
       status: item.status,
       rentalCost: String(item.rentalCost),
       stock: String(item.stock ?? 1),
-      magazineCount: item.magazineCount ? String(item.magazineCount) : "",
+      fps: item.fps ? String(item.fps) : "",
+      bbWeight: item.bbWeight ? String(item.bbWeight) : "",
+      propulsion: item.propulsion ?? "",
       info: item.info ?? "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -158,7 +187,9 @@ export default function AdminEquipementsPage() {
       status: form.status,
       rentalCost: form.rentalCost,
       stock: form.stock || "1",
-      magazineCount: form.magazineCount || null,
+      fps: form.fps || null,
+      bbWeight: form.bbWeight || null,
+      propulsion: form.propulsion || null,
       info: form.info,
     };
 
@@ -178,6 +209,18 @@ export default function AdminEquipementsPage() {
 
     resetForm();
     await load();
+  }
+
+  async function saveAssociations(replicaId: string) {
+    setSavingAssoc(replicaId);
+    await fetch(`/api/admin/equipment/${replicaId}/associations`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: assocDraft[replicaId] ?? [] }),
+    });
+    setSavingAssoc(null);
+    await load();
+    setExpandedAssoc(null);
   }
 
   async function removeItem(id: string) {
@@ -239,6 +282,13 @@ export default function AdminEquipementsPage() {
 
   function renderCard(item: EquipmentItem) {
     const firstPhoto = item.photos?.split("\n").map((p) => p.trim()).filter(Boolean)[0];
+    const isReplique = item.category === "REPLIQUE";
+    const associableItems = items.filter(
+      (i) => i.id !== item.id && i.category !== "REPLIQUE" && i.category !== "EQUIPEMENT"
+    );
+    const isExpanded = expandedAssoc === item.id;
+    const draft: { itemId: string; quantity: number }[] = assocDraft[item.id] ?? item.associations;
+
     return (
       <div key={item.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
         <div className="flex gap-4">
@@ -248,26 +298,116 @@ export default function AdminEquipementsPage() {
           )}
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <p className="font-medium text-slate-100">{item.name}</p>
+              <p className="min-w-0 truncate font-medium text-slate-100">{item.name}</p>
               <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status]}`}>
                 {STATUS_LABELS[item.status]}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-400">
               Location : {item.rentalCost}€ · Stock : {item.stock ?? 1}
-              {item.magazineCount != null && ` · ${item.magazineCount} chargeur(s)`}
+              {item.propulsion && ` · ${item.propulsion.split(",").map((v) => PROPULSION_OPTIONS.find((o) => o.value === v.trim())?.label ?? v.trim()).join(", ")}`}
+              {item.fps != null && ` · ${item.fps} FPS`}
+              {item.bbWeight != null && ` · ${item.bbWeight}g`}
             </p>
             {item.info && <p className="mt-1 text-sm text-slate-300">{item.info}</p>}
-            <div className="mt-2 flex gap-3 text-sm">
+            <div className="mt-2 flex flex-wrap gap-3 text-sm">
               <button onClick={() => editItem(item)} className="text-primary-300 hover:text-silver-200 hover:underline">
                 Modifier
               </button>
+              {isReplique && associableItems.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (isExpanded) { setExpandedAssoc(null); } else {
+                      setAssocDraft((p) => ({ ...p, [item.id]: item.associations }));
+                      setExpandedAssoc(item.id);
+                    }
+                  }}
+                  className="text-amber-400 hover:underline"
+                >
+                  {isExpanded ? "Fermer" : `Éléments associés (${item.associations.length})`}
+                </button>
+              )}
               <button onClick={() => removeItem(item.id)} className="text-red-400 hover:underline">
                 Supprimer
               </button>
             </div>
           </div>
         </div>
+
+        {isReplique && isExpanded && (
+          <div className="mt-3 border-t border-primary-700 pt-3">
+            <p className="mb-2 text-xs font-medium text-slate-400">
+              Éléments associés à cette réplique (accessoires, batteries, chargeurs…)
+            </p>
+            <div className="space-y-1">
+              {associableItems.map((i) => {
+                const assocEntry = draft.find((a) => a.itemId === i.id);
+                const checked = !!assocEntry;
+                const qty = assocEntry?.quantity ?? 1;
+                const cat = categories.find((c) => c.key === i.category);
+                const maxQty = i.stock;
+                return (
+                  <div key={i.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-primary-800/40">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setAssocDraft((p) => {
+                          const prev = p[item.id] ?? item.associations;
+                          return {
+                            ...p,
+                            [item.id]: e.target.checked
+                              ? [...prev, { itemId: i.id, quantity: Math.min(1, maxQty) }]
+                              : prev.filter((a) => a.itemId !== i.id),
+                          };
+                        });
+                      }}
+                      className="h-3.5 w-3.5 shrink-0 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                    />
+                    <span className="flex-1 text-slate-200">{i.name}</span>
+                    {cat && <span className="text-xs text-slate-500">{cat.emoji} {cat.label}</span>}
+                    {checked && (
+                      <div className="flex items-center gap-1 ml-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={maxQty}
+                          value={qty}
+                          onChange={(e) => {
+                            const val = Math.min(maxQty, Math.max(1, Number(e.target.value)));
+                            setAssocDraft((p) => ({
+                              ...p,
+                              [item.id]: (p[item.id] ?? item.associations).map((a) =>
+                                a.itemId === i.id ? { ...a, quantity: val } : a
+                              ),
+                            }));
+                          }}
+                          className="w-14 rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-center text-sm text-slate-100 focus:border-primary-400 focus:outline-none"
+                        />
+                        <span className="text-xs text-slate-500">/ {maxQty} dispo</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => saveAssociations(item.id)}
+                disabled={savingAssoc === item.id}
+                className="rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+              >
+                {savingAssoc === item.id ? "Enregistrement…" : "Enregistrer"}
+              </button>
+              <button
+                onClick={() => setExpandedAssoc(null)}
+                className="rounded-md border border-primary-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-primary-800/60"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -435,14 +575,48 @@ export default function AdminEquipementsPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Nombre de chargeurs (optionnel)</label>
+          <label className="block text-sm font-medium text-slate-300">Puissance (FPS, optionnel)</label>
           <input
             type="number"
             min={0}
-            value={form.magazineCount}
-            onChange={(e) => setForm({ ...form, magazineCount: e.target.value })}
+            value={form.fps}
+            onChange={(e) => setForm({ ...form, fps: e.target.value })}
+            placeholder="Ex: 380"
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Grammage des billes (g, optionnel)</label>
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={form.bbWeight}
+            onChange={(e) => setForm({ ...form, bbWeight: e.target.value })}
+            placeholder="Ex: 0.25"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Type de propulsion (optionnel)</label>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {PROPULSION_OPTIONS.map((opt) => {
+              const checked = form.propulsion.split(",").map((v) => v.trim()).includes(opt.value);
+              return (
+                <label key={opt.value} className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => setForm({ ...form, propulsion: togglePropulsion(form.propulsion, opt.value) })}
+                    className="h-4 w-4 rounded border-primary-600 bg-primary-950 text-primary-400 focus:ring-primary-500"
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </div>
         </div>
 
         <div className="sm:col-span-2">

@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "galerie"))) {
+  if (!session || !sessionHasAccess(session.user, "galerie")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -17,22 +17,19 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "galerie"))) {
+  if (!session || !sessionHasAccess(session.user, "galerie")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
   const body = await request.json();
-  const data: { visibility?: string; comment?: string | null } = {};
-
-  if ("visibility" in body) {
-    if (body.visibility !== "PUBLIC" && body.visibility !== "MEMBERS_ONLY") {
-      return NextResponse.json({ error: "Visibilité invalide." }, { status: 400 });
-    }
-    data.visibility = body.visibility;
-  }
+  const data: { comment?: string | null; isFavorite?: boolean } = {};
 
   if ("comment" in body) {
     data.comment = body.comment ?? null;
+  }
+
+  if ("isFavorite" in body) {
+    data.isFavorite = !!body.isFavorite;
   }
 
   if (Object.keys(data).length === 0) {

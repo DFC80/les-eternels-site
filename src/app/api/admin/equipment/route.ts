@@ -1,36 +1,46 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const VALID_STATUSES = ["DISPONIBLE", "HORS_SERVICE", "INDISPONIBLE"];
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "equipements"))) {
+  if (!session || !sessionHasAccess(session.user, "equipements")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  const equipment = await prisma.equipment.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] });
-  return NextResponse.json(equipment);
+  const equipment = await prisma.equipment.findMany({
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+    include: { associations: { select: { itemId: true, quantity: true } } },
+  });
+  return NextResponse.json(
+    equipment.map((e) => ({
+      ...e,
+      associations: e.associations.map((a) => ({ itemId: a.itemId, quantity: a.quantity })),
+    }))
+  );
 }
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "equipements"))) {
+  if (!session || !sessionHasAccess(session.user, "equipements")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
   const body = await request.json();
-  const { category, name, photos, status, rentalCost, stock, magazineCount, info } = body as {
+  const { category, name, photos, status, rentalCost, stock, fps, bbWeight, propulsion, info } = body as {
     category?: string;
     name?: string;
     photos?: string;
     status?: string;
     rentalCost?: string | number;
     stock?: string | number;
-    magazineCount?: string | number | null;
+    fps?: string | number | null;
+    bbWeight?: string | number | null;
+    propulsion?: string | null;
     info?: string;
   };
 
@@ -52,7 +62,9 @@ export async function POST(request: Request) {
       status: status || "DISPONIBLE",
       rentalCost: Math.round(Number(rentalCost)),
       stock: stock ? Math.max(1, Math.round(Number(stock))) : 1,
-      magazineCount: magazineCount ? Number(magazineCount) : null,
+      fps: fps ? Math.round(Number(fps)) : null,
+      bbWeight: bbWeight ? Number(bbWeight) : null,
+      propulsion: propulsion || null,
       info: info || null,
     },
   });
