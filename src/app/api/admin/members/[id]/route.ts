@@ -1,19 +1,19 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { sendAccountValidatedEmail } from "@/lib/mail";
+import { sendAccountValidatedEmail, sendAirsoftTrialDayEmail, sendAirsoftTrialDayUsedEmail } from "@/lib/mail";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) return null;
+  if (!session || !sessionHasAccess(session.user, "members")) return null;
   return session;
 }
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "members"))) {
+  if (!session || !sessionHasAccess(session.user, "members")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       email: true,
       role: true,
       isActive: true,
+      airsoftTrialDay: true,
       createdAt: true,
       dateOfBirth: true,
       phone: true,
@@ -44,6 +45,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
           wantsAirsoft: true,
           amount: true,
           isPaid: true,
+          extraActivities: { select: { activityKey: true } },
         },
       },
     },
@@ -64,17 +66,19 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { role, isActive, isPending, bureauRoleIds } = body as {
+  const { role, isActive, isPending, bureauRoleIds, airsoftTrialDay } = body as {
     role?: "ADMIN" | "MEMBER";
     isActive?: boolean;
     isPending?: boolean;
     bureauRoleIds?: string[];
+    airsoftTrialDay?: boolean;
   };
 
   const updateData: Record<string, unknown> = {};
   if (role) updateData.role = role;
   if (isActive !== undefined) updateData.isActive = isActive;
   if (isPending !== undefined) updateData.isPending = isPending;
+  if (airsoftTrialDay !== undefined) updateData.airsoftTrialDay = airsoftTrialDay;
 
   if (bureauRoleIds !== undefined) {
     updateData.bureauRoles = {
@@ -95,6 +99,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     await sendAccountValidatedEmail({ to: member.email, firstName: member.firstName }).catch(() => {});
   }
 
+  if (airsoftTrialDay === true) {
+    await sendAirsoftTrialDayEmail({ to: member.email, firstName: member.firstName }).catch(() => {});
+  }
+  if (airsoftTrialDay === false) {
+    await sendAirsoftTrialDayUsedEmail({ to: member.email, firstName: member.firstName }).catch(() => {});
+  }
+
   return NextResponse.json({
     ...member,
     bureauRoles: member.bureauRoles.map((r) => r.bureauRole),
@@ -104,6 +115,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+
+  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { email: true } });
+  if (target?.email === "admin@les-eternels.fr") {
+    return NextResponse.json({ error: "Ce compte administrateur ne peut pas être supprimé." }, { status: 403 });
+  }
 
   await prisma.user.delete({ where: { id: params.id } });
 

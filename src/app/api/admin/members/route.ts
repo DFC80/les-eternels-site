@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "members"))) return null;
+  if (!session || !sessionHasAccess(session.user, "members")) return null;
   return session;
 }
 
@@ -36,6 +36,8 @@ export async function GET() {
           amount: true,
           isPaid: true,
           paidAt: true,
+          paidAmount: true,
+          extraActivities: { select: { activityKey: true } },
         },
       },
     },

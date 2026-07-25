@@ -2,6 +2,17 @@ import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { FULL_ADMIN_ROLES } from "@/lib/permissions";
+
+async function fetchAllowedSections(role: string): Promise<string[] | null | undefined> {
+  if (FULL_ADMIN_ROLES.includes(role)) return null; // accès complet
+  const perms = await prisma.rolePermission.findMany({
+    where: { roleLabel: role },
+    select: { section: true },
+  });
+  if (perms.length === 0) return undefined; // pas encore configuré → fallback hardcodé
+  return perms.map((p) => p.section);
+}
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -53,17 +64,26 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as { role: "ADMIN" | "MEMBER" }).role;
+        token.role = (user as { role: string }).role;
+        token.allowedSections = await fetchAllowedSections(token.role as string);
+      } else if (trigger === "update") {
+        // Rechargement forcé des permissions (ex: après modification via la page permissions)
+        token.allowedSections = await fetchAllowedSections(token.role as string);
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id?: string; role?: string }).id = token.id as string;
-        (session.user as { id?: string; role?: string }).role = token.role as string;
+        (session.user as { id?: string; role?: string; allowedSections?: string[] | null }).id =
+          token.id as string;
+        (session.user as { id?: string; role?: string; allowedSections?: string[] | null }).role =
+          token.role as string;
+        (
+          session.user as { id?: string; role?: string; allowedSections?: string[] | null }
+        ).allowedSections = token.allowedSections as string[] | null | undefined;
       }
       return session;
     },

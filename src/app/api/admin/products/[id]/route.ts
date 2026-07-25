@@ -1,13 +1,13 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { parseEurosToCents } from "@/lib/money";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "produits"))) return null;
+  if (!session || !sessionHasAccess(session.user, "produits")) return null;
   return session;
 }
 

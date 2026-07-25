@@ -8,18 +8,23 @@ type MealOrder = { id: string; menuId: string | null; quantity: number };
 
 type Equipment = {
   id: string;
-  category: "REPLIQUE" | "EQUIPEMENT";
+  category: string;
   name: string;
   photos: string | null;
   status: "DISPONIBLE" | "HORS_SERVICE" | "INDISPONIBLE";
   rentalCost: number;
-  magazineCount: number | null;
+  stock: number;
+  fps: number | null;
+  bbWeight: number | null;
+  propulsion: string | null;
   info: string | null;
+  associations: { itemId: string; quantity: number }[];
 };
 
 type EquipmentRental = {
   id: string;
   equipmentId: string;
+  quantity: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
   isFree: boolean;
   equipment: Equipment;
@@ -32,6 +37,8 @@ type EventRegistration = {
   wantsMeal: boolean;
   mealNotes: string | null;
   participationFee: number;
+  isTrialDay: boolean;
+  isPaid: boolean;
   mealOrders: MealOrder[];
   rentals: EquipmentRental[];
 };
@@ -63,6 +70,8 @@ type Membership = {
   year: number;
   expired: boolean;
 } | null;
+
+type MembershipResponse = (Membership & { airsoftTrialDay?: boolean }) | { airsoftTrialDay?: boolean } | null;
 
 const GENERIC_MEAL_KEY = "__generic__";
 
@@ -145,6 +154,7 @@ export default function EventCalendar() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [membership, setMembership] = useState<Membership>(null);
+  const [airsoftTrialDay, setAirsoftTrialDay] = useState(false);
   const [activityMeta, setActivityMeta] = useState<ActivityMeta[]>([]);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
@@ -152,12 +162,43 @@ export default function EventCalendar() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [mealNotes, setMealNotes] = useState("");
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [equipmentCategories, setEquipmentCategories] = useState<{ key: string; label: string; emoji: string }[]>([]);
   const [wantsEquipment, setWantsEquipment] = useState(false);
-  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<Record<string, number>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
   const [editingMeal, setEditingMeal] = useState(false);
+  const [eventDocs, setEventDocs] = useState<{ id: string; name: string }[]>([]);
+  const [docMsg, setDocMsg] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [payingEvent, setPayingEvent] = useState(false);
+
+  async function payEventOnline(registrationId: string) {
+    setActionError(null);
+    setPayingEvent(true);
+    const res = await fetch("/api/payments/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "EVENT", registrationId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    setActionError(data.error ?? "Impossible de démarrer le paiement en ligne.");
+    setPayingEvent(false);
+  }
+
+  // Total dû en centimes pour une inscription (repas + participation + locations VALIDÉES payantes)
+  function registrationDueCents(ev: CalendarEvent, reg: EventRegistration): number {
+    const mealCents = ev.hasMeal && reg.wantsMeal ? ev.mealPrice * 100 : 0;
+    const rentalsCents = reg.rentals
+      .filter((r) => r.status === "APPROVED" && !r.isFree)
+      .reduce((sum, r) => sum + r.equipment.rentalCost * (r.quantity ?? 1) * 100, 0);
+    return mealCents + reg.participationFee + rentalsCents;
+  }
 
   async function loadEvents(): Promise<CalendarEvent[]> {
     const res = await fetch("/api/events");
@@ -170,13 +211,22 @@ export default function EventCalendar() {
   async function loadMembership() {
     if (!session) return;
     const res = await fetch("/api/membership");
-    if (res.ok) setMembership(await res.json());
+    if (!res.ok) return;
+    const data: MembershipResponse = await res.json();
+    setAirsoftTrialDay((data as { airsoftTrialDay?: boolean } | null)?.airsoftTrialDay ?? false);
+    // Only treat as a real membership if it has a year field
+    if (data && "year" in data) setMembership(data as Membership);
+    else setMembership(null);
   }
 
   async function loadEquipment() {
     if (!session) return;
-    const res = await fetch("/api/equipment");
-    if (res.ok) setEquipmentList(await res.json());
+    const [eqRes, catRes] = await Promise.all([
+      fetch("/api/equipment"),
+      fetch("/api/equipment-categories"),
+    ]);
+    if (eqRes.ok) setEquipmentList(await eqRes.json());
+    if (catRes.ok) setEquipmentCategories(await catRes.json());
   }
 
   useEffect(() => {
@@ -204,19 +254,22 @@ export default function EventCalendar() {
   const isRegistered = (ev: CalendarEvent) =>
     !!session && ev.registrations.some((r) => r.userId === session.user.id);
 
-  // Équipements déjà réservés (en attente ou validés) par un AUTRE membre pour cet événement.
-  function takenEquipmentIds(ev: CalendarEvent): Set<string> {
-    const taken = new Set<string>();
+  // Somme des quantités déjà louées (en attente ou validées) par d'AUTRES membres pour cet événement.
+  function takenEquipmentQuantities(ev: CalendarEvent): Map<string, number> {
+    const taken = new Map<string, number>();
     for (const reg of ev.registrations) {
       if (session && reg.userId === session.user.id) continue;
       for (const rental of reg.rentals) {
-        if (rental.status !== "REJECTED") taken.add(rental.equipmentId);
+        if (rental.status !== "REJECTED") {
+          taken.set(rental.equipmentId, (taken.get(rental.equipmentId) ?? 0) + (rental.quantity ?? 1));
+        }
       }
     }
     return taken;
   }
 
   function isEligible(ev: CalendarEvent) {
+    if (ev.activityType === "AIRSOFT" && airsoftTrialDay) return true;
     return isEligibleByMembership(ev.activityType, membership, activityMeta);
   }
 
@@ -230,11 +283,29 @@ export default function EventCalendar() {
     return false;
   }
 
+  async function openDoc(id: string) {
+    setDocMsg(null);
+    const res = await fetch(`/api/docs/${id}`);
+    if (res.status === 401) { setDocMsg("Connectez-vous pour accéder à ce document."); return; }
+    if (res.status === 403) { setDocMsg("Votre cotisation ne couvre pas cette activité."); return; }
+    if (!res.ok) { setDocMsg("Erreur lors de l'ouverture du document."); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+
   function openEvent(ev: CalendarEvent) {
     setSelected(ev);
     setActionError(null);
     setParticipationAccepted(null);
     setEditingMeal(false);
+    setEventDocs([]);
+    setDocMsg(null);
+    setShowConfirmation(false);
+    fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setEventDocs)
+      .catch(() => {});
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
@@ -245,24 +316,22 @@ export default function EventCalendar() {
     }
     setQuantities(initialQuantities);
 
-    const rentedIds = myReg?.rentals.map((r) => r.equipmentId) ?? [];
-    setSelectedEquipmentIds(rentedIds);
-    setWantsEquipment(rentedIds.length > 0);
+    const rentedEquipment: Record<string, number> = {};
+    for (const r of myReg?.rentals ?? []) {
+      rentedEquipment[r.equipmentId] = r.quantity ?? 1;
+    }
+    setSelectedEquipment(rentedEquipment);
+    setWantsEquipment(Object.keys(rentedEquipment).length > 0);
   }
 
   function setQuantity(key: string, value: number) {
     setQuantities((prev) => ({ ...prev, [key]: Math.max(0, value) }));
   }
 
-  function toggleEquipment(id: string) {
-    setSelectedEquipmentIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  }
-
   const totalMealQuantity = Object.values(quantities).reduce((sum, q) => sum + (q || 0), 0);
 
   const selectedEquipmentTotal = equipmentList
-    .filter((eq) => selectedEquipmentIds.includes(eq.id))
-    .reduce((sum, eq) => sum + eq.rentalCost, 0);
+    .reduce((sum, eq) => sum + eq.rentalCost * (selectedEquipment[eq.id] ?? 0), 0);
 
   async function handleUpdateMeal(ev: CalendarEvent) {
     if (wantsMeal && totalMealQuantity <= 0) {
@@ -306,7 +375,9 @@ export default function EventCalendar() {
       .filter(([, qty]) => qty > 0)
       .map(([key, quantity]) => ({ menuId: key === GENERIC_MEAL_KEY ? null : key, quantity }));
 
-    const equipmentIds = wantsEquipment ? selectedEquipmentIds : [];
+    const equipmentSelections = wantsEquipment
+      ? Object.entries(selectedEquipment).filter(([, qty]) => qty > 0).map(([id, quantity]) => ({ id, quantity }))
+      : [];
     const participationFee = participationAccepted === true ? 500 : 0;
 
     setLoadingAction(true);
@@ -314,7 +385,7 @@ export default function EventCalendar() {
     const res = await fetch(`/api/events/${ev.id}/register`, {
       method: registered ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentIds, participationFee }),
+      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentSelections, participationFee }),
     });
     setLoadingAction(false);
     if (!res.ok) {
@@ -405,8 +476,11 @@ export default function EventCalendar() {
               })()}
               <h3 className="mt-2 font-display text-xl text-silver-100">{selected.title}</h3>
               <p className="mt-1 text-sm text-slate-400">
-                {new Date(selected.startsAt).toLocaleString("fr-FR")} —{" "}
-                {new Date(selected.endsAt).toLocaleString("fr-FR")}
+                {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                {" de "}
+                {new Date(selected.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                {" à "}
+                {new Date(selected.endsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
               </p>
               <p className="mt-1 text-sm text-slate-400">📍 {selected.location}</p>
               {selected.location && (
@@ -433,6 +507,25 @@ export default function EventCalendar() {
               )}
             </div>
 
+            {eventDocs.length > 0 && (
+              <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-4">
+                <p className="text-sm font-medium text-slate-300">📄 Documents</p>
+                <ul className="mt-2 space-y-1">
+                  {eventDocs.map((d) => (
+                    <li key={d.id}>
+                      <button
+                        onClick={() => openDoc(d.id)}
+                        className="text-sm text-primary-300 hover:underline"
+                      >
+                        {d.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {docMsg && <p className="mt-2 text-xs text-amber-400">{docMsg}</p>}
+              </div>
+            )}
+
             {isRegistered(selected) && (() => {
               const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
               if (!myReg) return null;
@@ -442,10 +535,42 @@ export default function EventCalendar() {
                 PENDING:  { label: "Inscription en attente de validation", color: "border-amber-700 bg-amber-950 text-amber-300" },
               };
               const cfg = statusConfig[myReg.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+              const dueCents = registrationDueCents(selected, myReg);
+              const hasPendingRentals = myReg.rentals.some((r) => r.status === "PENDING");
               return (
-                <div className={`mt-4 rounded-lg border px-4 py-3 text-sm font-medium ${cfg.color}`}>
-                  {cfg.label}
-                </div>
+                <>
+                  <div className={`mt-4 rounded-lg border px-4 py-3 text-sm font-medium ${cfg.color}`}>
+                    {cfg.label}
+                  </div>
+                  {myReg.isPaid ? (
+                    <div className="mt-3 rounded-lg border border-emerald-700 bg-emerald-950 px-4 py-3 text-sm text-emerald-300">
+                      ✅ Frais de l&apos;événement réglés.
+                    </div>
+                  ) : hasPendingRentals ? (
+                    <div className="mt-3 rounded-lg border border-amber-700 bg-amber-950 px-4 py-3 text-sm text-amber-300">
+                      ⏳ Le paiement sera disponible une fois vos locations d&apos;équipement validées
+                      par un administrateur. Vous recevrez le récapitulatif des frais par email.
+                    </div>
+                  ) : dueCents > 0 && myReg.status !== "REJECTED" ? (
+                    <div className="mt-3 rounded-lg border border-primary-700 bg-primary-900/40 px-4 py-3">
+                      <p className="text-sm text-slate-300">
+                        Total à régler (repas, participation, locations) :{" "}
+                        <strong className="text-silver-100">{(dueCents / 100).toLocaleString("fr-FR")}€</strong>
+                      </p>
+                      <button
+                        type="button"
+                        disabled
+                        className="mt-2 rounded-md border border-primary-700 bg-primary-900 px-4 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                      >
+                        💳 Payer en ligne (indisponible)
+                      </button>
+                      <p className="mt-1.5 text-sm text-amber-400/80">
+                        💡 Le paiement s'effectue sur place le jour de l'événement.
+                      </p>
+                      {actionError && <p className="mt-2 text-xs text-red-400">{actionError}</p>}
+                    </div>
+                  ) : null}
+                </>
               );
             })()}
 
@@ -568,7 +693,7 @@ export default function EventCalendar() {
                     checked={wantsEquipment}
                     onChange={(e) => {
                       setWantsEquipment(e.target.checked);
-                      if (!e.target.checked) setSelectedEquipmentIds([]);
+                      if (!e.target.checked) setSelectedEquipment({});
                     }}
                     className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
                   />
@@ -577,64 +702,113 @@ export default function EventCalendar() {
 
                 {wantsEquipment &&
                   (() => {
-                    const taken = takenEquipmentIds(selected);
-                    return ["REPLIQUE", "EQUIPEMENT"].map((cat) => {
-                      const items = equipmentList.filter((eq) => eq.category === cat);
+                    const taken = takenEquipmentQuantities(selected);
+                    const cats = equipmentCategories.length > 0
+                      ? equipmentCategories
+                      : [...new Set(equipmentList.map(eq => eq.category))].map(k => ({ key: k, label: k, emoji: "📦" }));
+                    return cats.map((cat) => {
+                      const items = equipmentList.filter((eq) => eq.category === cat.key);
                       if (items.length === 0) return null;
                       return (
-                        <div key={cat} className="mt-4">
+                        <div key={cat.key} className="mt-4">
                           <p className="text-sm font-medium text-slate-300">
-                            {cat === "REPLIQUE" ? "Répliques" : "Équipements"}
+                            {cat.emoji} {cat.label}
                           </p>
                           <div className="mt-2 grid gap-3 sm:grid-cols-2">
                             {items.map((eq) => {
-                              const checked = selectedEquipmentIds.includes(eq.id);
-                              const isTaken = taken.has(eq.id);
-                              const disabled = eq.status !== "DISPONIBLE" || isTaken;
+                              const qty = selectedEquipment[eq.id] ?? 0;
+                              const takenQty = taken.get(eq.id) ?? 0;
+                              const available = Math.max(0, (eq.stock ?? 1) - takenQty);
+                              const isFull = available <= 0;
+                              const disabled = eq.status !== "DISPONIBLE" || isFull;
                               const firstPhoto = eq.photos
                                 ?.split("\n")
                                 .map((p) => p.trim())
                                 .filter(Boolean)[0];
                               return (
-                                <button
-                                  type="button"
+                                <div
                                   key={eq.id}
-                                  disabled={disabled}
-                                  onClick={() => toggleEquipment(eq.id)}
-                                  className={`flex gap-3 rounded-xl border-2 p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    checked
-                                      ? "border-primary-400 bg-primary-800/50"
-                                      : "border-primary-800 bg-primary-950/60"
-                                  }`}
+                                  className={`rounded-xl border-2 p-3 transition ${
+                                    qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                  } ${disabled && qty === 0 ? "opacity-50" : ""}`}
                                 >
-                                  {firstPhoto && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={firstPhoto}
-                                      alt={eq.name}
-                                      className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                                    />
-                                  )}
-                                  <div>
-                                    <p className="font-medium text-silver-100">{eq.name}</p>
-                                    <p className="text-xs text-slate-400">
-                                      {eq.rentalCost}€
-                                      {eq.magazineCount != null && ` · ${eq.magazineCount} chargeur(s)`}
-                                    </p>
-                                    {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
-                                    {isTaken ? (
-                                      <p className="mt-1 text-xs text-amber-400">
-                                        Déjà réservé pour cet événement
+                                  <button
+                                    type="button"
+                                    disabled={disabled && qty === 0}
+                                    onClick={() => {
+                                      if (qty > 0) {
+                                        setSelectedEquipment((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                      } else if (!disabled) {
+                                        setSelectedEquipment((prev) => ({ ...prev, [eq.id]: 1 }));
+                                      }
+                                    }}
+                                    className="flex w-full gap-3 text-left disabled:cursor-not-allowed"
+                                  >
+                                    {firstPhoto && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={firstPhoto}
+                                        alt={eq.name}
+                                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                                      />
+                                    )}
+                                    <div>
+                                      <p className="font-medium text-silver-100">{eq.name}</p>
+                                      <p className="text-xs text-slate-400">
+                                        {eq.rentalCost}€ · {available}/{eq.stock ?? 1} dispo.
+                                        {eq.propulsion && ` · ${eq.propulsion.split(",").map((v) => v.trim()).join(", ")}`}
+                                        {eq.fps != null && ` · ${eq.fps} FPS`}
+                                        {eq.bbWeight != null && ` · ${eq.bbWeight}g`}
                                       </p>
-                                    ) : (
-                                      eq.status !== "DISPONIBLE" && (
+                                      {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
+                                      {eq.associations.length > 0 && (
+                                        <ul className="mt-1.5 space-y-0.5">
+                                          {eq.associations.map((a) => {
+                                            const item = equipmentList.find((e) => e.id === a.itemId);
+                                            if (!item) return null;
+                                            return (
+                                              <li key={a.itemId} className="text-xs text-slate-500">
+                                                + {a.quantity > 1 ? `${a.quantity}× ` : ""}{item.name}
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      )}
+                                      {isFull ? (
+                                        <p className="mt-1 text-xs text-amber-400">Plus disponible pour cet événement</p>
+                                      ) : eq.status !== "DISPONIBLE" && (
                                         <p className="mt-1 text-xs text-amber-400">
                                           {eq.status === "HORS_SERVICE" ? "Hors-service" : "Indisponible"}
                                         </p>
-                                      )
-                                    )}
-                                  </div>
-                                </button>
+                                      )}
+                                    </div>
+                                  </button>
+                                  {qty > 0 && (
+                                    <div className="mt-3 flex items-center gap-2 border-t border-primary-700 pt-3">
+                                      <span className="text-xs text-slate-400">Quantité :</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (qty <= 1) {
+                                            setSelectedEquipment((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                          } else {
+                                            setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty - 1 }));
+                                          }
+                                        }}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800"
+                                      >−</button>
+                                      <span className="w-6 text-center text-sm font-medium text-silver-100">{qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (qty < available) setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty + 1 }));
+                                        }}
+                                        disabled={qty >= available}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                                      >+</button>
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
@@ -789,6 +963,13 @@ export default function EventCalendar() {
 
             {selected.activityType === "AIRSOFT" && isRegistered(selected) && (() => {
               const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+              if (myReg?.isTrialDay) {
+                return (
+                  <div className="mt-4 rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-4 text-sm text-emerald-300">
+                    🎯 Vous participez en <strong>journée d'essai airsoft</strong> — aucun frais à régler.
+                  </div>
+                );
+              }
               if (myReg?.participationFee && myReg.participationFee > 0) {
                 return (
                   <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4 text-sm text-amber-300">
@@ -808,7 +989,7 @@ export default function EventCalendar() {
                   }
                   const total = myReg.rentals
                     .filter((r) => r.status !== "REJECTED")
-                    .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost), 0);
+                    .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost * (r.quantity ?? 1)), 0);
                   const statusLabel = (s: string) =>
                     s === "APPROVED" ? "Validée" : s === "REJECTED" ? "Refusée" : "En attente de validation";
                   return (
@@ -817,7 +998,7 @@ export default function EventCalendar() {
                       <ul className="mt-2 space-y-1">
                         {myReg.rentals.map((r) => (
                           <li key={r.id}>
-                            {r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost}€`} —{" "}
+                            {r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} —{" "}
                             <span
                               className={
                                 r.status === "APPROVED"
@@ -902,6 +1083,87 @@ export default function EventCalendar() {
 
             {actionError && <p className="mt-3 text-sm text-red-400">{actionError}</p>}
 
+            {showConfirmation && !isRegistered(selected) && (
+              <div className="mt-4 rounded-xl border-2 border-primary-500 bg-primary-900/60 p-5">
+                <p className="font-display text-base text-silver-100">Récapitulatif de votre inscription</p>
+
+                <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
+                  <li>📅 <strong className="text-silver-100">{selected.title}</strong></li>
+                  <li>
+                    {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {" de "}
+                    {new Date(selected.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    {" à "}
+                    {new Date(selected.endsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </li>
+                  {airsoftTrialDay && selected.activityType === "AIRSOFT" && (
+                    <li>🎯 <span className="text-emerald-300">Journée d&apos;essai airsoft — participation gratuite</span></li>
+                  )}
+                  {participationAccepted === true && (
+                    <li>💶 Participation invité : <strong className="text-white">5€ à régler sur place</strong></li>
+                  )}
+                  {wantsMeal && (
+                    <li>🍽️ Repas : <strong className="text-white">{selected.mealPrice}€ forfait</strong> à régler sur place
+                      {Object.entries(quantities).filter(([, q]) => q > 0).map(([key, qty]) => {
+                        const label = key === GENERIC_MEAL_KEY ? "Repas" : selected.menus.find((m) => m.id === key)?.label ?? "Menu";
+                        return <span key={key} className="ml-1 text-slate-400">({qty}× {label})</span>;
+                      })}
+                    </li>
+                  )}
+                  {selectedEquipmentTotal > 0 && (
+                    <li>🔫 Matériel loué : <strong className="text-white">{selectedEquipmentTotal}€</strong> à régler sur place
+                      <ul className="ml-4 mt-1 space-y-0.5 text-slate-400">
+                        {Object.entries(selectedEquipment).filter(([, q]) => q > 0).map(([id, qty]) => {
+                          const eq = equipmentList.find((e) => e.id === id);
+                          return eq ? <li key={id}>{qty}× {eq.name}</li> : null;
+                        })}
+                      </ul>
+                    </li>
+                  )}
+                  {(participationAccepted === true || wantsMeal || selectedEquipmentTotal > 0) && (
+                    <li className="border-t border-primary-700 pt-2 font-medium text-silver-100">
+                      Total à régler sur place :{" "}
+                      {(participationAccepted === true ? 5 : 0) + (wantsMeal ? selected.mealPrice : 0) + selectedEquipmentTotal}€
+                    </li>
+                  )}
+                </ul>
+
+                {eventDocs.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-3 text-sm">
+                    <p className="text-slate-300">
+                      En vous inscrivant, vous acceptez les termes des documents suivants :
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {eventDocs.map((d) => (
+                        <li key={d.id}>
+                          <button onClick={() => openDoc(d.id)} className="text-primary-300 hover:underline">
+                            📄 {d.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {docMsg && <p className="mt-2 text-xs text-amber-400">{docMsg}</p>}
+                  </div>
+                )}
+
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => handleRegister(selected)}
+                    disabled={loadingAction}
+                    className="rounded-md bg-primary-400 px-5 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                  >
+                    {loadingAction ? "Inscription…" : "Confirmer l'inscription"}
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmation(false)}
+                    className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800/60"
+                  >
+                    Retour
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setSelected(null)}
@@ -909,22 +1171,27 @@ export default function EventCalendar() {
               >
                 Fermer
               </button>
-              <button
-                onClick={() => handleRegister(selected)}
-                disabled={
-                  loadingAction ||
-                  isRegistrationClosed(selected) ||
-                  (!isRegistered(selected) && !isEligible(selected) &&
-                    !(selected.activityType === "AIRSOFT" && participationAccepted === true))
-                }
-                className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 ${
-                  isRegistered(selected)
-                    ? "bg-red-700 text-white hover:bg-red-600"
-                    : "bg-primary-400 text-primary-950 hover:bg-silver-300"
-                }`}
-              >
-                {isRegistered(selected) ? "Se désinscrire" : "S'inscrire"}
-              </button>
+              {isRegistered(selected) ? (
+                <button
+                  onClick={() => handleRegister(selected)}
+                  disabled={loadingAction}
+                  className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                >
+                  Se désinscrire
+                </button>
+              ) : !showConfirmation && (
+                <button
+                  onClick={() => setShowConfirmation(true)}
+                  disabled={
+                    loadingAction ||
+                    isRegistrationClosed(selected) ||
+                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true))
+                  }
+                  className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                >
+                  S&apos;inscrire
+                </button>
+              )}
             </div>
           </div>
         </div>

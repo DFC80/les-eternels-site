@@ -24,9 +24,10 @@ type EventItem = {
   boardGames: { id: string; name: string }[];
   registrations: {
     id: string;
+    status: string;
     wantsMeal: boolean;
     participationFee: number;
-    rentals: { status: string; isFree: boolean; equipment: { rentalCost: number } }[];
+    rentals: { status: string; isFree: boolean; quantity: number; equipment: { rentalCost: number } }[];
   }[];
 };
 
@@ -49,6 +50,7 @@ type Rental = {
   id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   isFree: boolean;
+  quantity: number;
   memberName: string;
   equipment: { id: string; name: string; rentalCost: number };
 };
@@ -57,6 +59,8 @@ type EventRegistrationAdmin = {
   id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   wantsMeal: boolean;
+  isTrialDay: boolean;
+  isPaid: boolean;
   memberName: string;
   memberEmail: string;
   createdAt: string;
@@ -80,7 +84,7 @@ const EMPTY_FORM = {
   boardGameIds: [] as string[],
 };
 
-type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string };
+type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string; owner: { firstName: string; name: string } };
 
 type KioskMember = { id: string; firstName: string; name: string; balance: number };
 type KioskProduct = { id: string; category: string; name: string; price: number; stock: number };
@@ -399,6 +403,17 @@ export default function AdminEventsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    if (res.ok) {
+      await Promise.all([loadEventRegistrations(eventId), load()]);
+    }
+  }
+
+  async function toggleRegistrationPaid(eventId: string, registrationId: string, isPaid: boolean) {
+    const res = await fetch(`/api/admin/registrations/${registrationId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPaid }),
+    });
     if (res.ok) await loadEventRegistrations(eventId);
   }
 
@@ -454,8 +469,8 @@ export default function AdminEventsPage() {
           {new Date(ev.startsAt).toLocaleString("fr-FR")} · 📍 {ev.location}
         </p>
         <p className="mt-1 text-sm text-slate-400">
-          {ev.registrations.length}
-          {ev.capacity ? ` / ${ev.capacity}` : ""} inscrit(s)
+          {ev.registrations.filter((r) => r.status === "APPROVED").length}
+          {ev.capacity ? ` / ${ev.capacity}` : ""} inscrit(s) validé(s)
         </p>
         {ev.registrationDeadline && (
           <p className="mt-1 text-xs text-slate-500">
@@ -537,7 +552,14 @@ export default function AdminEventsPage() {
                   <li key={r.id} className="rounded-lg border border-primary-800 bg-primary-900/40 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="font-medium text-slate-200">{r.memberName}</p>
+                        <p className="font-medium text-slate-200">
+                          {r.memberName}
+                          {r.isTrialDay && (
+                            <span className="ml-2 rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                              🎯 Essai
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-slate-400">
                           {r.memberEmail}
                           {r.wantsMeal && " · 🍽️ repas"}
@@ -557,9 +579,24 @@ export default function AdminEventsPage() {
                                 ? "Refusée"
                                 : "En attente"}
                           </span>
+                          {" · "}
+                          <span className={r.isPaid ? "text-emerald-400" : "text-amber-400"}>
+                            {r.isPaid ? "💶 Payé" : "💶 Non payé"}
+                          </span>
                         </p>
                       </div>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => toggleRegistrationPaid(ev.id, r.id, !r.isPaid)}
+                          className={`rounded px-2 py-1 text-xs font-medium ${
+                            r.isPaid
+                              ? "bg-primary-900 text-slate-400 hover:bg-primary-800"
+                              : "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
+                          }`}
+                          title={r.isPaid ? "Repasser en non payé" : "Règlement reçu sur place"}
+                        >
+                          {r.isPaid ? "Annuler paiement" : "Marquer payé"}
+                        </button>
                         {r.status !== "APPROVED" && (
                           <button
                             onClick={() => updateRegistration(ev.id, r.id, "APPROVED")}
@@ -657,7 +694,7 @@ export default function AdminEventsPage() {
                   sum +
                   r.rentals
                     .filter((rt) => rt.status === "APPROVED")
-                    .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost), 0),
+                    .reduce((s, rt) => s + (rt.isFree ? 0 : rt.equipment.rentalCost * (rt.quantity ?? 1)), 0),
                 0
               );
               const participationIncome = Math.round(
@@ -712,7 +749,7 @@ export default function AdminEventsPage() {
               {expenses.length === 0 && <li className="text-slate-500">Aucune dépense enregistrée.</li>}
             </ul>
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
                 value={newExpenseLabel}
                 onChange={(e) => setNewExpenseLabel(e.target.value)}
@@ -725,7 +762,7 @@ export default function AdminEventsPage() {
                 value={newExpenseAmount}
                 onChange={(e) => setNewExpenseAmount(e.target.value)}
                 placeholder="Montant €"
-                className={`${inputClass} w-32`}
+                className={`${inputClass} sm:w-32`}
               />
               <button
                 onClick={() => addExpense(ev.id)}
@@ -748,10 +785,10 @@ export default function AdminEventsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-slate-200">
-                          {r.memberName} — <span className="font-medium">{r.equipment.name}</span>
+                          {r.memberName} — <span className="font-medium">{r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name}</span>
                         </p>
                         <p className="text-xs text-slate-400">
-                          {r.isFree ? "Gratuit" : `${r.equipment.rentalCost}€`} ·{" "}
+                          {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} ·{" "}
                           <span
                             className={
                               r.status === "APPROVED"
@@ -1010,7 +1047,7 @@ export default function AdminEventsPage() {
               🎲 Jeux de société prêtés par les membres (optionnel)
             </label>
             {availableGames.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">Aucun jeu enregistré dans le stock pour le moment.</p>
+              <p className="mt-2 text-sm text-slate-500">Aucun jeu rendu visible par les membres pour le moment.</p>
             ) : (
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {availableGames.map((game) => (
@@ -1029,8 +1066,13 @@ export default function AdminEventsPage() {
                       onChange={() => toggleBoardGame(game.id)}
                       className={checkboxClass}
                     />
-                    {game.name} ({game.minPlayers}-{game.maxPlayers} joueurs)
-                    {game.status !== "DISPONIBLE" && " — indisponible"}
+                    <span>
+                      <span className="font-medium">{game.name}</span>
+                      <span className="ml-1 text-slate-400">
+                        — {game.owner.firstName} {game.owner.name} · {game.minPlayers}–{game.maxPlayers} joueurs
+                      </span>
+                      {game.status !== "DISPONIBLE" && <span className="text-amber-400"> · indisponible</span>}
+                    </span>
                   </label>
                 ))}
               </div>

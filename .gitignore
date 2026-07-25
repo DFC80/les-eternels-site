@@ -9,3 +9,6 @@ build
 npm-debug.log*
 public/uploads/*
 !public/uploads/.gitkeep
+uploads/
+certbot/conf/
+certbot/www/

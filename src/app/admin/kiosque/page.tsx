@@ -5,6 +5,14 @@ import { formatCentsToEuros } from "@/lib/money";
 
 type ProductActivity = { activityKey: string };
 
+type OrderHistory = {
+  id: string;
+  memberName: string;
+  createdAt: string;
+  totalAmount: number;
+  items: { name: string; quantity: number; unitPrice: number }[];
+};
+
 type Product = {
   id: string;
   category: "SNACK" | "DRINK";
@@ -35,6 +43,9 @@ export default function KiosquePage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<OrderHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   async function loadProducts() {
     const res = await fetch("/api/admin/products");
@@ -124,6 +135,19 @@ export default function KiosquePage() {
     setCart({});
     setMessage("Commande confirmée !");
     await Promise.all([loadProducts(), loadMembers()]);
+  }
+
+  async function toggleHistory() {
+    if (showHistory) { setShowHistory(false); return; }
+    setShowHistory(true);
+    if (history.length > 0) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/admin/kiosk/orders");
+      if (res.ok) setHistory(await res.json());
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   async function addBalance() {
@@ -333,6 +357,55 @@ export default function KiosquePage() {
           {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
           {message && <p className="mt-4 text-sm text-emerald-400">{message}</p>}
         </div>
+      </div>
+      <div className="mt-10 border-t border-primary-800 pt-6">
+        <button
+          onClick={toggleHistory}
+          className="flex items-center gap-2 rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800"
+        >
+          <span>{showHistory ? "▾" : "▸"}</span>
+          Historique des ventes
+        </button>
+
+        {showHistory && (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-primary-800 bg-primary-900/40">
+            {historyLoading ? (
+              <p className="px-4 py-4 text-sm text-slate-400">Chargement…</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-primary-950/60 text-left text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Membre</th>
+                    <th className="px-4 py-3">Articles</th>
+                    <th className="px-4 py-3">Total</th>
+                    <th className="px-4 py-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((o) => (
+                    <tr key={o.id} className="border-t border-primary-800 text-slate-200">
+                      <td className="px-4 py-3 font-medium">{o.memberName}</td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {o.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+                      </td>
+                      <td className="px-4 py-3">{formatCentsToEuros(o.totalAmount)}</td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {new Date(o.createdAt).toLocaleString("fr-FR")}
+                      </td>
+                    </tr>
+                  ))}
+                  {history.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-slate-500">
+                        Aucune vente enregistrée.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

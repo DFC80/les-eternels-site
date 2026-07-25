@@ -21,19 +21,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes } = body as {
+  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, isPublic } = body as {
     name?: string;
     photoUrl?: string | null;
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
+    isPublic?: boolean;
   };
 
   const min = minPlayers != null ? Math.round(Number(minPlayers)) : existing.minPlayers;
   const max = maxPlayers != null ? Math.round(Number(maxPlayers)) : existing.maxPlayers;
-  const duration = durationMinutes != null ? Math.round(Number(durationMinutes)) : existing.durationMinutes;
+  const duration = durationMinutes != null && durationMinutes !== "" ? Math.round(Number(durationMinutes)) : (durationMinutes === "" ? null : existing.durationMinutes);
 
-  if (Number.isNaN(min) || Number.isNaN(max) || Number.isNaN(duration) || min <= 0 || max < min || duration <= 0) {
+  if (Number.isNaN(min) || Number.isNaN(max) || min <= 0 || max < min || (duration !== null && duration !== undefined && duration <= 0)) {
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 
@@ -45,6 +46,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
+      ...(isPublic !== undefined ? { isPublic } : {}),
     },
   });
 

@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { getColors } from "@/lib/activity-colors";
 
@@ -15,13 +16,18 @@ type Activity = {
 };
 
 type Photo = { id: string; url: string; comment: string | null };
+type Doc = { id: string; name: string };
 
 function ActivitiesContent() {
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [docMsg, setDocMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/activities")
@@ -37,13 +43,46 @@ function ActivitiesContent() {
   async function toggleExpand(key: string) {
     if (expanded === key) {
       setExpanded(null);
+      setDocs([]);
       return;
     }
     setExpanded(key);
+    setDocs([]);
+    setDocMsg(null);
+
     setLoadingPhotos(true);
-    const res = await fetch(`/api/gallery?activityType=${key}&sort=desc`);
-    if (res.ok) setPhotos((await res.json()).slice(0, 6));
+    setLoadingDocs(true);
+
+    const [pr, dr] = await Promise.all([
+      fetch(`/api/gallery?activityType=${key}&sort=desc`),
+      fetch(`/api/activity-docs?activityKey=${key}`),
+    ]);
+
+    if (pr.ok) setPhotos((await pr.json()).slice(0, 6));
     setLoadingPhotos(false);
+
+    if (dr.ok) setDocs(await dr.json());
+    setLoadingDocs(false);
+  }
+
+  async function openDoc(id: string) {
+    if (!session) {
+      setDocMsg("Connectez-vous pour accéder à ce document.");
+      return;
+    }
+    const res = await fetch(`/api/docs/${id}`);
+    if (res.status === 403) {
+      setDocMsg("Une cotisation pour cette activité est requise pour accéder à ce document.");
+      return;
+    }
+    if (!res.ok) {
+      setDocMsg("Erreur lors du chargement du document.");
+      return;
+    }
+    setDocMsg(null);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   }
 
   return (
@@ -78,7 +117,43 @@ function ActivitiesContent() {
 
               {isExpanded && (
                 <div className="mt-4 grid gap-6 sm:grid-cols-2">
-                  <p className="leading-relaxed text-slate-300">{a.content}</p>
+                  <div>
+                    <p className="leading-relaxed text-slate-300">{a.content}</p>
+
+                    {(loadingDocs || docs.length > 0) && (
+                      <div className="mt-5">
+                        <p className="text-sm font-medium text-slate-300">Documents</p>
+                        {loadingDocs ? (
+                          <p className="mt-2 text-sm text-slate-500">Chargement...</p>
+                        ) : (
+                          <ul className="mt-2 space-y-1.5">
+                            {docs.map((d) => (
+                              <li key={d.id}>
+                                <button
+                                  onClick={() => openDoc(d.id)}
+                                  className="flex items-center gap-2 text-sm text-primary-300 hover:underline"
+                                >
+                                  <span>📄</span>
+                                  <span>{d.name}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {docMsg && (
+                          <p className="mt-2 text-xs text-amber-400">{docMsg}</p>
+                        )}
+                        {!session && !loadingDocs && docs.length > 0 && !docMsg && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            <Link href="/login" className="text-primary-300 hover:underline">
+                              Connectez-vous
+                            </Link>{" "}
+                            pour accéder aux documents.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <p className="text-sm font-medium text-slate-300">Photos récentes</p>

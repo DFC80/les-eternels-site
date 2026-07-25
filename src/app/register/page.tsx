@@ -55,7 +55,7 @@ export default function RegisterPage() {
           <p className="text-4xl">✅</p>
           <h2 className="mt-4 font-display text-xl text-silver-100">Demande envoyée !</h2>
           <p className="mt-3 text-sm text-slate-300">
-            Votre compte a bien été créé. Un administrateur va examiner votre demande et vous enverrez un email de confirmation dès que votre accès sera validé.
+            Pour valider votre inscription, merci de cliquer sur le lien reçu à votre adresse email d'inscription.
           </p>
           <Link href="/" className="mt-6 inline-block text-sm font-medium text-primary-300 hover:underline">
             Retour à l'accueil

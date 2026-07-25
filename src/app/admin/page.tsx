@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { canAccessSection, isFullAdmin } from "@/lib/permissions";
+import { sessionHasAccess, isFullAdmin, type AdminSection } from "@/lib/permissions";
 
 type Card = {
   href: string;
   icon: string;
   title: string;
   description: string;
-  section: Parameters<typeof canAccessSection>[1];
+  section: AdminSection;
+  fullAdminOnly?: boolean;
 };
 
 const CARDS: Card[] = [
@@ -22,17 +23,21 @@ const CARDS: Card[] = [
   { href: "/admin/kiosque",      icon: "🛒", title: "Comptoir (tablette)",    section: "kiosque",      description: "Page tactile pour vendre friandises et boissons pendant les soirées jeux." },
   { href: "/admin/activites",    icon: "📝", title: "Pages d'activités",      section: "activites",    description: "Modifier le texte de présentation des activités affiché sur le site." },
   { href: "/admin/bureau",       icon: "🏛️", title: "Bureau",                 section: "bureau",       description: "Gérer les rôles du bureau et assigner des membres à ces postes." },
+  { href: "/admin/actualites",   icon: "📰", title: "Actualités",             section: "content",      description: "Créer et gérer les articles d'actualité publiés sur le site." },
+  { href: "/admin/sondages",     icon: "📊", title: "Sondages",               section: "sondages",     description: "Créer des sondages et consulter les résultats des votes membres." },
   { href: "/admin/parametres",   icon: "⚙️", title: "Paramètres",             section: "parametres",   description: "Modifier le descriptif de l'association affiché sur la page d'accueil." },
+  { href: "/admin/permissions",  icon: "🔐", title: "Permissions",            section: "parametres",   description: "Configurer les sections admin accessibles pour chaque rôle de bureau.", fullAdminOnly: true },
 ];
 
 export default async function AdminHome() {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role ?? "MEMBER";
   const fullAdmin = isFullAdmin(role);
+  const user = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
 
-  const visibleCards = fullAdmin
-    ? CARDS
-    : CARDS.filter((c) => canAccessSection(role, c.section));
+  const visibleCards = CARDS.filter(
+    (c) => !c.fullAdminOnly && sessionHasAccess(user, c.section)
+  ).concat(fullAdmin ? CARDS.filter((c) => c.fullAdminOnly) : []);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">

@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "events"))) {
+  if (!session || !sessionHasAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -23,6 +23,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       id: r.id,
       status: r.status,
       wantsMeal: r.wantsMeal,
+      isTrialDay: r.isTrialDay,
+      isPaid: r.isPaid,
       createdAt: r.createdAt,
       memberName: `${r.user.firstName} ${r.user.name}`,
       memberEmail: r.user.email,

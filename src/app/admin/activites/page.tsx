@@ -17,6 +17,8 @@ type Activity = {
   content: string;
 };
 
+type ActivityDoc = { id: string; activityKey: string; name: string; filename: string; showInEvents: boolean; createdAt: string };
+
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
@@ -35,6 +37,12 @@ export default function AdminActivitiesPage() {
   const [metaDrafts, setMetaDrafts] = useState<Record<string, { label: string; emoji: string; color: ColorKey; membershipRequired: boolean; isActive: boolean; price: number }>>({});
   const [savingMeta, setSavingMeta] = useState<string | null>(null);
 
+  const [docs, setDocs] = useState<Record<string, ActivityDoc[]>>({});
+  const [docName, setDocName] = useState<Record<string, string>>({});
+  const [docFile, setDocFile] = useState<Record<string, File | null>>({});
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const [docError, setDocError] = useState<Record<string, string | null>>({});
+
   async function load() {
     const res = await fetch("/api/activities");
     if (res.ok) {
@@ -52,7 +60,63 @@ export default function AdminActivitiesPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadAllDocs() {
+    const res = await fetch("/api/admin/activity-docs");
+    if (!res.ok) return;
+    const data: ActivityDoc[] = await res.json();
+    const grouped: Record<string, ActivityDoc[]> = {};
+    for (const d of data) {
+      if (!grouped[d.activityKey]) grouped[d.activityKey] = [];
+      grouped[d.activityKey].push(d);
+    }
+    setDocs(grouped);
+  }
+
+  async function uploadDoc(activityKey: string) {
+    const file = docFile[activityKey];
+    const name = docName[activityKey]?.trim();
+    if (!name) {
+      setDocError((p) => ({ ...p, [activityKey]: "Veuillez saisir un nom pour le document." }));
+      return;
+    }
+    if (!file) {
+      setDocError((p) => ({ ...p, [activityKey]: "Veuillez sélectionner un fichier PDF." }));
+      return;
+    }
+    setUploadingDoc(activityKey);
+    setDocError((p) => ({ ...p, [activityKey]: null }));
+    const fd = new FormData();
+    fd.append("activityKey", activityKey);
+    fd.append("name", name);
+    fd.append("file", file);
+    const res = await fetch("/api/admin/activity-docs", { method: "POST", body: fd });
+    setUploadingDoc(null);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setDocError((p) => ({ ...p, [activityKey]: body.error ?? "Erreur lors de l'upload." }));
+      return;
+    }
+    setDocName((p) => ({ ...p, [activityKey]: "" }));
+    setDocFile((p) => ({ ...p, [activityKey]: null }));
+    await loadAllDocs();
+  }
+
+  async function toggleDocEvent(id: string, showInEvents: boolean) {
+    await fetch(`/api/admin/activity-docs/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showInEvents }),
+    });
+    await loadAllDocs();
+  }
+
+  async function deleteDoc(id: string) {
+    if (!confirm("Supprimer ce document ?")) return;
+    const res = await fetch(`/api/admin/activity-docs/${id}`, { method: "DELETE" });
+    if (res.ok) await loadAllDocs();
+  }
+
+  useEffect(() => { load(); loadAllDocs(); }, []);
 
   async function saveContent(key: string) {
     setSaving(key);
@@ -417,6 +481,77 @@ export default function AdminActivitiesPage() {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Documents PDF */}
+                <div className="mt-5 border-t border-primary-800 pt-5">
+                  <p className="text-sm font-medium text-slate-300">Documents PDF</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Accessibles uniquement aux membres ayant une cotisation pour cette activité.
+                  </p>
+
+                  {(docs[a.key] ?? []).length > 0 ? (
+                    <ul className="mt-3 space-y-2">
+                      {(docs[a.key] ?? []).map((d) => (
+                        <li key={d.id} className="flex items-center gap-3 rounded-md bg-primary-950 px-3 py-2 text-sm">
+                          <a
+                            href={`/api/docs/${d.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-w-0 flex-1 truncate text-primary-300 hover:underline"
+                          >
+                            📄 {d.name}
+                          </a>
+                          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+                            <input
+                              type="checkbox"
+                              checked={d.showInEvents}
+                              onChange={(e) => toggleDocEvent(d.id, e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                            />
+                            Dans les événements
+                          </label>
+                          <button
+                            onClick={() => deleteDoc(d.id)}
+                            className="shrink-0 text-xs text-red-400 hover:underline"
+                          >
+                            Supprimer
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">Aucun document pour cette activité.</p>
+                  )}
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      type="text"
+                      placeholder="Nom du document (ex : Règlement)"
+                      value={docName[a.key] ?? ""}
+                      onChange={(e) => setDocName((p) => ({ ...p, [a.key]: e.target.value }))}
+                      className="rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                    />
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-300 hover:border-primary-500">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={(e) => setDocFile((p) => ({ ...p, [a.key]: e.target.files?.[0] ?? null }))}
+                      />
+                      {docFile[a.key] ? docFile[a.key]!.name : "Choisir un PDF…"}
+                    </label>
+                  </div>
+                  {docError[a.key] && (
+                    <p className="mt-1 text-xs text-red-400">{docError[a.key]}</p>
+                  )}
+                  <button
+                    onClick={() => uploadDoc(a.key)}
+                    disabled={uploadingDoc === a.key}
+                    className="mt-2 rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                  >
+                    {uploadingDoc === a.key ? "Envoi…" : "Ajouter le document"}
+                  </button>
                 </div>
               </div>
             );

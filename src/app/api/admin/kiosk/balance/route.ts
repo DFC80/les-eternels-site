@@ -1,13 +1,13 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { parseEurosToCents } from "@/lib/money";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "kiosque"))) {
+  if (!session || !sessionHasAccess(session.user, "kiosque")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -23,10 +23,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Montant invalide." }, { status: 400 });
   }
 
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: { balance: { increment: amountCents } },
-  });
+  const [user] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { balance: { increment: amountCents } },
+    }),
+    prisma.balanceTopUp.create({
+      data: { userId, amount: amountCents },
+    }),
+  ]);
 
   return NextResponse.json({ id: user.id, balance: user.balance });
 }

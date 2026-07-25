@@ -1,14 +1,39 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 type ItemInput = { productId: string; quantity: number };
 
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasAccess(session.user, "kiosque")) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+
+  const orders = await prisma.snackOrder.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { firstName: true, name: true } },
+      items: true,
+    },
+  });
+
+  return NextResponse.json(
+    orders.map((o) => ({
+      id: o.id,
+      memberName: `${o.user.firstName} ${o.user.name}`,
+      createdAt: o.createdAt,
+      totalAmount: o.totalAmount,
+      items: o.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+    }))
+  );
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "kiosque"))) {
+  if (!session || !sessionHasAccess(session.user, "kiosque")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 

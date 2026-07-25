@@ -9,6 +9,14 @@ export async function GET() {
     return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
   }
 
-  const equipment = await prisma.equipment.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] });
-  return NextResponse.json(equipment);
+  const equipment = await prisma.equipment.findMany({
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+    include: { associations: { select: { itemId: true, quantity: true } } },
+  });
+  return NextResponse.json(
+    equipment.map((e) => ({
+      ...e,
+      associations: e.associations.map((a) => ({ itemId: a.itemId, quantity: a.quantity })),
+    }))
+  );
 }

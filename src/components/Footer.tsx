@@ -60,6 +60,12 @@ export default async function Footer() {
 
         <p>© {anneeCopyright} {nomAssociation} — Association loi 1901.</p>
         {activityLine && <p>{activityLine}</p>}
+        <a
+          href="/mentions-legales"
+          className="text-slate-500 hover:text-slate-300 transition-colors text-xs"
+        >
+          Mentions légales
+        </a>
       </div>
     </footer>
   );
