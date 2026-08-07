@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { isFullAdmin } from "@/lib/permissions";
 
-type Activity = { key: string; label: string; emoji: string };
+type Activity = { key: string; label: string; emoji: string; isActive: boolean };
 type PollOption = { id: string; label: string; order: number; voteCount?: number };
 type PollVoterOption = { id: string; label: string; voters: { id: string; firstName: string; name: string }[] };
 type Poll = {
