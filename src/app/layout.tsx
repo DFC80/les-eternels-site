@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { Inter, Cinzel, Pinyon_Script } from "next/font/google";
 import "./globals.css";
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await prisma.siteSetting.findMany({
     where: { key: { in: ["nomAssociation", "logoVersion"] } },
-  });
+  }).catch(() => []);
   const map = Object.fromEntries(settings.map((s) => [s.key, s.value]));
   const nomAssociation = map.nomAssociation ?? "Les Éternels";
   const logoSrc = `/logo.jpg${map.logoVersion ? `?v=${map.logoVersion}` : ""}`;

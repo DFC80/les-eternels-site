@@ -27,7 +27,7 @@ export default async function Footer() {
     prisma.siteSetting.findUnique({ where: { key: "nomAssociation" } }),
     prisma.siteSetting.findUnique({ where: { key: "anneeCopyright" } }),
     prisma.siteSetting.findUnique({ where: { key: "logoVersion" } }),
-  ]);
+  ]).catch(() => [[], null, null, null] as const);
 
   const nomAssociation = nomSetting?.value ?? "Les Éternels";
   const anneeCopyright = anneeSetting?.value ?? String(new Date().getFullYear());
