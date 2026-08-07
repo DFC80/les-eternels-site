@@ -51,7 +51,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Fichier introuvable." }, { status: 404 });
   }
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${encodeURIComponent(doc.name)}.pdf"`,
