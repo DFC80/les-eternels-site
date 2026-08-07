@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection, isFullAdmin } from "@/lib/permissions";
 
-type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean };
+type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean; isActive: boolean };
 
 type Membership = {
   year: number;
