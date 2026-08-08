@@ -57,7 +57,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
       where: { userId: session.user.id },
       include: { extraActivities: true },
     });
-    const validMembership = membership && (membership.year === currentSeasonYear() || membership.year === nextSeasonYear());
+    const isNextSeason = membership?.year === nextSeasonYear();
+    if (isNextSeason) {
+      const nextSeasonStart = new Date(nextSeasonYear(), 8, 1); // 1er septembre
+      const daysUntil = (nextSeasonStart.getTime() - new Date(event.startsAt).getTime()) / 86400000;
+      if (daysUntil > 70) {
+        const earliest = new Date(nextSeasonStart.getTime() - 70 * 86400000);
+        const fmt = earliest.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+        return NextResponse.json(
+          { error: `Votre adhésion ${nextSeasonYear()}-${nextSeasonYear() + 1} ne sera utilisable que pour les événements à partir du ${fmt}.` },
+          { status: 403 }
+        );
+      }
+    }
+    const validMembership = membership && (membership.year === currentSeasonYear() || isNextSeason);
     let covered = false;
     if (validMembership) {
       if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;
