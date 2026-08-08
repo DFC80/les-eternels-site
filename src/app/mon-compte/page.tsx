@@ -45,6 +45,7 @@ export default function MonComptePage() {
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
 
   async function payOnline() {
     setError(null);
@@ -63,11 +64,23 @@ export default function MonComptePage() {
     setPaying(false);
   }
 
+  const PAYMENT_LABELS: Record<string, string> = {
+    especes: "espèces",
+    cheque: "chèque",
+    virement: "virement bancaire",
+    carte: "carte bancaire",
+  };
+
   async function load() {
-    const [memberRes, actRes] = await Promise.all([
+    const [memberRes, actRes, settingsRes] = await Promise.all([
       fetch("/api/membership"),
       fetch("/api/activities"),
+      fetch("/api/settings"),
     ]);
+    if (settingsRes.ok) {
+      const s = await settingsRes.json();
+      setPaymentMethods(Array.isArray(s.paymentMethods) ? s.paymentMethods : ["especes"]);
+    }
 
     if (actRes.ok) {
       const acts: ActivityDef[] = await actRes.json();
@@ -193,7 +206,11 @@ export default function MonComptePage() {
       <h1 className="font-display text-3xl text-silver-100">Mon adhésion</h1>
       <p className="mt-2 text-slate-400">
         Choisissez les activités auxquelles vous souhaitez participer pour calculer le montant
-        de votre cotisation annuelle. Le règlement se fait sur place. La cotisation est valable
+        de votre cotisation annuelle. {paymentMethods.length > 0 && (
+          <>Le règlement se fait sur place{paymentMethods.length === 1
+            ? ` en ${PAYMENT_LABELS[paymentMethods[0]] ?? paymentMethods[0]}`
+            : ` (${paymentMethods.map((k) => PAYMENT_LABELS[k] ?? k).join(", ")})`}. </>
+        )}La cotisation est valable
         du 1er septembre au 31 août. Elle doit être renouvelée tous les ans pour une nouvelle saison.
       </p>
 

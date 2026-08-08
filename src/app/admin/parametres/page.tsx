@@ -11,6 +11,7 @@ export default function ParametresPage() {
   const [nomAssociation, setNomAssociation] = useState("");
   const [anneeCopyright, setAnneeCopyright] = useState("");
   const [description, setDescription] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(["especes"]);
   const [original, setOriginal] = useState<Record<string, string>>({});
   const [activities, setActivities] = useState<{ label: string; isActive: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -35,10 +36,12 @@ export default function ParametresPage() {
       setNomAssociation(data.nomAssociation ?? "Les Éternels");
       setAnneeCopyright(data.anneeCopyright ?? currentYear);
       setDescription(data.description ?? "");
+      try { setPaymentMethods(JSON.parse(data.paymentMethods ?? '["especes"]')); } catch { setPaymentMethods(["especes"]); }
       setOriginal({
         nomAssociation: data.nomAssociation ?? "Les Éternels",
         anneeCopyright: data.anneeCopyright ?? currentYear,
         description: data.description ?? "",
+        paymentMethods: data.paymentMethods ?? '["especes"]',
       });
     }
     if (actRes.ok) {
@@ -104,7 +107,7 @@ export default function ParametresPage() {
     await fetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nomAssociation, anneeCopyright, description }),
+      body: JSON.stringify({ nomAssociation, anneeCopyright, description, paymentMethods: JSON.stringify(paymentMethods) }),
     });
     setSaving(false);
     setOriginal({ nomAssociation, anneeCopyright, description });
@@ -113,7 +116,20 @@ export default function ParametresPage() {
     setTimeout(() => setSuccess(false), 3000);
   }
 
-  const changed = nomAssociation !== original.nomAssociation || anneeCopyright !== original.anneeCopyright || description !== original.description;
+  const changed = nomAssociation !== original.nomAssociation || anneeCopyright !== original.anneeCopyright || description !== original.description || JSON.stringify(paymentMethods) !== original.paymentMethods;
+
+  const ALL_PAYMENT_METHODS = [
+    { key: "especes", label: "Espèces" },
+    { key: "cheque", label: "Chèque" },
+    { key: "virement", label: "Virement bancaire" },
+    { key: "carte", label: "Carte bancaire" },
+  ];
+
+  function togglePayment(key: string) {
+    setPaymentMethods((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -212,6 +228,26 @@ export default function ParametresPage() {
           >
             ↺ Générer depuis les activités actives
           </button>
+        </div>
+
+        <div className="rounded-xl border border-primary-800 bg-primary-900/40 p-6">
+          <label className="block text-sm font-medium text-slate-300">Modes de paiement acceptés</label>
+          <p className="mt-1 text-xs text-slate-500">
+            Ces modes s'affichent sur la page de cotisation des membres.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {ALL_PAYMENT_METHODS.map((m) => (
+              <label key={m.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-primary-700 bg-primary-950 px-4 py-2 text-sm text-slate-300 hover:border-primary-500">
+                <input
+                  type="checkbox"
+                  checked={paymentMethods.includes(m.key)}
+                  onChange={() => togglePayment(m.key)}
+                  className="accent-primary-400"
+                />
+                {m.label}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-4">

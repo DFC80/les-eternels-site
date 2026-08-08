@@ -10,6 +10,7 @@ const DEFAULTS: Record<string, string> = {
   nomAssociation: "Les Éternels",
   anneeCopyright: String(new Date().getFullYear()),
   description: "Une association à but non lucratif réunissant les passionnés de jeux de plateau, jeux de rôle et airsoft.",
+  paymentMethods: JSON.stringify(["especes"]),
 };
 
 async function ensureDefaults() {
