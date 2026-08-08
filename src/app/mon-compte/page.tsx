@@ -193,8 +193,8 @@ export default function MonComptePage() {
       <h1 className="font-display text-3xl text-silver-100">Mon adhésion</h1>
       <p className="mt-2 text-slate-400">
         Choisissez les activités auxquelles vous souhaitez participer pour calculer le montant
-        de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait en ligne
-        par carte bancaire, ou sur place en espèces ou par chèque. La cotisation n'est valable que
+        de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait sur place
+        en espèces ou par chèque. La cotisation n'est valable que
         pour l'année en cours et doit être renouvelée chaque 1er janvier.
       </p>
 
