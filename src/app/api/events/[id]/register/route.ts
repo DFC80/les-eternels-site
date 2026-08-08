@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEventRegistrationConfirmation, sendNewEventRegistrationToAdmin } from "@/lib/mail";
-import { currentSeasonYear } from "@/lib/membership";
+import { currentSeasonYear, nextSeasonYear } from "@/lib/membership";
 
 type MealOrderInput = { menuId?: string | null; quantity: number };
 
@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       where: { userId: session.user.id },
       include: { extraActivities: true },
     });
-    const validMembership = membership && membership.year === currentSeasonYear();
+    const validMembership = membership && (membership.year === currentSeasonYear() || membership.year === nextSeasonYear());
     let covered = false;
     if (validMembership) {
       if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;
