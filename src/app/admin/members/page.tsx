@@ -164,7 +164,7 @@ export default function AdminMembersPage() {
       setError(data.error ?? "Erreur lors de la suppression.");
       return;
     }
-    await loadMembers();
+    await load();
   }
 
   async function validateSupplement(id: string) {
