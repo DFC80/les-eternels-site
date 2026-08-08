@@ -91,6 +91,28 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
+  // Expand equipment selections to include associated items automatically
+  let allRentals: { equipmentId: string; quantity: number }[] = [];
+  if (equipmentSelections.length > 0) {
+    const selectedWithAssocs = await prisma.equipment.findMany({
+      where: { id: { in: equipmentSelections.map((s) => s.id) } },
+      include: { associations: true },
+    });
+
+    const rentalMap = new Map<string, number>();
+    for (const sel of equipmentSelections) {
+      const qty = Math.max(1, Number(sel.quantity));
+      rentalMap.set(sel.id, (rentalMap.get(sel.id) ?? 0) + qty);
+      const equip = selectedWithAssocs.find((e) => e.id === sel.id);
+      if (equip) {
+        for (const assoc of equip.associations) {
+          rentalMap.set(assoc.itemId, (rentalMap.get(assoc.itemId) ?? 0) + assoc.quantity * qty);
+        }
+      }
+    }
+    allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({ equipmentId, quantity }));
+  }
+
   const registration = await prisma.eventRegistration.create({
     data: {
       userId: session.user.id,
@@ -107,25 +129,25 @@ export async function POST(request: Request, { params }: { params: { id: string 
               .map((o) => ({ menuId: o.menuId || null, quantity: o.quantity })),
           }
         : undefined,
-      rentals: equipmentSelections.length > 0
-        ? { create: equipmentSelections.map(({ id, quantity }) => ({ equipmentId: id, quantity: Math.max(1, Number(quantity)) })) }
+      rentals: allRentals.length > 0
+        ? { create: allRentals }
         : undefined,
     },
   });
 
-  const equipmentIds = equipmentSelections.map((s) => s.id);
+  const allRentalIds = allRentals.map((r) => r.equipmentId);
   const [user, equipmentRecords] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
-    equipmentIds.length > 0
-      ? prisma.equipment.findMany({ where: { id: { in: equipmentIds } }, select: { id: true, name: true, rentalCost: true } })
+    allRentalIds.length > 0
+      ? prisma.equipment.findMany({ where: { id: { in: allRentalIds } }, select: { id: true, name: true, rentalCost: true } })
       : Promise.resolve([]),
   ]);
 
-  // Associe chaque équipement à la quantité demandée pour le récap email
+  // Récap email : tous les équipements loués (sélectionnés + associés automatiques)
   const equipmentList = equipmentRecords.map((eq) => ({
     name: eq.name,
     rentalCost: eq.rentalCost,
-    quantity: Math.max(1, Number(equipmentSelections.find((s) => s.id === eq.id)?.quantity ?? 1)),
+    quantity: allRentals.find((r) => r.equipmentId === eq.id)?.quantity ?? 1,
   }));
 
   if (user) {
