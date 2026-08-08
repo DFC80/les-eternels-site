@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeMembershipAmount } from "@/lib/membership";
+import { computeMembershipAmount, currentSeasonYear } from "@/lib/membership";
 import { sendMembershipRequestRecap } from "@/lib/mail";
 
 export async function GET() {
@@ -25,7 +25,7 @@ export async function GET() {
 
   if (!membership) return NextResponse.json({ airsoftTrialDay });
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentSeasonYear();
   return NextResponse.json({
     ...membership,
     expired: membership.year !== currentYear,
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   const priceMap = Object.fromEntries(activityRecords.map((a) => [a.key, a.price]));
   const amount = computeMembershipAmount(allSelectedKeys.map((k) => priceMap[k] ?? 0));
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentSeasonYear();
 
   const existing = await prisma.membership.findUnique({
     where: { userId: session.user.id },

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getColors } from "@/lib/activity-colors";
-import { BASE_MEMBERSHIP_FEE } from "@/lib/membership";
+import { BASE_MEMBERSHIP_FEE, currentSeasonYear, currentSeasonLabel } from "@/lib/membership";
 
 type ActivityDef = {
   key: string;
@@ -199,8 +199,8 @@ export default function MonComptePage() {
 
       {membership && membership.expired && (
         <div className="mt-6 rounded-md border border-amber-700 bg-amber-950 px-4 py-3 text-sm text-amber-300">
-          Votre cotisation {membership.year} est arrivée à expiration. Merci de renouveler votre
-          choix d'activités pour {new Date().getFullYear()}.
+          Votre cotisation {membership.year}-{membership.year + 1} est arrivée à expiration. Merci de renouveler votre
+          choix d'activités pour la saison {currentSeasonLabel()}.
         </div>
       )}
 
@@ -213,10 +213,10 @@ export default function MonComptePage() {
               : "border-amber-700 bg-amber-950 text-amber-300"
           }`}>
             {membership.isPaid && dueOnline <= 0
-              ? `Cotisation ${membership.year} de ${membership.amount}€ réglée${membership.paidAt ? ` le ${new Date(membership.paidAt).toLocaleDateString("fr-FR")}` : ""}.`
+              ? `Cotisation ${membership.year}-${membership.year + 1} de ${membership.amount}€ réglée${membership.paidAt ? ` le ${new Date(membership.paidAt).toLocaleDateString("fr-FR")}` : ""}.`
               : membership.isPaid
               ? `Supplément de ${dueOnline}€ à régler (nouvelles activités ajoutées).`
-              : `Cotisation ${membership.year} de ${membership.amount}€ en attente de règlement.`}
+              : `Cotisation ${membership.year}-${membership.year + 1} de ${membership.amount}€ en attente de règlement.`}
             {dueOnline > 0 && (
               <>
                 <button
@@ -254,7 +254,7 @@ export default function MonComptePage() {
 
         <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border-2 border-primary-700 bg-primary-900/60 p-8 text-center">
           <span className="text-sm uppercase tracking-wide text-slate-400">
-            Montant de la cotisation {new Date().getFullYear()}
+            Montant de la cotisation {currentSeasonLabel()}
           </span>
           <span className="font-display text-5xl text-silver-100">{amount}€</span>
           {selectedActivities.length > 0 && (
