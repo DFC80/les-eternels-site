@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BalanceTopUpCard from "@/components/BalanceTopUpCard";
+import DateInput from "@/components/DateInput";
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -150,10 +151,10 @@ export default function ProfilePage() {
             Date de naissance <span className="text-red-400">*</span>
           </label>
           <div className="flex items-center gap-3">
-            <input
-              type="date"
+            <DateInput
               value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
+              onChange={setDateOfBirth}
+              max={new Date().toISOString().slice(0, 10)}
               className={inputClass}
             />
             {computeAge(dateOfBirth) !== null && (

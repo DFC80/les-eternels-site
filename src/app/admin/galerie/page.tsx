@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { getAllowedActivityTypes } from "@/lib/permissions";
 import ImageUpload from "@/components/ImageUpload";
+import DateInput from "@/components/DateInput";
 
 type ActivityOption = { key: string; label: string; emoji: string };
 
@@ -19,7 +20,8 @@ type Photo = {
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-const EMPTY_FORM = { url: "", date: "", comment: "", activityType: "AUTRE" };
+const today = new Date().toISOString().slice(0, 10);
+const EMPTY_FORM = { url: "", date: today, comment: "", activityType: "AUTRE" };
 
 export default function AdminGaleriePage() {
   const { data: session } = useSession();
@@ -123,11 +125,10 @@ export default function AdminGaleriePage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Date</label>
-          <input
+          <DateInput
             required
-            type="date"
             value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            onChange={(v) => setForm({ ...form, date: v })}
             className={inputClass}
           />
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection } from "@/lib/permissions";
+import DateInput from "@/components/DateInput";
 import { formatCentsToEuros } from "@/lib/money";
 
 type EventSummary = {
@@ -77,7 +78,7 @@ export default function ComptabilitePage() {
   const [data, setData] = useState<Accounting | null>(null);
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -108,7 +109,7 @@ export default function ComptabilitePage() {
 
     setLabel("");
     setAmount("");
-    setDate("");
+    setDate(new Date().toISOString().slice(0, 10));
     await load();
   }
 
@@ -349,7 +350,7 @@ export default function ComptabilitePage() {
           placeholder="Montant €"
           className={inputClass}
         />
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+        <DateInput value={date} onChange={setDate} className={inputClass} />
         <button
           type="submit"
           className="sm:col-span-4 rounded-md bg-primary-400 px-4 py-2 font-semibold text-primary-950 hover:bg-silver-300"

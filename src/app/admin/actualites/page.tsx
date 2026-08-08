@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection } from "@/lib/permissions";
+import DateInput from "@/components/DateInput";
 
 type NewsArticle = {
   id: string;
@@ -181,7 +182,7 @@ export default function AdminActualitesPage() {
           </div>
           <div>
             <label className="text-sm text-slate-300">Date *</label>
-            <input type="date" className={inputClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+            <DateInput required value={form.date} onChange={(v) => setForm({ ...form, date: v })} className={inputClass} />
           </div>
           <div>
             <label className="text-sm text-slate-300">Contenu *</label>
