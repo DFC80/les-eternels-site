@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { sessionHasAccess } from "@/lib/permissions";
+import DateInput from "@/components/DateInput";
 
 type Meeting = {
   id: string;
@@ -12,6 +13,7 @@ type Meeting = {
   agenda: string | null;
   notes: string | null;
   isPublished: boolean;
+  linkedEventId: string | null;
   createdAt: string;
 };
 
@@ -158,6 +160,17 @@ export default function AdminReunionsPage() {
           {form.id ? "Modifier la réunion" : "Nouvelle réunion"}
         </h2>
 
+        {!form.id && form.type === "BUREAU" && (
+          <p className="rounded-md border border-primary-700 bg-primary-900/60 px-3 py-2 text-sm text-slate-400">
+            📧 Un email sera automatiquement envoyé à tous les membres du bureau.
+          </p>
+        )}
+        {!form.id && form.type === "ASSEMBLEE_GENERALE" && (
+          <p className="rounded-md border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-400">
+            📅 L'assemblée sera automatiquement ajoutée au calendrier des événements.
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-slate-300">Type</label>
@@ -174,11 +187,11 @@ export default function AdminReunionsPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-300">Date et heure</label>
-            <input
+            <DateInput
               type="datetime-local"
               required
               value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              onChange={(v) => setForm({ ...form, date: v })}
               className={inputClass}
             />
           </div>
@@ -328,6 +341,11 @@ function MeetingSection({
                     >
                       {m.isPublished ? "Publié" : "Brouillon"}
                     </span>
+                    {m.linkedEventId && (
+                      <span className="rounded px-2 py-0.5 text-xs font-medium bg-blue-950 text-blue-300">
+                        📅 Sur le calendrier
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 font-medium text-slate-100">{formatDate(m.date)}</p>
                   {m.location && (

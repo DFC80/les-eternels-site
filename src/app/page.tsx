@@ -25,6 +25,13 @@ async function getActivities() {
   return prisma.activity.findMany({ where: { isActive: true }, orderBy: { order: "asc" } });
 }
 
+async function getLatestPublishedAG() {
+  return prisma.meeting.findFirst({
+    where: { type: "ASSEMBLEE_GENERALE", isPublished: true },
+    orderBy: { date: "desc" },
+  });
+}
+
 async function getSettings() {
   const rows = await prisma.siteSetting.findMany({
     where: { key: { in: ["description", "logoVersion"] } },
@@ -37,11 +44,12 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, activities, { description, logoSrc }, latestArticle] = await Promise.all([
+  const [session, activities, { description, logoSrc }, latestArticle, latestAG] = await Promise.all([
     getServerSession(authOptions),
     getActivities(),
     getSettings(),
     getLatestArticle(),
+    getLatestPublishedAG(),
   ]);
 
   const userHasMembership = session
@@ -114,6 +122,46 @@ export default async function HomePage() {
 
       {userHasMembership && <HomePollWidget />}
       <HomeCarouselWidget />
+
+      {latestAG && (
+        <section className="mx-auto max-w-6xl px-4 pb-4 pt-2">
+          <h2 className="font-display text-2xl text-silver-100">
+            🏛️ Assemblée Générale {new Date(latestAG.date).getFullYear()}
+          </h2>
+          <div className="mt-4 rounded-xl border border-amber-800/50 bg-amber-950/20 p-5">
+            <p className="text-sm font-medium text-amber-300">
+              📅{" "}
+              {new Date(latestAG.date).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {latestAG.location && (
+                <span className="ml-4 text-amber-400/70">📍 {latestAG.location}</span>
+              )}
+            </p>
+            {latestAG.agenda && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre du jour</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300 leading-relaxed line-clamp-4">
+                  {latestAG.agenda}
+                </p>
+              </div>
+            )}
+            {latestAG.notes && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Compte-rendu</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300 leading-relaxed line-clamp-4">
+                  {latestAG.notes}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {latestArticle && (
         <section className="mx-auto max-w-6xl px-4 pb-4 pt-2">
