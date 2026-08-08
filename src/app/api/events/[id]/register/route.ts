@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEventRegistrationConfirmation, sendNewEventRegistrationToAdmin } from "@/lib/mail";
+import { currentSeasonYear } from "@/lib/membership";
 
 type MealOrderInput = { menuId?: string | null; quantity: number };
 
@@ -52,12 +53,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Vérification de l'adhésion selon le type d'activité
   let isTrialDay = false;
   if (event.activityType !== "AUTRE") {
-    const currentYear = new Date().getFullYear();
     const membership = await prisma.membership.findUnique({
       where: { userId: session.user.id },
       include: { extraActivities: true },
     });
-    const validMembership = membership && membership.year === currentYear;
+    const validMembership = membership && membership.year === currentSeasonYear();
     let covered = false;
     if (validMembership) {
       if (event.activityType === "JEUX_DE_PLATEAU") covered = membership.wantsBoardGames;

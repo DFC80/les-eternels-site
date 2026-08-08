@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { currentSeasonYear } from "@/lib/membership";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -44,12 +45,12 @@ export async function GET() {
     },
   });
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentSeasonYear();
   const withExpiry = members.map((m) => ({
     ...m,
     bureauRoles: m.bureauRoles.map((r) => r.bureauRole),
     membership: m.membership
-      ? { ...m.membership, expired: m.membership.year !== currentYear }
+      ? { ...m.membership, expired: m.membership.year < currentYear, isFuture: m.membership.year > currentYear }
       : null,
   }));
 

@@ -11,8 +11,24 @@ export function currentSeasonYear(): number {
   return now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
+/** Retourne l'année de début de la saison suivante. */
+export function nextSeasonYear(): number {
+  return currentSeasonYear() + 1;
+}
+
 /** Retourne le libellé de la saison, ex. "2025-2026". */
 export function currentSeasonLabel(): string {
   const y = currentSeasonYear();
   return `${y}-${y + 1}`;
+}
+
+/** Retourne le libellé de la saison suivante, ex. "2026-2027". */
+export function nextSeasonLabel(): string {
+  const y = nextSeasonYear();
+  return `${y}-${y + 1}`;
+}
+
+/** Retourne le libellé d'une saison quelconque à partir de son année de début. */
+export function seasonLabel(year: number): string {
+  return `${year}-${year + 1}`;
 }

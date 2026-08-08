@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getColors } from "@/lib/activity-colors";
-import { BASE_MEMBERSHIP_FEE, currentSeasonYear, currentSeasonLabel } from "@/lib/membership";
+import { BASE_MEMBERSHIP_FEE, currentSeasonYear, currentSeasonLabel, nextSeasonYear, nextSeasonLabel, seasonLabel } from "@/lib/membership";
 
 type ActivityDef = {
   key: string;
@@ -27,6 +27,7 @@ type Membership = {
   paidAt: string | null;
   year: number;
   expired: boolean;
+  isFuture: boolean;
 } | null;
 
 const CORE_KEY_MAP: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
@@ -39,6 +40,7 @@ export default function MonComptePage() {
   const [membership, setMembership] = useState<Membership>(null);
   const [coreActivities, setCoreActivities] = useState<ActivityDef[]>([]);
   const [extraActivities, setExtraActivities] = useState<ActivityDef[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(currentSeasonYear());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [originalKeys, setOriginalKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export default function MonComptePage() {
         for (const k of data.extraActivityKeys ?? []) keys.add(k);
         setSelectedKeys(keys);
         setOriginalKeys(new Set(keys));
+        setSelectedYear(data.year);
       }
     }
   }
@@ -134,6 +137,7 @@ export default function MonComptePage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        year: selectedYear,
         wantsBoardGames: selectedKeys.has("JEUX_DE_PLATEAU"),
         wantsRolePlay: selectedKeys.has("JEUX_DE_ROLE"),
         wantsAirsoft: selectedKeys.has("AIRSOFT"),
@@ -153,8 +157,9 @@ export default function MonComptePage() {
     await load();
   }
 
-  const isPaidAndValid = !!(membership && !membership.expired && membership.isPaid);
-  const isLocked = !!(membership && !membership.expired);
+  const isPaidAndValid = !!(membership && !membership.expired && !membership.isFuture && membership.isPaid);
+  const isCurrentPaid = !!(membership && !membership.expired && !membership.isFuture && membership.isPaid);
+  const isLocked = !!(membership && !membership.expired && membership.year === selectedYear);
   const hasNewActivities = isPaidAndValid && [...selectedKeys].some((k) => !originalKeys.has(k));
   const newActivities = allActivities.filter((a) => selectedKeys.has(a.key) && !originalKeys.has(a.key));
   const supplement = newActivities.reduce((sum, a) => sum + a.price, 0);
@@ -221,7 +226,14 @@ export default function MonComptePage() {
         </div>
       )}
 
-      {membership && !membership.expired && (() => {
+      {membership && membership.isFuture && (
+        <div className="mt-6 rounded-md border border-sky-700 bg-sky-950 px-4 py-3 text-sm text-sky-300">
+          Vous êtes pré-inscrit·e pour la saison {membership.year}-{membership.year + 1}{membership.isPaid ? ` — cotisation de ${membership.amount}€ réglée` : ` — cotisation de ${membership.amount}€ en attente de règlement`}.
+          Pour adhérer à la saison en cours ({currentSeasonLabel()}), sélectionnez-la ci-dessous.
+        </div>
+      )}
+
+      {membership && !membership.expired && !membership.isFuture && (() => {
         const dueOnline = membership.amount - (membership.isPaid ? membership.paidAmount : 0);
         return (
           <div className={`mt-6 rounded-md border px-4 py-3 text-sm ${
@@ -253,6 +265,50 @@ export default function MonComptePage() {
       })()}
 
       <form onSubmit={handleSubmit} className="mt-8">
+        {/* Sélecteur de saison — masqué si cotisation courante déjà réglée */}
+        {!isCurrentPaid && (
+          <div className="mb-8">
+            <p className="mb-3 text-sm font-medium text-slate-300">Choisissez la période d'adhésion :</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                { year: currentSeasonYear(), label: currentSeasonLabel(), note: "Saison en cours" },
+                { year: nextSeasonYear(), label: nextSeasonLabel(), note: "Saison suivante" },
+              ].map(({ year, label, note }) => {
+                const active = selectedYear === year;
+                return (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => {
+                      setSelectedYear(year);
+                      if (membership?.year !== year) {
+                        setSelectedKeys(new Set());
+                        setOriginalKeys(new Set());
+                      }
+                    }}
+                    className={`flex flex-col items-start rounded-xl border-2 px-5 py-4 text-left transition ${
+                      active
+                        ? "border-primary-400 bg-primary-800/60"
+                        : "border-primary-800 bg-primary-900/40 hover:border-primary-600"
+                    }`}
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{note}</span>
+                    <span className={`mt-1 font-display text-xl ${active ? "text-silver-100" : "text-slate-300"}`}>
+                      {label}
+                    </span>
+                    <span className="mt-1 text-xs text-slate-500">1er sept. {year} → 31 août {year + 1}</span>
+                    {active && (
+                      <span className="mt-2 rounded-full bg-primary-400 px-2 py-0.5 text-xs font-semibold text-primary-950">
+                        Sélectionnée ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {coreActivities.length > 0 && (
           <div className={`grid gap-6 grid-cols-${Math.min(coreActivities.length, 3)} sm:grid-cols-${Math.min(coreActivities.length, 3)}`}
             style={{ gridTemplateColumns: `repeat(${Math.min(coreActivities.length, 3)}, minmax(0, 1fr))` }}>
@@ -271,7 +327,7 @@ export default function MonComptePage() {
 
         <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border-2 border-primary-700 bg-primary-900/60 p-8 text-center">
           <span className="text-sm uppercase tracking-wide text-slate-400">
-            Montant de la cotisation {currentSeasonLabel()}
+            Montant de la cotisation {seasonLabel(selectedYear)}
           </span>
           <span className="font-display text-5xl text-silver-100">{amount}€</span>
           {selectedActivities.length > 0 && (

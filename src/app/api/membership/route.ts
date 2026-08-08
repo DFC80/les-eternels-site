@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeMembershipAmount, currentSeasonYear } from "@/lib/membership";
+import { computeMembershipAmount, currentSeasonYear, nextSeasonYear } from "@/lib/membership";
 import { sendMembershipRequestRecap } from "@/lib/mail";
 
 export async function GET() {
@@ -28,7 +28,8 @@ export async function GET() {
   const currentYear = currentSeasonYear();
   return NextResponse.json({
     ...membership,
-    expired: membership.year !== currentYear,
+    expired: membership.year < currentYear,
+    isFuture: membership.year > currentYear,
     extraActivityKeys: membership.extraActivities.map((a) => a.activityKey),
     airsoftTrialDay,
   });
@@ -60,6 +61,11 @@ export async function POST(request: Request) {
   const wantsAirsoft = !!body.wantsAirsoft;
   const extraActivityKeys: string[] = Array.isArray(body.extraActivityKeys) ? body.extraActivityKeys : [];
 
+  // Année cible : saison en cours ou suivante uniquement
+  const currentYear = currentSeasonYear();
+  const allowedYears = [currentYear, nextSeasonYear()];
+  const targetYear: number = allowedYears.includes(Number(body.year)) ? Number(body.year) : currentYear;
+
   // Charger les prix de toutes les activités sélectionnées depuis la base
   const coreKeys: string[] = [];
   if (wantsBoardGames) coreKeys.push("JEUX_DE_PLATEAU");
@@ -79,13 +85,20 @@ export async function POST(request: Request) {
   const priceMap = Object.fromEntries(activityRecords.map((a) => [a.key, a.price]));
   const amount = computeMembershipAmount(allSelectedKeys.map((k) => priceMap[k] ?? 0));
 
-  const currentYear = currentSeasonYear();
-
   const existing = await prisma.membership.findUnique({
     where: { userId: session.user.id },
     include: { extraActivities: true },
   });
-  const isAlreadyPaid = !!(existing?.isPaid && existing?.year === currentYear);
+
+  // Bloquer le passage à la saison suivante si la cotisation courante est déjà réglée
+  if (targetYear !== currentYear && existing?.isPaid && existing?.year === currentYear) {
+    return NextResponse.json(
+      { error: "Vous avez une cotisation réglée pour la saison en cours. Patientez jusqu'à la nouvelle saison." },
+      { status: 400 }
+    );
+  }
+
+  const isAlreadyPaid = !!(existing?.isPaid && existing?.year === targetYear);
 
   // Quand la cotisation est déjà réglée, interdire la suppression d'activités validées
   if (isAlreadyPaid) {
@@ -105,9 +118,9 @@ export async function POST(request: Request) {
 
   const membership = await prisma.membership.upsert({
     where: { userId: session.user.id },
-    create: { userId: session.user.id, year: currentYear, wantsBoardGames, wantsRolePlay, wantsAirsoft, amount },
+    create: { userId: session.user.id, year: targetYear, wantsBoardGames, wantsRolePlay, wantsAirsoft, amount },
     update: {
-      year: currentYear,
+      year: targetYear,
       wantsBoardGames,
       wantsRolePlay,
       wantsAirsoft,
@@ -126,7 +139,7 @@ export async function POST(request: Request) {
 
   const activities = activityRecords.map((a) => `${a.label} (${a.price}€)`);
 
-  await sendMembershipRequestRecap({ to: user.email, firstName: user.firstName, year: currentYear, activities, amount });
+  await sendMembershipRequestRecap({ to: user.email, firstName: user.firstName, year: targetYear, activities, amount });
 
   return NextResponse.json({ ...membership, extraActivityKeys });
 }

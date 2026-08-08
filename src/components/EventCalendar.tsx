@@ -69,6 +69,7 @@ type Membership = {
   extraActivityKeys: string[];
   year: number;
   expired: boolean;
+  isFuture?: boolean;
 } | null;
 
 type MembershipResponse = (Membership & { airsoftTrialDay?: boolean }) | { airsoftTrialDay?: boolean } | null;
@@ -110,7 +111,7 @@ function buildMonthGrid(month: Date) {
 function isEligibleByMembership(activityType: string, membership: Membership, activityMeta: ActivityMeta[]) {
   const act = activityMeta.find((a) => a.key === activityType);
   if (!act?.membershipRequired) return true;
-  if (!membership || membership.expired) return false;
+  if (!membership || membership.expired || membership.isFuture) return false;
   if (activityType === "JEUX_DE_PLATEAU") return membership.wantsBoardGames;
   if (activityType === "JEUX_DE_ROLE") return membership.wantsRolePlay;
   if (activityType === "AIRSOFT") return membership.wantsAirsoft;
@@ -134,9 +135,19 @@ function getMembershipWarning(ev: CalendarEvent, membership: Membership, activit
   if (membership.expired) {
     return (
       <p className="mt-4 text-sm text-amber-400">
-        Votre cotisation {membership.year} est expirée. Renouvelez votre adhésion en incluant{" "}
+        Votre cotisation {membership.year}-{membership.year + 1} est expirée. Renouvelez votre adhésion en incluant{" "}
         <strong className="text-amber-300">{label}</strong> pour vous inscrire.{" "}
         <a href="/mon-compte" className="underline hover:text-amber-200">Renouveler mon adhésion →</a>
+      </p>
+    );
+  }
+
+  if (membership.isFuture) {
+    return (
+      <p className="mt-4 text-sm text-amber-400">
+        Votre adhésion {membership.year}-{membership.year + 1} ne sera active qu&apos;à partir de septembre {membership.year}.
+        Pour vous inscrire dès maintenant, adhérez à la{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">saison en cours →</a>
       </p>
     );
   }
