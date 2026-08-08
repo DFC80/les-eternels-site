@@ -319,8 +319,11 @@ export default function MonComptePage() {
         )}
 
         {coreActivities.length > 0 && (
-          <div className={`grid gap-6 grid-cols-${Math.min(coreActivities.length, 3)} sm:grid-cols-${Math.min(coreActivities.length, 3)}`}
-            style={{ gridTemplateColumns: `repeat(${Math.min(coreActivities.length, 3)}, minmax(0, 1fr))` }}>
+          <div className={`grid gap-6 ${
+            coreActivities.length === 1 ? "grid-cols-1" :
+            coreActivities.length === 2 ? "grid-cols-2" :
+            "grid-cols-1 sm:grid-cols-3"
+          }`}>
             {coreActivities.map(renderActivityCard)}
           </div>
         )}
@@ -328,7 +331,7 @@ export default function MonComptePage() {
         {extraActivities.length > 0 && (
           <div className="mt-8">
             <h2 className="font-display text-lg text-silver-100">Autres activités</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-3">
               {extraActivities.map(renderActivityCard)}
             </div>
           </div>
