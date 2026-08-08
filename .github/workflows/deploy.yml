@@ -15,10 +15,12 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host:     ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key:      ${{ secrets.VPS_SSH_KEY }}
-          port:     ${{ secrets.VPS_PORT || 22 }}
+          host:            ${{ secrets.VPS_HOST }}
+          username:        ${{ secrets.VPS_USER }}
+          key:             ${{ secrets.VPS_SSH_KEY }}
+          port:            ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 40m
+          request_pty:     true
           script: |
             cd ${{ secrets.VPS_PATH }}
             DEPLOY_BRANCH=main bash deploy.sh
