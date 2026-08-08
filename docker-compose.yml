@@ -37,6 +37,7 @@ services:
       STRIPE_WEBHOOK_SECRET:  ${STRIPE_WEBHOOK_SECRET:-}
     volumes:
       - uploads:/app/public/uploads
+      - docs_uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -71,3 +72,4 @@ services:
 volumes:
   postgres_data:
   uploads:
+  docs_uploads:

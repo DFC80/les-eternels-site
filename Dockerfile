@@ -32,8 +32,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nextjs
 
-# Dossier uploads persistant (monté en volume)
-RUN mkdir -p ./public/uploads && chown nextjs:nodejs ./public/uploads
+# Dossiers uploads persistants (montés en volume)
+RUN mkdir -p ./public/uploads ./uploads/activity-docs \
+ && chown -R nextjs:nodejs ./public/uploads ./uploads
 
 # Fichiers statiques publics
 COPY --from=builder /app/public ./public
