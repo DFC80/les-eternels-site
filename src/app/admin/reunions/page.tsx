@@ -64,6 +64,8 @@ export default function AdminReunionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
+  const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
 
   async function load() {
     const res = await fetch("/api/admin/meetings");
@@ -126,6 +128,18 @@ export default function AdminReunionsPage() {
     if (!confirm(`Supprimer la ${label} ?`)) return;
     const res = await fetch(`/api/admin/meetings/${id}`, { method: "DELETE" });
     if (res.ok) await load();
+  }
+
+  async function sendReminder(id: string) {
+    setNotifying(id);
+    setNotifyResult((prev) => ({ ...prev, [id]: "" }));
+    const res = await fetch(`/api/admin/meetings/${id}/notify`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setNotifyResult((prev) => ({
+      ...prev,
+      [id]: res.ok ? `Rappel envoyé à ${body.sent} membre(s).` : body.error ?? "Erreur d'envoi.",
+    }));
+    setNotifying(null);
   }
 
   async function togglePublished(m: Meeting) {
@@ -277,9 +291,11 @@ export default function AdminReunionsPage() {
         onTogglePublished={togglePublished}
         expandedId={expandedId}
         onExpand={setExpandedId}
+        notifying={notifying}
+        notifyResult={notifyResult}
+        onSendReminder={sendReminder}
       />
 
-      {/* Liste des réunions de bureau */}
       <MeetingSection
         title="Réunions de bureau"
         emoji="📋"
@@ -289,6 +305,9 @@ export default function AdminReunionsPage() {
         onTogglePublished={togglePublished}
         expandedId={expandedId}
         onExpand={setExpandedId}
+        notifying={notifying}
+        notifyResult={notifyResult}
+        onSendReminder={sendReminder}
       />
     </div>
   );
@@ -303,6 +322,9 @@ function MeetingSection({
   onTogglePublished,
   expandedId,
   onExpand,
+  notifying,
+  notifyResult,
+  onSendReminder,
 }: {
   title: string;
   emoji: string;
@@ -312,6 +334,9 @@ function MeetingSection({
   onTogglePublished: (m: Meeting) => void;
   expandedId: string | null;
   onExpand: (id: string | null) => void;
+  notifying: string | null;
+  notifyResult: Record<string, string>;
+  onSendReminder: (id: string) => void;
 }) {
   return (
     <div className="mt-10">
@@ -375,11 +400,26 @@ function MeetingSection({
                       {m.isPublished ? "Retirer de l'accueil" : "Afficher sur l'accueil"}
                     </button>
                   )}
+                  {m.type === "BUREAU" && (
+                    <button
+                      onClick={() => onSendReminder(m.id)}
+                      disabled={notifying === m.id}
+                      className="text-sky-400 hover:underline disabled:opacity-50"
+                    >
+                      {notifying === m.id ? "Envoi…" : "Envoyer un rappel"}
+                    </button>
+                  )}
                   <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">
                     Supprimer
                   </button>
                 </div>
               </div>
+
+              {notifyResult[m.id] && (
+                <p className={`mt-2 text-xs ${notifyResult[m.id].startsWith("Rappel") ? "text-emerald-400" : "text-red-400"}`}>
+                  {notifyResult[m.id]}
+                </p>
+              )}
 
               {isExpanded && (
                 <div className="mt-4 space-y-4 border-t border-primary-700 pt-4">
