@@ -156,9 +156,8 @@ function getMembershipWarning(ev: CalendarEvent, membership: Membership, activit
     const formatted = earliestDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
     return (
       <p className="mt-4 text-sm text-amber-400">
-        Votre adhésion {membership.year}-{membership.year + 1} vous permettra de vous inscrire à partir du{" "}
-        <strong className="text-amber-300">{formatted}</strong> (70 jours avant le 1er septembre).{" "}
-        Pour cet événement,{" "}
+        Votre adhésion {membership.year}-{membership.year + 1} vous permettra de vous inscrire à un évènement dont la date est à partir du{" "}
+        <strong className="text-amber-300">{formatted}</strong> (70 jours avant le 1er septembre). Pour cet événement,{" "}
         <a href="/mon-compte" className="underline hover:text-amber-200">adhérez à la saison en cours →</a>
       </p>
     );
