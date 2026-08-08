@@ -10,5 +10,4 @@ public/uploads/*
 nginx
 certbot
 docker-compose.yml
-docker-entrypoint.sh
 *.md
