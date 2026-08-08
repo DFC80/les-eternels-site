@@ -397,6 +397,18 @@ model ActivityDocument {
   createdAt      DateTime @default(now())
 }
 
+model Meeting {
+  id          String   @id @default(cuid())
+  type        String   // BUREAU | ASSEMBLEE_GENERALE
+  date        DateTime
+  location    String   @default("")
+  agenda      String?  // ordre du jour
+  notes       String?  // compte-rendu
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Poll {
   id            String    @id @default(cuid())
   question      String
