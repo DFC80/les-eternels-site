@@ -164,7 +164,7 @@ export default function AdminMembersPage() {
       setError(data.error ?? "Erreur lors de la suppression.");
       return;
     }
-    await loadMembers();
+    await load();
   }
 
   async function validateSupplement(id: string) {
@@ -404,7 +404,7 @@ export default function AdminMembersPage() {
                   {m.membership ? (
                     m.membership.expired ? (
                       <span className="rounded bg-slate-800 px-2 py-1 text-xs font-medium text-slate-400">
-                        Expirée ({m.membership.year})
+                        Expirée ({m.membership.year}-{m.membership.year + 1})
                       </span>
                     ) : (() => {
                       const ms = m.membership!;
@@ -419,7 +419,7 @@ export default function AdminMembersPage() {
                                   ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
                                 }`}
                               >
-                                {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
+                                {ms.year}-{ms.year + 1} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
                               </button>
                               {!ms.isPaid && (
                                 <button
@@ -435,7 +435,7 @@ export default function AdminMembersPage() {
                             <span className={`rounded px-2 py-1 text-xs font-medium ${
                               ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
                             }`}>
-                              {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
+                              {ms.year}-{ms.year + 1} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
                             </span>
                           )}
                           {supplement > 0 && (
@@ -733,7 +733,7 @@ export default function AdminMembersPage() {
                     return (
                       <>
                         <p className="mt-1 text-sm text-slate-300">
-                          {ms.year} — {ms.amount}€ — {ms.isPaid ? "Payée" : "En attente"}
+                          {ms.year}-{ms.year + 1} — {ms.amount}€ — {ms.isPaid ? "Payée" : "En attente"}
                         </p>
                         {allKeys.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-1">

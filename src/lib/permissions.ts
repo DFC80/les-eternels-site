@@ -15,11 +15,12 @@ export type AdminSection =
   | "bureau"
   | "jeux"
   | "content"
-  | "sondages";
+  | "sondages"
+  | "reunions";
 
 // Permissions par défaut (avant toute configuration en DB)
 export const HARDCODED_SECTION_MAP: Record<string, AdminSection[]> = {
-  Secrétaire: ["members"],
+  Secrétaire: ["members", "reunions"],
   Trésorier: ["members", "comptabilite"],
   Comptoir: ["kiosque"],
   Airsoft: ["events", "equipements", "galerie"],

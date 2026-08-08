@@ -16,6 +16,7 @@ type Equipment = {
   stock: number;
   fps: number | null;
   bbWeight: number | null;
+  magazineCapacity: number | null;
   propulsion: string | null;
   info: string | null;
   associations: { itemId: string; quantity: number }[];
@@ -57,6 +58,7 @@ type CalendarEvent = {
   mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
+  bureauOnly: boolean;
   menus: MealMenu[];
   boardGames: { id: string; name: string }[];
   registrations: EventRegistration[];
@@ -108,10 +110,18 @@ function buildMonthGrid(month: Date) {
   return cells;
 }
 
-function isEligibleByMembership(activityType: string, membership: Membership, activityMeta: ActivityMeta[]) {
+function daysUntilNextSeason(membershipYear: number, eventStartsAt: string): number {
+  const nextStart = new Date(membershipYear, 8, 1); // 1er septembre de l'année de début de saison
+  return (nextStart.getTime() - new Date(eventStartsAt).getTime()) / 86400000;
+}
+
+function isEligibleByMembership(activityType: string, membership: Membership, activityMeta: ActivityMeta[], eventStartsAt?: string) {
   const act = activityMeta.find((a) => a.key === activityType);
   if (!act?.membershipRequired) return true;
-  if (!membership || membership.expired || membership.isFuture) return false;
+  if (!membership || membership.expired) return false;
+  if (membership.isFuture) {
+    if (!eventStartsAt || daysUntilNextSeason(membership.year, eventStartsAt) > 70) return false;
+  }
   if (activityType === "JEUX_DE_PLATEAU") return membership.wantsBoardGames;
   if (activityType === "JEUX_DE_ROLE") return membership.wantsRolePlay;
   if (activityType === "AIRSOFT") return membership.wantsAirsoft;
@@ -142,19 +152,21 @@ function getMembershipWarning(ev: CalendarEvent, membership: Membership, activit
     );
   }
 
-  if (membership.isFuture) {
+  if (membership.isFuture && daysUntilNextSeason(membership.year, ev.startsAt) > 70) {
+    const earliestDate = new Date(new Date(membership.year, 8, 1).getTime() - 70 * 86400000);
+    const formatted = earliestDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
     return (
       <p className="mt-4 text-sm text-amber-400">
-        Votre adhésion {membership.year}-{membership.year + 1} ne sera active qu&apos;à partir de septembre {membership.year}.
-        Pour vous inscrire dès maintenant, adhérez à la{" "}
-        <a href="/mon-compte" className="underline hover:text-amber-200">saison en cours →</a>
+        Votre adhésion {membership.year}-{membership.year + 1} vous permettra de vous inscrire à un évènement dont la date est à partir du{" "}
+        <strong className="text-amber-300">{formatted}</strong> (70 jours avant le 1er septembre). Pour cet événement,{" "}
+        <a href="/mon-compte" className="underline hover:text-amber-200">adhérez à la saison en cours →</a>
       </p>
     );
   }
 
   return (
     <p className="mt-4 text-sm text-amber-400">
-      Votre cotisation {membership.year} ne couvre pas l&apos;activité{" "}
+      Votre cotisation {membership.year}-{membership.year + 1} ne couvre pas l&apos;activité{" "}
       <strong className="text-amber-300">{label}</strong>. Mettez à jour votre adhésion pour accéder à cet événement.{" "}
       <a href="/mon-compte" className="underline hover:text-amber-200">Mettre à jour →</a>
     </p>
@@ -281,7 +293,7 @@ export default function EventCalendar() {
 
   function isEligible(ev: CalendarEvent) {
     if (ev.activityType === "AIRSOFT" && airsoftTrialDay) return true;
-    return isEligibleByMembership(ev.activityType, membership, activityMeta);
+    return isEligibleByMembership(ev.activityType, membership, activityMeta, ev.startsAt);
   }
 
   function isEventPast(ev: CalendarEvent) {
@@ -457,7 +469,7 @@ export default function EventCalendar() {
                     onClick={() => openEvent(ev)}
                     className={`block w-full truncate rounded border px-1 py-0.5 text-left ${COLOR_BADGE[activityMeta.find((a) => a.key === ev.activityType)?.color ?? ""] ?? DEFAULT_BADGE}`}
                   >
-                    {ev.title}
+                    {ev.bureauOnly && <span className="mr-1 opacity-70">🔒</span>}{ev.title}
                   </button>
                 ))}
               </div>
@@ -485,7 +497,12 @@ export default function EventCalendar() {
                   </span>
                 );
               })()}
-              <h3 className="mt-2 font-display text-xl text-silver-100">{selected.title}</h3>
+              <h3 className="mt-2 font-display text-xl text-silver-100">
+                {selected.bureauOnly && (
+                  <span className="mr-2 inline-block rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs font-medium text-primary-300 align-middle">🔒 Bureau</span>
+                )}
+                {selected.title}
+              </h3>
               <p className="mt-1 text-sm text-slate-400">
                 {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                 {" de "}
@@ -770,6 +787,7 @@ export default function EventCalendar() {
                                         {eq.propulsion && ` · ${eq.propulsion.split(",").map((v) => v.trim()).join(", ")}`}
                                         {eq.fps != null && ` · ${eq.fps} FPS`}
                                         {eq.bbWeight != null && ` · ${eq.bbWeight}g`}
+                                        {eq.magazineCapacity != null && ` · ${eq.magazineCapacity} billes`}
                                       </p>
                                       {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
                                       {eq.associations.length > 0 && (

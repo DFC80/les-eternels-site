@@ -655,6 +655,55 @@ export async function sendAirsoftTrialDayEmail(params: { to: string; firstName: 
   await sendMail(to, "Journée d'essai Airsoft activée — Les Éternels", html);
 }
 
+export async function sendBureauMeetingNotification(params: {
+  recipients: { email: string; firstName: string }[];
+  date: Date;
+  location: string;
+  agenda: string | null;
+}) {
+  const { recipients, date, location, agenda } = params;
+
+  const dateStr = date.toLocaleString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const agendaHtml = agenda
+    ? `<p style="margin-top:16px;font-weight:bold;color:#555;">Ordre du jour :</p>
+       <div style="margin:8px 0;padding:12px 16px;background:#f9fafb;border-left:4px solid #6366f1;white-space:pre-wrap;">${agenda}</div>`
+    : "";
+
+  await Promise.allSettled(
+    recipients.map(({ email, firstName }) => {
+      const html = wrapHtml(
+        "📋 Réunion de bureau",
+        `
+          <p>Bonjour ${firstName},</p>
+          <p>Une réunion de bureau est planifiée :</p>
+          <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+            <tr>
+              <td style="padding:6px 12px;font-weight:bold;color:#555;">Date</td>
+              <td style="padding:6px 12px;">${dateStr}</td>
+            </tr>
+            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;">${location}</td></tr>` : ""}
+          </table>
+          ${agendaHtml}
+          <p style="margin-top:20px;">À bientôt !</p>
+        `
+      );
+      return sendMail(
+        email,
+        `Réunion de bureau — ${date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`,
+        html
+      );
+    })
+  );
+}
+
 export async function sendPasswordResetEmail(params: { to: string; firstName: string; resetLink: string }) {
   const { to, firstName, resetLink } = params;
   const html = wrapHtml(

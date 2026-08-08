@@ -10,7 +10,22 @@ import { sendNewEventNotification } from "@/lib/mail";
 type MenuInput = { label: string; maxPerPerson?: number | string | null };
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+
+  let isBureau = false;
+  if (session?.user?.id) {
+    const { isFullAdmin } = await import("@/lib/permissions");
+    const role = (session.user as { role?: string }).role ?? "";
+    if (isFullAdmin(role)) {
+      isBureau = true;
+    } else {
+      const bureauRole = await prisma.userBureauRole.findFirst({ where: { userId: session.user.id } });
+      isBureau = !!bureauRole;
+    }
+  }
+
   const events = await prisma.event.findMany({
+    where: isBureau ? undefined : { bureauOnly: false },
     orderBy: { startsAt: "asc" },
     include: {
       registrations: { include: { mealOrders: true, rentals: { include: { equipment: true } } } },

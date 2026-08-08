@@ -196,6 +196,7 @@ export default function AdminEventsPage() {
       menus: ev.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
       boardGameIds: ev.boardGames.map((g) => g.id),
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function toggleBoardGame(id: string) {
