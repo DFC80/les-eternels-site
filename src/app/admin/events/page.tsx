@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { getAllowedActivityTypes } from "@/lib/permissions";
+import DateInput from "@/components/DateInput";
 
 type MenuItem = { id: string; label: string; maxPerPerson: number | null };
 
@@ -998,22 +999,22 @@ export default function AdminEventsPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Début</label>
-          <input
+          <DateInput
             type="datetime-local"
             required
             value={form.startsAt}
-            onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+            onChange={(v) => setForm({ ...form, startsAt: v })}
             className={inputClass}
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Fin</label>
-          <input
+          <DateInput
             type="datetime-local"
             required
             value={form.endsAt}
-            onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+            onChange={(v) => setForm({ ...form, endsAt: v })}
             className={inputClass}
           />
         </div>
@@ -1033,10 +1034,10 @@ export default function AdminEventsPage() {
           <label className="block text-sm font-medium text-slate-300">
             Date limite d'inscription (optionnel)
           </label>
-          <input
+          <DateInput
             type="datetime-local"
             value={form.registrationDeadline}
-            onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
+            onChange={(v) => setForm({ ...form, registrationDeadline: v })}
             className={inputClass}
           />
         </div>

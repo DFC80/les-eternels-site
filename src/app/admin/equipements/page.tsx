@@ -281,7 +281,7 @@ export default function AdminEquipementsPage() {
   // --- Render ---
 
   function renderCard(item: EquipmentItem) {
-    const firstPhoto = item.photos?.split("\n").map((p) => p.trim()).filter(Boolean)[0];
+    const photoUrls = item.photos?.split("\n").map((p) => p.trim()).filter(Boolean) ?? [];
     const isReplique = item.category === "REPLIQUE";
     const associableItems = items.filter(
       (i) => i.id !== item.id && i.category !== "REPLIQUE" && i.category !== "EQUIPEMENT"
@@ -291,11 +291,15 @@ export default function AdminEquipementsPage() {
 
     return (
       <div key={item.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
+        {photoUrls.length > 0 && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            {photoUrls.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={url} src={url} alt={item.name} className="h-28 w-28 shrink-0 rounded-lg object-cover" />
+            ))}
+          </div>
+        )}
         <div className="flex gap-4">
-          {firstPhoto && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={firstPhoto} alt={item.name} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
-          )}
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <p className="min-w-0 truncate font-medium text-slate-100">{item.name}</p>

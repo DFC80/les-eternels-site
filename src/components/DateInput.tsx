@@ -9,16 +9,17 @@ interface Props {
   className?: string;
   max?: string;
   min?: string;
+  type?: "date" | "datetime-local";
 }
 
-export default function DateInput({ value, onChange, required, className = "", max, min }: Props) {
+export default function DateInput({ value, onChange, required, className = "", max, min, type = "date" }: Props) {
   const ref = useRef<HTMLInputElement>(null);
 
   return (
     <div className="relative flex items-center">
       <input
         ref={ref}
-        type="date"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}

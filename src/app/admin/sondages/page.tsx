@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { isFullAdmin } from "@/lib/permissions";
+import DateInput from "@/components/DateInput";
 
 type Activity = { key: string; label: string; emoji: string; isActive: boolean };
 type PollOption = { id: string; label: string; order: number; voteCount?: number };
@@ -289,8 +290,8 @@ export default function AdminSondagesPage() {
 
           <div>
             <label className="text-sm text-slate-300">Date de clôture (optionnelle)</label>
-            <input type="datetime-local" className={inputClass} value={form.closedAt}
-              onChange={(e) => setForm({ ...form, closedAt: e.target.value })} />
+            <DateInput type="datetime-local" className={inputClass} value={form.closedAt}
+              onChange={(v) => setForm({ ...form, closedAt: v })} />
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
