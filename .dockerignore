@@ -8,6 +8,7 @@ prisma/migrations
 public/uploads/*
 !public/uploads/.gitkeep
 nginx
+certbot
 docker-compose.yml
 docker-entrypoint.sh
 *.md
