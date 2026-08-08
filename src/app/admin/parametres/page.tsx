@@ -110,7 +110,7 @@ export default function ParametresPage() {
       body: JSON.stringify({ nomAssociation, anneeCopyright, description, paymentMethods: JSON.stringify(paymentMethods) }),
     });
     setSaving(false);
-    setOriginal({ nomAssociation, anneeCopyright, description });
+    setOriginal({ nomAssociation, anneeCopyright, description, paymentMethods: JSON.stringify(paymentMethods) });
     setSuccess(true);
     router.refresh();
     setTimeout(() => setSuccess(false), 3000);
@@ -261,7 +261,7 @@ export default function ParametresPage() {
           {changed && !saving && (
             <button
               type="button"
-              onClick={() => { setNomAssociation(original.nomAssociation ?? ""); setAnneeCopyright(original.anneeCopyright ?? ""); setDescription(original.description ?? ""); }}
+              onClick={() => { setNomAssociation(original.nomAssociation ?? ""); setAnneeCopyright(original.anneeCopyright ?? ""); setDescription(original.description ?? ""); try { setPaymentMethods(JSON.parse(original.paymentMethods ?? '["especes"]')); } catch { setPaymentMethods(["especes"]); } }}
               className="text-sm text-slate-500 hover:text-slate-300"
             >
               Annuler
