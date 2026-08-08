@@ -71,13 +71,14 @@ const STATUS_COLORS: Record<string, string> = {
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function PhotosUploadField({ value, onChange, onUploadingChange }: { value: string; onChange: (v: string) => void; onUploadingChange?: (v: boolean) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const urls = value.split("\n").map((u) => u.trim()).filter(Boolean);
 
   async function handleFile(file: File) {
     setUploading(true);
+    onUploadingChange?.(true);
     const formData = new FormData();
     formData.append("file", file);
     try {
@@ -86,6 +87,7 @@ function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: s
       if (res.ok) onChange([...urls, data.url].join("\n"));
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -125,6 +127,7 @@ export default function AdminEquipementsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Associations réplique → items
   const [expandedAssoc, setExpandedAssoc] = useState<string | null>(null);
@@ -644,7 +647,7 @@ export default function AdminEquipementsPage() {
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">Photos (optionnel)</label>
-          <PhotosUploadField value={form.photos} onChange={(v) => setForm({ ...form, photos: v })} />
+          <PhotosUploadField value={form.photos} onChange={(v) => setForm({ ...form, photos: v })} onUploadingChange={setUploadingPhoto} />
         </div>
 
         <div className="sm:col-span-2">
@@ -663,10 +666,10 @@ export default function AdminEquipementsPage() {
         <div className="col-span-full flex gap-3">
           <button
             type="submit"
-            disabled={saving || !form.category}
+            disabled={saving || uploadingPhoto || !form.category}
             className="rounded-md bg-primary-400 px-5 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
           >
-            {saving ? "Enregistrement..." : form.id ? "Mettre à jour" : "Ajouter"}
+            {saving ? "Enregistrement..." : uploadingPhoto ? "Upload en cours…" : form.id ? "Mettre à jour" : "Ajouter"}
           </button>
           {form.id && (
             <button type="button" onClick={resetForm} className="rounded-md px-5 py-2 font-medium text-slate-300 hover:bg-primary-900">
