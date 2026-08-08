@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { category, name, photos, status, rentalCost, stock, fps, bbWeight, propulsion, info } = body as {
+  const { category, name, photos, status, rentalCost, stock, fps, bbWeight, propulsion, info, magazineCapacity } = body as {
     category?: string;
     name?: string;
     photos?: string;
@@ -25,6 +25,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     bbWeight?: string | number | null;
     propulsion?: string | null;
     info?: string;
+    magazineCapacity?: string | number | null;
   };
 
   if (!category) return NextResponse.json({ error: "Catégorie requise." }, { status: 400 });
@@ -50,6 +51,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       bbWeight: bbWeight ? Number(bbWeight) : null,
       propulsion: propulsion || null,
       info: info || null,
+      magazineCapacity: magazineCapacity ? Math.round(Number(magazineCapacity)) : null,
     },
   });
 

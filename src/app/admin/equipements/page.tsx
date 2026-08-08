@@ -18,6 +18,7 @@ type EquipmentItem = {
   bbWeight: number | null;
   propulsion: string | null;
   info: string | null;
+  magazineCapacity: number | null;
   associations: { itemId: string; quantity: number }[];
 };
 
@@ -33,6 +34,7 @@ const EMPTY_FORM = {
   bbWeight: "",
   propulsion: "",
   info: "",
+  magazineCapacity: "",
 };
 
 const EMPTY_CAT_FORM = { id: "", label: "", emoji: "📦" };
@@ -171,6 +173,7 @@ export default function AdminEquipementsPage() {
       bbWeight: item.bbWeight ? String(item.bbWeight) : "",
       propulsion: item.propulsion ?? "",
       info: item.info ?? "",
+      magazineCapacity: item.magazineCapacity ? String(item.magazineCapacity) : "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -191,6 +194,7 @@ export default function AdminEquipementsPage() {
       bbWeight: form.bbWeight || null,
       propulsion: form.propulsion || null,
       info: form.info,
+      magazineCapacity: form.magazineCapacity || null,
     };
 
     const res = await fetch(form.id ? `/api/admin/equipment/${form.id}` : "/api/admin/equipment", {
@@ -312,6 +316,7 @@ export default function AdminEquipementsPage() {
               {item.propulsion && ` · ${item.propulsion.split(",").map((v) => PROPULSION_OPTIONS.find((o) => o.value === v.trim())?.label ?? v.trim()).join(", ")}`}
               {item.fps != null && ` · ${item.fps} FPS`}
               {item.bbWeight != null && ` · ${item.bbWeight}g`}
+              {item.magazineCapacity != null && ` · ${item.magazineCapacity} billes`}
             </p>
             {item.info && <p className="mt-1 text-sm text-slate-300">{item.info}</p>}
             <div className="mt-2 flex flex-wrap gap-3 text-sm">
@@ -602,6 +607,20 @@ export default function AdminEquipementsPage() {
             className={inputClass}
           />
         </div>
+
+        {categories.find((c) => c.key === form.category)?.label.toLowerCase().includes("chargeur") && (
+          <div>
+            <label className="block text-sm font-medium text-slate-300">Capacité du chargeur (billes, optionnel)</label>
+            <input
+              type="number"
+              min={0}
+              value={form.magazineCapacity}
+              onChange={(e) => setForm({ ...form, magazineCapacity: e.target.value })}
+              placeholder="Ex: 120"
+              className={inputClass}
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Type de propulsion (optionnel)</label>

@@ -203,10 +203,11 @@ model Equipment {
   status        String   @default("DISPONIBLE") // DISPONIBLE | HORS_SERVICE | INDISPONIBLE
   rentalCost    Int
   stock         Int      @default(1)
-  fps           Int?
-  bbWeight      Float?
-  propulsion    String?
-  info          String?
+  fps              Int?
+  bbWeight         Float?
+  propulsion       String?
+  info             String?
+  magazineCapacity Int?
   createdAt     DateTime @default(now())
 
   rentals        EquipmentRental[]

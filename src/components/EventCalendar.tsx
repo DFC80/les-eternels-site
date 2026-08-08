@@ -16,6 +16,7 @@ type Equipment = {
   stock: number;
   fps: number | null;
   bbWeight: number | null;
+  magazineCapacity: number | null;
   propulsion: string | null;
   info: string | null;
   associations: { itemId: string; quantity: number }[];
@@ -760,6 +761,7 @@ export default function EventCalendar() {
                                         {eq.propulsion && ` · ${eq.propulsion.split(",").map((v) => v.trim()).join(", ")}`}
                                         {eq.fps != null && ` · ${eq.fps} FPS`}
                                         {eq.bbWeight != null && ` · ${eq.bbWeight}g`}
+                                        {eq.magazineCapacity != null && ` · ${eq.magazineCapacity} billes`}
                                       </p>
                                       {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
                                       {eq.associations.length > 0 && (
