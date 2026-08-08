@@ -40,7 +40,8 @@ export default function MonComptePage() {
   const [membership, setMembership] = useState<Membership>(null);
   const [coreActivities, setCoreActivities] = useState<ActivityDef[]>([]);
   const [extraActivities, setExtraActivities] = useState<ActivityDef[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number>(currentSeasonYear());
+  const currentSeasonDisabled = (new Date(nextSeasonYear(), 8, 1).getTime() - Date.now()) / 86400000 < 70;
+  const [selectedYear, setSelectedYear] = useState<number>(currentSeasonDisabled ? nextSeasonYear() : currentSeasonYear());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [originalKeys, setOriginalKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -275,10 +276,12 @@ export default function MonComptePage() {
                 { year: nextSeasonYear(), label: nextSeasonLabel(), note: "Saison suivante" },
               ].map(({ year, label, note }) => {
                 const active = selectedYear === year;
+                const grayed = year === currentSeasonYear() && currentSeasonDisabled;
                 return (
                   <button
                     key={year}
                     type="button"
+                    disabled={grayed}
                     onClick={() => {
                       setSelectedYear(year);
                       if (membership?.year !== year) {
@@ -287,17 +290,23 @@ export default function MonComptePage() {
                       }
                     }}
                     className={`flex flex-col items-start rounded-xl border-2 px-5 py-4 text-left transition ${
-                      active
-                        ? "border-primary-400 bg-primary-800/60"
-                        : "border-primary-800 bg-primary-900/40 hover:border-primary-600"
+                      grayed
+                        ? "cursor-not-allowed border-primary-800/40 bg-primary-900/20 opacity-50"
+                        : active
+                          ? "border-primary-400 bg-primary-800/60"
+                          : "border-primary-800 bg-primary-900/40 hover:border-primary-600"
                     }`}
                   >
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{note}</span>
-                    <span className={`mt-1 font-display text-xl ${active ? "text-silver-100" : "text-slate-300"}`}>
+                    <span className={`mt-1 font-display text-xl ${active && !grayed ? "text-silver-100" : "text-slate-300"}`}>
                       {label}
                     </span>
                     <span className="mt-1 text-xs text-slate-500">1er sept. {year} → 31 août {year + 1}</span>
-                    {active && (
+                    {grayed ? (
+                      <span className="mt-2 rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-500">
+                        Inscriptions fermées
+                      </span>
+                    ) : active && (
                       <span className="mt-2 rounded-full bg-primary-400 px-2 py-0.5 text-xs font-semibold text-primary-950">
                         Sélectionnée ✓
                       </span>
