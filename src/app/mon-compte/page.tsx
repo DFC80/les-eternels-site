@@ -193,9 +193,8 @@ export default function MonComptePage() {
       <h1 className="font-display text-3xl text-silver-100">Mon adhésion</h1>
       <p className="mt-2 text-slate-400">
         Choisissez les activités auxquelles vous souhaitez participer pour calculer le montant
-        de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait sur place.
-        La cotisation n'est valable que
-        pour l'année en cours et doit être renouvelée chaque 1er janvier.
+        de votre cotisation annuelle. Le règlement se fait sur place. La cotisation est valable
+        du 1er septembre au 31 août. Elle doit être renouvelée tous les ans pour une nouvelle saison.
       </p>
 
       {membership && membership.expired && (
