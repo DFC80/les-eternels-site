@@ -155,6 +155,18 @@ export default function AdminMembersPage() {
     await load();
   }
 
+  async function deleteMembership(id: string) {
+    if (!confirm("Supprimer la cotisation non réglée de ce membre ?")) return;
+    setError(null);
+    const res = await fetch(`/api/admin/members/${id}/membership`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Erreur lors de la suppression.");
+      return;
+    }
+    await loadMembers();
+  }
+
   async function validateSupplement(id: string) {
     setError(null);
     const res = await fetch(`/api/admin/members/${id}/membership`, {
@@ -400,14 +412,25 @@ export default function AdminMembersPage() {
                       return (
                         <div className="flex flex-col gap-1">
                           {canEdit ? (
-                            <button
-                              onClick={() => toggleMembershipPaid(m.id, !ms.isPaid)}
-                              className={`rounded px-2 py-1 text-xs font-medium ${
-                                ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
-                              }`}
-                            >
-                              {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => toggleMembershipPaid(m.id, !ms.isPaid)}
+                                className={`rounded px-2 py-1 text-xs font-medium ${
+                                  ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
+                                }`}
+                              >
+                                {ms.year} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
+                              </button>
+                              {!ms.isPaid && (
+                                <button
+                                  onClick={() => deleteMembership(m.id)}
+                                  title="Supprimer cette cotisation"
+                                  className="rounded px-1.5 py-1 text-xs text-red-400 hover:bg-red-950 hover:text-red-300"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <span className={`rounded px-2 py-1 text-xs font-medium ${
                               ms.isPaid ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"

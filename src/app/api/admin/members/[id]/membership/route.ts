@@ -48,3 +48,23 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   return NextResponse.json(updated);
 }
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasAccess(session.user, "members")) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+
+  const membership = await prisma.membership.findUnique({ where: { userId: params.id } });
+  if (!membership) {
+    return NextResponse.json({ error: "Aucune adhésion trouvée pour ce membre." }, { status: 404 });
+  }
+
+  if (membership.isPaid) {
+    return NextResponse.json({ error: "Impossible de supprimer une cotisation déjà réglée." }, { status: 400 });
+  }
+
+  await prisma.membership.delete({ where: { userId: params.id } });
+
+  return NextResponse.json({ ok: true });
+}
