@@ -194,7 +194,7 @@ export default function MonComptePage() {
       <p className="mt-2 text-slate-400">
         Choisissez les activités auxquelles vous souhaitez participer pour calculer le montant
         de votre cotisation annuelle ({new Date().getFullYear()}). Le règlement se fait sur place
-        en espèces ou par chèque. La cotisation n'est valable que
+        en espèces. La cotisation n'est valable que
         pour l'année en cours et doit être renouvelée chaque 1er janvier.
       </p>
 
