@@ -138,6 +138,14 @@ model GeneralExpense {
   createdAt DateTime @default(now())
 }
 
+model GeneralCredit {
+  id        String   @id @default(cuid())
+  label     String
+  amount    Int
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
 model MealMenu {
   id            String @id @default(cuid())
   eventId       String

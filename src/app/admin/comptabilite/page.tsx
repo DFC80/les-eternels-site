@@ -20,6 +20,7 @@ type EventSummary = {
 };
 
 type GeneralExpense = { id: string; label: string; amount: number; date: string };
+type GeneralCredit = { id: string; label: string; amount: number; date: string };
 
 type MembershipSummary = {
   membershipId: string;
@@ -49,6 +50,7 @@ type OnlinePayment = {
 type Accounting = {
   events: EventSummary[];
   generalExpenses: GeneralExpense[];
+  generalCredits: GeneralCredit[];
   memberships: MembershipSummary[];
   balanceTopUps: BalanceTopUp[];
   onlinePayments: OnlinePayment[];
@@ -57,6 +59,7 @@ type Accounting = {
     totalEventIncome: number;
     totalEventExpenses: number;
     totalGeneralExpenses: number;
+    totalGeneralCredits: number;
     totalBalanceTopUps: number;
     totalOnlinePaymentsCents: number;
     netResultCents: number;
@@ -80,6 +83,11 @@ export default function ComptabilitePage() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | null>(null);
+
+  const [creditLabel, setCreditLabel] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditDate, setCreditDate] = useState(new Date().toISOString().slice(0, 10));
+  const [creditError, setCreditError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/accounting");
@@ -118,6 +126,34 @@ export default function ComptabilitePage() {
     if (res.ok) await load();
   }
 
+  async function addGeneralCredit(e: React.FormEvent) {
+    e.preventDefault();
+    setCreditError(null);
+    if (!creditLabel || !creditAmount) return;
+
+    const res = await fetch("/api/admin/credits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: creditLabel, amount: creditAmount, date: creditDate || undefined }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setCreditError(body.error ?? "Erreur lors de l'enregistrement.");
+      return;
+    }
+
+    setCreditLabel("");
+    setCreditAmount("");
+    setCreditDate(new Date().toISOString().slice(0, 10));
+    await load();
+  }
+
+  async function removeGeneralCredit(id: string) {
+    const res = await fetch(`/api/admin/credits/${id}`, { method: "DELETE" });
+    if (res.ok) await load();
+  }
+
   if (!data) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12">
@@ -140,7 +176,7 @@ export default function ComptabilitePage() {
         l'association.
       </p>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-7">
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Cotisations</p>
           <p className="mt-1 font-display text-2xl text-emerald-400">{totals.totalMembershipIncome}€</p>
@@ -154,6 +190,10 @@ export default function ComptabilitePage() {
           <p className="mt-1 font-display text-2xl text-emerald-400">
             {formatCentsToEuros(totals.totalBalanceTopUps)}
           </p>
+        </div>
+        <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Crédits divers</p>
+          <p className="mt-1 font-display text-2xl text-emerald-400">{totals.totalGeneralCredits}€</p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Dépenses événements</p>
@@ -377,6 +417,60 @@ export default function ComptabilitePage() {
         ))}
         {data.generalExpenses.length === 0 && (
           <p className="text-sm text-slate-500">Aucune dépense générale enregistrée.</p>
+        )}
+      </div>
+
+      <h2 className="mt-10 font-display text-xl text-silver-100">Crédits divers</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Recettes ponctuelles non liées à un événement (subvention, don, remboursement...).
+      </p>
+
+      <form
+        onSubmit={addGeneralCredit}
+        className="mt-4 grid gap-3 rounded-xl border border-primary-800 bg-primary-900/40 p-4 sm:grid-cols-4"
+      >
+        <input
+          value={creditLabel}
+          onChange={(e) => setCreditLabel(e.target.value)}
+          placeholder="Ex: Subvention mairie"
+          className={`${inputClass} sm:col-span-2`}
+        />
+        <input
+          type="number"
+          min={0}
+          value={creditAmount}
+          onChange={(e) => setCreditAmount(e.target.value)}
+          placeholder="Montant €"
+          className={inputClass}
+        />
+        <DateInput value={creditDate} onChange={setCreditDate} className={inputClass} />
+        <button
+          type="submit"
+          className="sm:col-span-4 rounded-md bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-500"
+        >
+          Ajouter le crédit
+        </button>
+        {creditError && <p className="sm:col-span-4 text-sm text-red-400">{creditError}</p>}
+      </form>
+
+      <div className="mt-4 space-y-2">
+        {data.generalCredits.map((cr) => (
+          <div
+            key={cr.id}
+            className="flex items-center justify-between rounded-lg border border-emerald-800/40 bg-emerald-900/20 p-3 text-sm text-slate-200"
+          >
+            <span>
+              {cr.label} —{" "}
+              <span className="text-emerald-400 font-semibold">+{cr.amount}€</span> —{" "}
+              <span className="text-slate-400">{new Date(cr.date).toLocaleDateString("fr-FR")}</span>
+            </span>
+            <button onClick={() => removeGeneralCredit(cr.id)} className="text-red-400 hover:underline">
+              Supprimer
+            </button>
+          </div>
+        ))}
+        {data.generalCredits.length === 0 && (
+          <p className="text-sm text-slate-500">Aucun crédit divers enregistré.</p>
         )}
       </div>
     </div>

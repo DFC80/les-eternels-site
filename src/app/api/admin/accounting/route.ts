@@ -22,6 +22,7 @@ export async function GET() {
   });
 
   const generalExpenses = await prisma.generalExpense.findMany({ orderBy: { date: "desc" } });
+  const generalCredits = await prisma.generalCredit.findMany({ orderBy: { date: "desc" } });
 
   const paidMemberships = await prisma.membership.findMany({
     where: { isPaid: true },
@@ -94,13 +95,14 @@ export async function GET() {
   const totalEventIncome = eventSummaries.reduce((sum, e) => sum + e.income, 0);
   const totalEventExpenses = eventSummaries.reduce((sum, e) => sum + e.expensesTotal, 0);
   const totalGeneralExpenses = generalExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalGeneralCredits = generalCredits.reduce((sum, c) => sum + c.amount, 0);
   const totalMembershipIncome = membershipSummaries.reduce((sum, m) => sum + m.amount, 0);
   // Tout en centimes pour gérer les décimales du comptoir.
   const totalBalanceTopUps = balanceTopUpSummaries.reduce((sum, t) => sum + t.amount, 0);
   // Les ventes comptoir (totalSnackIncome) ne sont PAS comptées : elles débitent le solde
   // adhérent déjà encaissé via les recharges (totalBalanceTopUps). Les compter serait un double-compte.
   const netResultCents =
-    (totalMembershipIncome + totalEventIncome - totalEventExpenses - totalGeneralExpenses) * 100 +
+    (totalMembershipIncome + totalEventIncome + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100 +
     totalBalanceTopUps;
 
   // Total encaissé en ligne (informatif : déjà inclus dans les catégories ci-dessus —
@@ -110,6 +112,7 @@ export async function GET() {
   return NextResponse.json({
     events: eventSummaries,
     generalExpenses,
+    generalCredits,
     memberships: membershipSummaries,
     balanceTopUps: balanceTopUpSummaries,
     onlinePayments: onlinePaymentSummaries,
@@ -118,6 +121,7 @@ export async function GET() {
       totalEventIncome,
       totalEventExpenses,
       totalGeneralExpenses,
+      totalGeneralCredits,
       totalBalanceTopUps,
       totalOnlinePaymentsCents,
       netResultCents,
