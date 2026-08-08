@@ -229,18 +229,20 @@ export default function AdminReunionsPage() {
             />
           </div>
 
-          <div className="sm:col-span-2 flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isPublished"
-              checked={form.isPublished}
-              onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
-              className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
-            />
-            <label htmlFor="isPublished" className="text-sm text-slate-300 cursor-pointer">
-              Visible par les membres (publié)
-            </label>
-          </div>
+          {form.type === "ASSEMBLEE_GENERALE" && (
+            <div className="sm:col-span-2 flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isPublished"
+                checked={form.isPublished}
+                onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
+                className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
+              />
+              <label htmlFor="isPublished" className="text-sm text-slate-300 cursor-pointer">
+                Afficher le résumé sur la page d'accueil
+              </label>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -332,15 +334,17 @@ function MeetingSection({
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[m.type]}`}>
                       {TYPE_LABELS[m.type]}
                     </span>
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        m.isPublished
-                          ? "bg-emerald-950 text-emerald-300"
-                          : "bg-slate-800 text-slate-400"
-                      }`}
-                    >
-                      {m.isPublished ? "Publié" : "Brouillon"}
-                    </span>
+                    {m.type === "ASSEMBLEE_GENERALE" && (
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          m.isPublished
+                            ? "bg-emerald-950 text-emerald-300"
+                            : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        {m.isPublished ? "Affiché accueil" : "Non affiché"}
+                      </span>
+                    )}
                     {m.linkedEventId && (
                       <span className="rounded px-2 py-0.5 text-xs font-medium bg-blue-950 text-blue-300">
                         📅 Sur le calendrier
@@ -363,12 +367,14 @@ function MeetingSection({
                   <button onClick={() => onEdit(m)} className="text-primary-300 hover:underline">
                     Modifier
                   </button>
-                  <button
-                    onClick={() => onTogglePublished(m)}
-                    className={m.isPublished ? "text-amber-400 hover:underline" : "text-emerald-400 hover:underline"}
-                  >
-                    {m.isPublished ? "Dépublier" : "Publier"}
-                  </button>
+                  {m.type === "ASSEMBLEE_GENERALE" && (
+                    <button
+                      onClick={() => onTogglePublished(m)}
+                      className={m.isPublished ? "text-amber-400 hover:underline" : "text-emerald-400 hover:underline"}
+                    >
+                      {m.isPublished ? "Retirer de l'accueil" : "Afficher sur l'accueil"}
+                    </button>
+                  )}
                   <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">
                     Supprimer
                   </button>
