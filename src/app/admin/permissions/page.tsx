@@ -16,6 +16,7 @@ const ALL_SECTIONS = [
   { key: "jeux", label: "Jeux" },
   { key: "content", label: "Actualités" },
   { key: "sondages", label: "Sondages" },
+  { key: "reunions", label: "Réunions & AG" },
 ] as const;
 
 type RoleRow = {

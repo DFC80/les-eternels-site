@@ -25,6 +25,7 @@ const CARDS: Card[] = [
   { href: "/admin/bureau",       icon: "🏛️", title: "Bureau",                 section: "bureau",       description: "Gérer les rôles du bureau et assigner des membres à ces postes." },
   { href: "/admin/actualites",   icon: "📰", title: "Actualités",             section: "content",      description: "Créer et gérer les articles d'actualité publiés sur le site." },
   { href: "/admin/sondages",     icon: "📊", title: "Sondages",               section: "sondages",     description: "Créer des sondages et consulter les résultats des votes membres." },
+  { href: "/admin/reunions",     icon: "📋", title: "Réunions & AG",           section: "reunions",     description: "Gérer les réunions de bureau et les assemblées générales de l'association." },
   { href: "/admin/parametres",   icon: "⚙️", title: "Paramètres",             section: "parametres",   description: "Modifier le descriptif de l'association affiché sur la page d'accueil." },
   { href: "/admin/permissions",  icon: "🔐", title: "Permissions",            section: "parametres",   description: "Configurer les sections admin accessibles pour chaque rôle de bureau.", fullAdminOnly: true },
 ];

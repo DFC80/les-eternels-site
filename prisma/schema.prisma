@@ -203,10 +203,11 @@ model Equipment {
   status        String   @default("DISPONIBLE") // DISPONIBLE | HORS_SERVICE | INDISPONIBLE
   rentalCost    Int
   stock         Int      @default(1)
-  fps           Int?
-  bbWeight      Float?
-  propulsion    String?
-  info          String?
+  fps              Int?
+  bbWeight         Float?
+  propulsion       String?
+  info             String?
+  magazineCapacity Int?
   createdAt     DateTime @default(now())
 
   rentals        EquipmentRental[]
@@ -394,6 +395,18 @@ model ActivityDocument {
   filename       String
   showInEvents   Boolean  @default(false)
   createdAt      DateTime @default(now())
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  type        String   // BUREAU | ASSEMBLEE_GENERALE
+  date        DateTime
+  location    String   @default("")
+  agenda      String?  // ordre du jour
+  notes       String?  // compte-rendu
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Poll {

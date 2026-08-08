@@ -18,6 +18,7 @@ type EquipmentItem = {
   bbWeight: number | null;
   propulsion: string | null;
   info: string | null;
+  magazineCapacity: number | null;
   associations: { itemId: string; quantity: number }[];
 };
 
@@ -33,6 +34,7 @@ const EMPTY_FORM = {
   bbWeight: "",
   propulsion: "",
   info: "",
+  magazineCapacity: "",
 };
 
 const EMPTY_CAT_FORM = { id: "", label: "", emoji: "📦" };
@@ -69,13 +71,14 @@ const STATUS_COLORS: Record<string, string> = {
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function PhotosUploadField({ value, onChange, onUploadingChange }: { value: string; onChange: (v: string) => void; onUploadingChange?: (v: boolean) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const urls = value.split("\n").map((u) => u.trim()).filter(Boolean);
 
   async function handleFile(file: File) {
     setUploading(true);
+    onUploadingChange?.(true);
     const formData = new FormData();
     formData.append("file", file);
     try {
@@ -84,6 +87,7 @@ function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: s
       if (res.ok) onChange([...urls, data.url].join("\n"));
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -123,6 +127,7 @@ export default function AdminEquipementsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Associations réplique → items
   const [expandedAssoc, setExpandedAssoc] = useState<string | null>(null);
@@ -171,6 +176,7 @@ export default function AdminEquipementsPage() {
       bbWeight: item.bbWeight ? String(item.bbWeight) : "",
       propulsion: item.propulsion ?? "",
       info: item.info ?? "",
+      magazineCapacity: item.magazineCapacity ? String(item.magazineCapacity) : "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -191,6 +197,7 @@ export default function AdminEquipementsPage() {
       bbWeight: form.bbWeight || null,
       propulsion: form.propulsion || null,
       info: form.info,
+      magazineCapacity: form.magazineCapacity || null,
     };
 
     const res = await fetch(form.id ? `/api/admin/equipment/${form.id}` : "/api/admin/equipment", {
@@ -312,6 +319,7 @@ export default function AdminEquipementsPage() {
               {item.propulsion && ` · ${item.propulsion.split(",").map((v) => PROPULSION_OPTIONS.find((o) => o.value === v.trim())?.label ?? v.trim()).join(", ")}`}
               {item.fps != null && ` · ${item.fps} FPS`}
               {item.bbWeight != null && ` · ${item.bbWeight}g`}
+              {item.magazineCapacity != null && ` · ${item.magazineCapacity} billes`}
             </p>
             {item.info && <p className="mt-1 text-sm text-slate-300">{item.info}</p>}
             <div className="mt-2 flex flex-wrap gap-3 text-sm">
@@ -603,6 +611,20 @@ export default function AdminEquipementsPage() {
           />
         </div>
 
+        {categories.find((c) => c.key === form.category)?.label.toLowerCase().includes("chargeur") && (
+          <div>
+            <label className="block text-sm font-medium text-slate-300">Capacité du chargeur (billes, optionnel)</label>
+            <input
+              type="number"
+              min={0}
+              value={form.magazineCapacity}
+              onChange={(e) => setForm({ ...form, magazineCapacity: e.target.value })}
+              placeholder="Ex: 120"
+              className={inputClass}
+            />
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-slate-300">Type de propulsion (optionnel)</label>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
@@ -625,7 +647,7 @@ export default function AdminEquipementsPage() {
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">Photos (optionnel)</label>
-          <PhotosUploadField value={form.photos} onChange={(v) => setForm({ ...form, photos: v })} />
+          <PhotosUploadField value={form.photos} onChange={(v) => setForm({ ...form, photos: v })} onUploadingChange={setUploadingPhoto} />
         </div>
 
         <div className="sm:col-span-2">
@@ -644,10 +666,10 @@ export default function AdminEquipementsPage() {
         <div className="col-span-full flex gap-3">
           <button
             type="submit"
-            disabled={saving || !form.category}
+            disabled={saving || uploadingPhoto || !form.category}
             className="rounded-md bg-primary-400 px-5 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
           >
-            {saving ? "Enregistrement..." : form.id ? "Mettre à jour" : "Ajouter"}
+            {saving ? "Enregistrement..." : uploadingPhoto ? "Upload en cours…" : form.id ? "Mettre à jour" : "Ajouter"}
           </button>
           {form.id && (
             <button type="button" onClick={resetForm} className="rounded-md px-5 py-2 font-medium text-slate-300 hover:bg-primary-900">
