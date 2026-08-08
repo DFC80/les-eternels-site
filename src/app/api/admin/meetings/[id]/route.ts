@@ -34,17 +34,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   const meetingDate = new Date(date);
   let linkedEventId = existing.linkedEventId;
 
+  const bureauTitle = `Réunion de bureau — ${meetingDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}`;
+  const agTitle = `Assemblée Générale ${meetingDate.getFullYear()}`;
+
   if (type === "ASSEMBLEE_GENERALE" && !linkedEventId) {
-    const year = meetingDate.getFullYear();
     const event = await prisma.event.create({
       data: {
-        title: `Assemblée Générale ${year}`,
+        title: agTitle,
         description: agenda || "Assemblée générale annuelle de l'association Les Éternels.",
         activityType: "AUTRE",
         location: location || "",
         startsAt: meetingDate,
         endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
         capacity: null,
+        bureauOnly: false,
       },
     });
     linkedEventId = event.id;
@@ -52,16 +55,40 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     await prisma.event.update({
       where: { id: linkedEventId },
       data: {
-        title: `Assemblée Générale ${meetingDate.getFullYear()}`,
+        title: agTitle,
         description: agenda || "Assemblée générale annuelle de l'association Les Éternels.",
         location: location || "",
         startsAt: meetingDate,
         endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+        bureauOnly: false,
       },
     });
+  } else if (type === "BUREAU" && !linkedEventId) {
+    const event = await prisma.event.create({
+      data: {
+        title: bureauTitle,
+        description: agenda || "Réunion interne du bureau de l'association.",
+        activityType: "AUTRE",
+        location: location || "",
+        startsAt: meetingDate,
+        endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+        capacity: null,
+        bureauOnly: true,
+      },
+    });
+    linkedEventId = event.id;
   } else if (type === "BUREAU" && linkedEventId) {
-    await prisma.event.delete({ where: { id: linkedEventId } }).catch(() => null);
-    linkedEventId = null;
+    await prisma.event.update({
+      where: { id: linkedEventId },
+      data: {
+        title: bureauTitle,
+        description: agenda || "Réunion interne du bureau de l'association.",
+        location: location || "",
+        startsAt: meetingDate,
+        endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+        bureauOnly: true,
+      },
+    });
   }
 
   const meeting = await prisma.meeting.update({

@@ -90,6 +90,7 @@ model Event {
   startsAt     DateTime
   endsAt       DateTime
   capacity     Int?
+  bureauOnly   Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   hasMeal              Boolean   @default(false)

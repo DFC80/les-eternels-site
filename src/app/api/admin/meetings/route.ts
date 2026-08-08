@@ -57,6 +57,21 @@ export async function POST(request: Request) {
         startsAt: meetingDate,
         endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
         capacity: null,
+        bureauOnly: false,
+      },
+    });
+    linkedEventId = event.id;
+  } else if (type === "BUREAU") {
+    const event = await prisma.event.create({
+      data: {
+        title: `Réunion de bureau — ${meetingDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}`,
+        description: agenda || "Réunion interne du bureau de l'association.",
+        activityType: "AUTRE",
+        location: location || "",
+        startsAt: meetingDate,
+        endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+        capacity: null,
+        bureauOnly: true,
       },
     });
     linkedEventId = event.id;

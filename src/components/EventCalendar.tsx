@@ -58,6 +58,7 @@ type CalendarEvent = {
   mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
+  bureauOnly: boolean;
   menus: MealMenu[];
   boardGames: { id: string; name: string }[];
   registrations: EventRegistration[];
@@ -468,7 +469,7 @@ export default function EventCalendar() {
                     onClick={() => openEvent(ev)}
                     className={`block w-full truncate rounded border px-1 py-0.5 text-left ${COLOR_BADGE[activityMeta.find((a) => a.key === ev.activityType)?.color ?? ""] ?? DEFAULT_BADGE}`}
                   >
-                    {ev.title}
+                    {ev.bureauOnly && <span className="mr-1 opacity-70">🔒</span>}{ev.title}
                   </button>
                 ))}
               </div>
@@ -496,7 +497,12 @@ export default function EventCalendar() {
                   </span>
                 );
               })()}
-              <h3 className="mt-2 font-display text-xl text-silver-100">{selected.title}</h3>
+              <h3 className="mt-2 font-display text-xl text-silver-100">
+                {selected.bureauOnly && (
+                  <span className="mr-2 inline-block rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs font-medium text-primary-300 align-middle">🔒 Bureau</span>
+                )}
+                {selected.title}
+              </h3>
               <p className="mt-1 text-sm text-slate-400">
                 {new Date(selected.startsAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                 {" de "}
