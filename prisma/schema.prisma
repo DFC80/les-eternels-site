@@ -105,6 +105,7 @@ model Event {
   menus         MealMenu[]
   expenses      EventExpense[]
   boardGames    BoardGame[]
+  documents     EventDocument[]
 }
 
 model BoardGame {
@@ -400,6 +401,16 @@ model ActivityDocument {
   content        Bytes?   // PDF content stored in DB (preferred over filesystem)
   showInEvents   Boolean  @default(false)
   createdAt      DateTime @default(now())
+}
+
+model EventDocument {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  content   Bytes
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model Meeting {
