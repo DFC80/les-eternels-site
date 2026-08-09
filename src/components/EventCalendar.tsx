@@ -194,6 +194,7 @@ export default function EventCalendar() {
   const [editingMeal, setEditingMeal] = useState(false);
   const [eventDocs, setEventDocs] = useState<{ id: string; name: string }[]>([]);
   const [docMsg, setDocMsg] = useState<string | null>(null);
+  const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
 
@@ -324,6 +325,7 @@ export default function EventCalendar() {
     setEditingMeal(false);
     setEventDocs([]);
     setDocMsg(null);
+    setDocAcknowledged(new Set());
     setShowConfirmation(false);
     fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
       .then((r) => r.ok ? r.json() : [])
@@ -1158,19 +1160,46 @@ export default function EventCalendar() {
                 </ul>
 
                 {eventDocs.length > 0 && (
-                  <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-3 text-sm">
-                    <p className="text-slate-300">
-                      En vous inscrivant, vous acceptez les termes des documents suivants :
+                  <div className="mt-4 rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-sm">
+                    <p className="font-medium text-amber-300">📄 Documents à prendre en compte</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Lisez chaque document et cochez pour confirmer que vous en avez pris connaissance.
                     </p>
-                    <ul className="mt-1.5 space-y-1">
+                    <ul className="mt-2 space-y-2">
                       {eventDocs.map((d) => (
-                        <li key={d.id}>
-                          <button onClick={() => openDoc(d.id)} className="text-primary-300 hover:underline">
-                            📄 {d.name}
-                          </button>
+                        <li key={d.id} className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            id={`doc-${d.id}`}
+                            checked={docAcknowledged.has(d.id)}
+                            onChange={() =>
+                              setDocAcknowledged((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(d.id)) next.delete(d.id);
+                                else next.add(d.id);
+                                return next;
+                              })
+                            }
+                            className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary-400"
+                          />
+                          <label htmlFor={`doc-${d.id}`} className="cursor-pointer">
+                            <button
+                              type="button"
+                              onClick={() => openDoc(d.id)}
+                              className="text-primary-300 hover:underline text-left"
+                            >
+                              📄 {d.name}
+                            </button>
+                            <span className="ml-1.5 text-xs text-slate-500">(cliquez pour lire)</span>
+                          </label>
                         </li>
                       ))}
                     </ul>
+                    {eventDocs.length > 0 && docAcknowledged.size < eventDocs.length && (
+                      <p className="mt-2 text-xs text-amber-400">
+                        Veuillez cocher tous les documents pour pouvoir vous inscrire.
+                      </p>
+                    )}
                     {docMsg && <p className="mt-2 text-xs text-amber-400">{docMsg}</p>}
                   </div>
                 )}
@@ -1178,7 +1207,7 @@ export default function EventCalendar() {
                 <div className="mt-4 flex gap-3">
                   <button
                     onClick={() => handleRegister(selected)}
-                    disabled={loadingAction}
+                    disabled={loadingAction || (eventDocs.length > 0 && docAcknowledged.size < eventDocs.length)}
                     className="rounded-md bg-primary-400 px-5 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
                   >
                     {loadingAction ? "Inscription…" : "Confirmer l'inscription"}
