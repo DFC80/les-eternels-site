@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -12,6 +12,7 @@ export default function ParametresPage() {
   const [anneeCopyright, setAnneeCopyright] = useState("");
   const [description, setDescription] = useState("");
   const [paymentMethods, setPaymentMethods] = useState<string[]>(["especes"]);
+  const [customMethodInput, setCustomMethodInput] = useState("");
   const [original, setOriginal] = useState<Record<string, string>>({});
   const [activities, setActivities] = useState<{ label: string; isActive: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -125,10 +126,25 @@ export default function ParametresPage() {
     { key: "carte", label: "Carte bancaire" },
   ];
 
+  const PRESET_KEYS = new Set(ALL_PAYMENT_METHODS.map((m) => m.key));
+  const customMethods = paymentMethods.filter((k) => !PRESET_KEYS.has(k));
+
   function togglePayment(key: string) {
     setPaymentMethods((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
+  }
+
+  const addCustomMethod = useCallback(() => {
+    const val = customMethodInput.trim();
+    if (!val || val.length > 60) return;
+    if (paymentMethods.map((k) => k.toLowerCase()).includes(val.toLowerCase())) return;
+    setPaymentMethods((prev) => [...prev, val]);
+    setCustomMethodInput("");
+  }, [customMethodInput, paymentMethods]);
+
+  function removeCustomMethod(val: string) {
+    setPaymentMethods((prev) => prev.filter((k) => k !== val));
   }
 
   return (
@@ -235,6 +251,8 @@ export default function ParametresPage() {
           <p className="mt-1 text-xs text-slate-500">
             Ces modes s'affichent sur la page de cotisation des membres.
           </p>
+
+          {/* Presets */}
           <div className="mt-4 flex flex-wrap gap-3">
             {ALL_PAYMENT_METHODS.map((m) => (
               <label key={m.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-primary-700 bg-primary-950 px-4 py-2 text-sm text-slate-300 hover:border-primary-500">
@@ -247,6 +265,50 @@ export default function ParametresPage() {
                 {m.label}
               </label>
             ))}
+          </div>
+
+          {/* Custom methods */}
+          <div className="mt-5 border-t border-primary-800 pt-4">
+            <p className="text-xs font-medium text-slate-400">Méthode personnalisée</p>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={customMethodInput}
+                onChange={(e) => setCustomMethodInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomMethod(); } }}
+                placeholder="ex: Hello Asso, Lydia, Sumeria…"
+                maxLength={60}
+                className="flex-1 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={addCustomMethod}
+                disabled={!customMethodInput.trim()}
+                className="rounded-md border border-primary-700 bg-primary-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+              >
+                Ajouter
+              </button>
+            </div>
+            {customMethods.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {customMethods.map((m) => (
+                  <span
+                    key={m}
+                    className="flex items-center gap-1.5 rounded-full border border-primary-600 bg-primary-900 px-3 py-1 text-sm text-slate-300"
+                  >
+                    {m}
+                    <button
+                      type="button"
+                      onClick={() => removeCustomMethod(m)}
+                      className="text-slate-500 hover:text-red-400"
+                      aria-label={`Supprimer ${m}`}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
