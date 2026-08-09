@@ -318,13 +318,15 @@ export default function EventCalendar() {
 
   async function openDoc(id: string) {
     setDocMsg(null);
+    // Open synchronously to avoid popup blockers, then set the URL after fetch
+    const win = window.open("", "_blank");
+    if (!win) { setDocMsg("Autorisez les popups pour ouvrir les documents."); return; }
     const res = await fetch(`/api/docs/${id}`);
-    if (res.status === 401) { setDocMsg("Connectez-vous pour accéder à ce document."); return; }
-    if (res.status === 403) { setDocMsg("Votre cotisation ne couvre pas cette activité."); return; }
-    if (!res.ok) { setDocMsg("Erreur lors de l'ouverture du document."); return; }
+    if (res.status === 401) { win.close(); setDocMsg("Connectez-vous pour accéder à ce document."); return; }
+    if (res.status === 403) { win.close(); setDocMsg("Votre cotisation ne couvre pas cette activité."); return; }
+    if (!res.ok) { win.close(); setDocMsg("Erreur lors de l'ouverture du document."); return; }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    win.location.href = URL.createObjectURL(blob);
   }
 
   function openEvent(ev: CalendarEvent) {
