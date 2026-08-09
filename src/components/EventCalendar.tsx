@@ -193,7 +193,7 @@ export default function EventCalendar() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
   const [editingMeal, setEditingMeal] = useState(false);
-  const [eventDocs, setEventDocs] = useState<{ id: string; name: string }[]>([]);
+  const [eventDocs, setEventDocs] = useState<{ id: string; name: string; kind: "activity" | "event" }[]>([]);
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
@@ -316,8 +316,9 @@ export default function EventCalendar() {
     return false;
   }
 
-  function openDoc(id: string) {
-    window.open(`/api/docs/${id}`, "_blank", "noopener");
+  function openDoc(id: string, kind: "activity" | "event" = "activity") {
+    const url = kind === "event" ? `/api/event-docs/${id}` : `/api/docs/${id}`;
+    window.open(url, "_blank", "noopener");
   }
 
   function openEvent(ev: CalendarEvent) {
@@ -330,9 +331,16 @@ export default function EventCalendar() {
     setDocAcknowledged(new Set());
     setHasOwnEquipment(ev.activityType === "AIRSOFT" ? profileAirsoftHasOwnEquipment : false);
     setShowConfirmation(false);
-    fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
-      .then((r) => r.ok ? r.json() : [])
-      .then(setEventDocs)
+    Promise.all([
+      fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`).then((r) => r.ok ? r.json() : []),
+      fetch(`/api/event-docs?eventId=${ev.id}`).then((r) => r.ok ? r.json() : []),
+    ])
+      .then(([actDocs, evDocs]) =>
+        setEventDocs([
+          ...actDocs.map((d: { id: string; name: string }) => ({ ...d, kind: "activity" as const })),
+          ...evDocs.map((d: { id: string; name: string }) => ({ ...d, kind: "event" as const })),
+        ])
+      )
       .catch(() => {});
     const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
@@ -547,7 +555,7 @@ export default function EventCalendar() {
                   {eventDocs.map((d) => (
                     <li key={d.id}>
                       <button
-                        onClick={() => openDoc(d.id)}
+                        onClick={() => openDoc(d.id, d.kind)}
                         className="text-sm text-primary-300 hover:underline"
                       >
                         {d.name}
@@ -1202,7 +1210,7 @@ export default function EventCalendar() {
                           <label htmlFor={`doc-${d.id}`} className="cursor-pointer">
                             <button
                               type="button"
-                              onClick={() => openDoc(d.id)}
+                              onClick={() => openDoc(d.id, d.kind)}
                               className="text-primary-300 hover:underline text-left"
                             >
                               📄 {d.name}

@@ -154,6 +154,12 @@ export default function AdminEventsPage() {
   const [kiosqueBusy, setKiosqueBusy] = useState(false);
   const [kiosqueError, setKiosqueError] = useState<string | null>(null);
   const [kiosqueMessage, setKiosqueMessage] = useState<string | null>(null);
+  const [docsFor, setDocsFor] = useState<string | null>(null);
+  const [eventDocuments, setEventDocuments] = useState<{ id: string; name: string; createdAt: string }[]>([]);
+  const [newDocName, setNewDocName] = useState("");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/events");
@@ -429,6 +435,50 @@ export default function AdminEventsPage() {
     if (res.ok) await loadRentals(eventId);
   }
 
+  async function loadEventDocs(eventId: string) {
+    const res = await fetch(`/api/admin/events/${eventId}/documents`);
+    if (res.ok) setEventDocuments(await res.json());
+  }
+
+  async function toggleDocs(eventId: string) {
+    if (docsFor === eventId) {
+      setDocsFor(null);
+      setEventDocuments([]);
+      setDocError(null);
+      return;
+    }
+    await loadEventDocs(eventId);
+    setDocsFor(eventId);
+    setNewDocName("");
+    setNewDocFile(null);
+    setDocError(null);
+  }
+
+  async function uploadDoc(eventId: string) {
+    if (!newDocName.trim() || !newDocFile) return;
+    setDocUploading(true);
+    setDocError(null);
+    const fd = new FormData();
+    fd.append("name", newDocName.trim());
+    fd.append("file", newDocFile);
+    const res = await fetch(`/api/admin/events/${eventId}/documents`, { method: "POST", body: fd });
+    setDocUploading(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setDocError(body.error ?? "Erreur lors de l'envoi.");
+      return;
+    }
+    setNewDocName("");
+    setNewDocFile(null);
+    await loadEventDocs(eventId);
+  }
+
+  async function deleteEventDoc(eventId: string, docId: string) {
+    if (!confirm("Supprimer ce document ?")) return;
+    const res = await fetch(`/api/admin/events/${eventId}/documents/${docId}`, { method: "DELETE" });
+    if (res.ok) setEventDocuments((prev) => prev.filter((d) => d.id !== docId));
+  }
+
   const now = new Date();
   const visibleEvents = allowedTypes
     ? events.filter((ev) => allowedTypes.includes(ev.activityType))
@@ -520,6 +570,12 @@ export default function AdminEventsPage() {
             className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
           >
             {kiosqueFor === ev.id ? "Masquer comptoir" : "🛒 Comptoir"}
+          </button>
+          <button
+            onClick={() => toggleDocs(ev.id)}
+            className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
+          >
+            {docsFor === ev.id ? "Masquer documents" : "📄 Documents"}
           </button>
           {!isPast && (
             <button
@@ -947,6 +1003,60 @@ export default function AdminEventsPage() {
             </div>
           );
         })()}
+
+        {docsFor === ev.id && (
+          <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
+            <p className="mb-3 font-semibold text-silver-100">📄 Documents de l'événement</p>
+            {eventDocuments.length === 0 ? (
+              <p className="text-slate-500">Aucun document pour cet événement.</p>
+            ) : (
+              <ul className="mb-3 space-y-2">
+                {eventDocuments.map((doc) => (
+                  <li key={doc.id} className="flex items-center justify-between gap-2">
+                    <a
+                      href={`/api/event-docs/${doc.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary-300 hover:underline"
+                    >
+                      {doc.name}
+                    </a>
+                    <button
+                      onClick={() => deleteEventDoc(ev.id, doc.id)}
+                      className="text-xs text-red-400 hover:underline"
+                    >
+                      Supprimer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-3 space-y-2">
+              <input
+                value={newDocName}
+                onChange={(e) => setNewDocName(e.target.value)}
+                placeholder="Nom du document"
+                className={inputClass}
+              />
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setNewDocFile(e.target.files?.[0] ?? null)}
+                  className="flex-1 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-primary-800 file:px-2 file:py-1 file:text-xs file:text-slate-200"
+                />
+                <button
+                  onClick={() => uploadDoc(ev.id)}
+                  disabled={docUploading || !newDocName.trim() || !newDocFile}
+                  className="rounded-md bg-primary-400 px-3 py-2 text-xs font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                >
+                  {docUploading ? "Envoi…" : "Ajouter"}
+                </button>
+              </div>
+              {docError && <p className="text-xs text-red-400">{docError}</p>}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
