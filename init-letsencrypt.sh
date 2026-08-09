@@ -65,7 +65,7 @@ rm -rf "${CERT_DIR}"
 
 # ── 5. Obtention du vrai certificat Let's Encrypt ─────────────────────────────
 echo "🌐 Demande du certificat Let's Encrypt..."
-docker compose run --rm certbot certbot certonly \
+docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot -w /var/www/certbot \
   --email "${CERTBOT_EMAIL}" \
   -d "${DOMAIN}" \
