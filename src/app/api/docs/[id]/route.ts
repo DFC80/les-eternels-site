@@ -15,7 +15,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
   }
 
-  const doc = await prisma.activityDocument.findUnique({ where: { id: params.id } });
+  const doc = await prisma.activityDocument.findUnique({
+    where: { id: params.id },
+    select: { id: true, name: true, filename: true, content: true, activityKey: true },
+  });
   if (!doc) {
     return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
   }
@@ -46,10 +49,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   let buffer: Buffer;
-  try {
-    buffer = await readFile(path.join(UPLOAD_DIR, doc.filename));
-  } catch {
-    return NextResponse.json({ error: "Fichier introuvable." }, { status: 404 });
+  if (doc.content) {
+    buffer = doc.content;
+  } else {
+    try {
+      buffer = await readFile(path.join(UPLOAD_DIR, doc.filename));
+    } catch {
+      return NextResponse.json({ error: "Fichier introuvable." }, { status: 404 });
+    }
   }
 
   return new Response(new Uint8Array(buffer), {

@@ -397,6 +397,7 @@ model ActivityDocument {
   activityKey    String
   name           String
   filename       String
+  content        Bytes?   // PDF content stored in DB (preferred over filesystem)
   showInEvents   Boolean  @default(false)
   createdAt      DateTime @default(now())
 }
