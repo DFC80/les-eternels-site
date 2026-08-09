@@ -19,6 +19,7 @@ const SELECT_FIELDS = {
   emergencyContactFirstName: true,
   emergencyContactLastName: true,
   emergencyContactPhone: true,
+  airsoftHasOwnEquipment: true,
   balance: true,
 } as const;
 
@@ -55,6 +56,7 @@ export async function PUT(request: Request) {
     emergencyContactFirstName,
     emergencyContactLastName,
     emergencyContactPhone,
+    airsoftHasOwnEquipment,
   } = body as {
     firstName?: string;
     name?: string;
@@ -67,6 +69,7 @@ export async function PUT(request: Request) {
     emergencyContactFirstName?: string;
     emergencyContactLastName?: string;
     emergencyContactPhone?: string;
+    airsoftHasOwnEquipment?: boolean;
   };
 
   if (!firstName || !name) {
@@ -91,6 +94,7 @@ export async function PUT(request: Request) {
       emergencyContactFirstName: emergencyContactFirstName || null,
       emergencyContactLastName: emergencyContactLastName || null,
       emergencyContactPhone: emergencyContactPhone || null,
+      airsoftHasOwnEquipment: !!airsoftHasOwnEquipment,
     },
     select: SELECT_FIELDS,
   });
