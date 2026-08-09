@@ -62,8 +62,8 @@ export default async function HomePage() {
 
   const bureauMeetings = isBureau
     ? await prisma.meeting.findMany({
-        where: { type: "BUREAU", date: { gte: new Date() } },
-        orderBy: { date: "asc" },
+        where: { type: "BUREAU" },
+        orderBy: { date: "desc" },
         take: 3,
       })
     : [];
@@ -146,30 +146,42 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {bureauMeetings.map((m) => (
-              <div
-                key={m.id}
-                className="rounded-xl border border-primary-800 bg-primary-900/50 p-4"
-              >
-                <p className="text-sm font-semibold text-primary-300">
-                  {new Date(m.date).toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  {new Date(m.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  {m.location && <span className="ml-2">· 📍 {m.location}</span>}
-                </p>
-                {m.agenda && (
-                  <p className="mt-2 line-clamp-3 text-xs text-slate-300 leading-relaxed">
-                    {m.agenda}
+            {bureauMeetings.map((m) => {
+              const isPast = new Date(m.date) < new Date();
+              return (
+                <div
+                  key={m.id}
+                  className="rounded-xl border border-primary-800 bg-primary-900/50 p-4"
+                >
+                  {isPast ? (
+                    <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
+                      Passée
+                    </span>
+                  ) : (
+                    <span className="inline-block rounded-full bg-primary-900 px-2 py-0.5 text-xs font-semibold text-primary-300 border border-primary-700">
+                      À venir
+                    </span>
+                  )}
+                  <p className="mt-1.5 text-sm font-semibold text-silver-100">
+                    {new Date(m.date).toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </p>
-                )}
-              </div>
-            ))}
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {new Date(m.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    {m.location && <span className="ml-2">· 📍 {m.location}</span>}
+                  </p>
+                  {m.agenda && (
+                    <p className="mt-2 line-clamp-3 text-xs text-slate-300 leading-relaxed">
+                      {m.agenda}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
