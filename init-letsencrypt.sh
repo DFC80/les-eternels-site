@@ -11,8 +11,11 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-# Charge les variables du .env (ignore les lignes commentées)
-export $(grep -v '^#' .env | grep -v '^$' | xargs)
+# Charge les variables du .env (supporte les valeurs avec espaces et caractères spéciaux)
+set -a
+# shellcheck source=.env
+source .env
+set +a
 
 if [ -z "${DOMAIN:-}" ]; then
   echo "❌ Variable DOMAIN manquante dans .env (ex: DOMAIN=les-eternels.fr)"
