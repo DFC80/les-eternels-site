@@ -39,6 +39,7 @@ type EventRegistration = {
   mealNotes: string | null;
   participationFee: number;
   isTrialDay: boolean;
+  hasOwnEquipment: boolean;
   isPaid: boolean;
   mealOrders: MealOrder[];
   rentals: EquipmentRental[];
@@ -195,6 +196,7 @@ export default function EventCalendar() {
   const [eventDocs, setEventDocs] = useState<{ id: string; name: string }[]>([]);
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
+  const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
 
@@ -326,6 +328,7 @@ export default function EventCalendar() {
     setEventDocs([]);
     setDocMsg(null);
     setDocAcknowledged(new Set());
+    setHasOwnEquipment(false);
     setShowConfirmation(false);
     fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
       .then((r) => r.ok ? r.json() : [])
@@ -410,7 +413,7 @@ export default function EventCalendar() {
     const res = await fetch(`/api/events/${ev.id}/register`, {
       method: registered ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentSelections, participationFee }),
+      body: registered ? undefined : JSON.stringify({ wantsMeal, mealOrders, mealNotes, equipmentSelections, participationFee, hasOwnEquipment: ev.activityType === "AIRSOFT" ? hasOwnEquipment : undefined }),
     });
     setLoadingAction(false);
     if (!res.ok) {
@@ -1158,6 +1161,20 @@ export default function EventCalendar() {
                     </li>
                   )}
                 </ul>
+
+                {selected.activityType === "AIRSOFT" && (
+                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-primary-700 bg-primary-950/60 p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={hasOwnEquipment}
+                      onChange={(e) => setHasOwnEquipment(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary-400"
+                    />
+                    <span className="text-slate-300">
+                      🔫 Je possède mon propre matériel airsoft (réplique et équipement de protection)
+                    </span>
+                  </label>
+                )}
 
                 {eventDocs.length > 0 && (
                   <div className="mt-4 rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-sm">

@@ -61,6 +61,7 @@ type EventRegistrationAdmin = {
   status: "PENDING" | "APPROVED" | "REJECTED";
   wantsMeal: boolean;
   isTrialDay: boolean;
+  hasOwnEquipment: boolean;
   isPaid: boolean;
   memberName: string;
   memberEmail: string;
@@ -559,6 +560,11 @@ export default function AdminEventsPage() {
                           {r.isTrialDay && (
                             <span className="ml-2 rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">
                               🎯 Essai
+                            </span>
+                          )}
+                          {r.hasOwnEquipment && (
+                            <span className="ml-2 rounded-full bg-blue-900/60 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                              🔫 Proprio
                             </span>
                           )}
                         </p>

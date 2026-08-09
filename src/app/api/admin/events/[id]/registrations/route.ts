@@ -25,6 +25,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       status: r.status,
       wantsMeal: r.wantsMeal,
       isTrialDay: r.isTrialDay,
+      hasOwnEquipment: r.hasOwnEquipment,
       isPaid: r.isPaid,
       createdAt: r.createdAt,
       memberName: `${r.user.firstName} ${r.user.name}`,
