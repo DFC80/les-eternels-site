@@ -186,7 +186,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {userHasMembership && <HomeMarketWidget />}
+      {session && <HomeMarketWidget />}
       <HomeCarouselWidget />
 
       {latestAG && (
