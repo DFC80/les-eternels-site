@@ -30,7 +30,12 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
 
   const links = [
     { href: "/actualites", label: "Actualités" },
-    ...(session && hasMembership ? [{ href: "/sondages", label: "Sondages" }] : []),
+    ...(session && hasMembership
+      ? [
+          { href: "/sondages", label: "Sondages" },
+          { href: "/marche", label: "Brocante" },
+        ]
+      : []),
     { href: "/activites", label: "Activités" },
     { href: "/calendar", label: "Événements" },
     { href: "/galerie", label: "Galerie" },
