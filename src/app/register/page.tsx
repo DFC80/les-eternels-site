@@ -138,7 +138,42 @@ export default function RegisterPage() {
               )}
             </button>
           </div>
-          <p className="mt-1 text-xs text-slate-500">8 caractères minimum.</p>
+          {password && (() => {
+            const score = [
+              password.length >= 8,
+              password.length >= 12,
+              /[A-Z]/.test(password),
+              /[a-z]/.test(password),
+              /[0-9]/.test(password),
+              /[^A-Za-z0-9]/.test(password),
+            ].filter(Boolean).length;
+            const levels = [
+              { min: 0, label: "", bars: 0, color: "" },
+              { min: 1, label: "Très faible", bars: 1, color: "bg-red-500" },
+              { min: 2, label: "Faible",      bars: 2, color: "bg-orange-500" },
+              { min: 3, label: "Moyen",       bars: 3, color: "bg-amber-400" },
+              { min: 5, label: "Fort",        bars: 4, color: "bg-emerald-500" },
+              { min: 6, label: "Très fort",   bars: 4, color: "bg-emerald-400" },
+            ];
+            const level = [...levels].reverse().find((l) => score >= l.min) ?? levels[0];
+            if (!level.bars) return null;
+            return (
+              <div className="mt-2">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`h-1 flex-1 rounded-full transition-colors ${i <= level.bars ? level.color : "bg-primary-800"}`}
+                    />
+                  ))}
+                </div>
+                <p className={`mt-1 text-xs ${level.bars <= 2 ? "text-red-400" : level.bars === 3 ? "text-amber-400" : "text-emerald-400"}`}>
+                  {level.label}
+                </p>
+              </div>
+            );
+          })()}
+          {!password && <p className="mt-1 text-xs text-slate-500">8 caractères minimum.</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Confirmer le mot de passe</label>
