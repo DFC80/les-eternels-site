@@ -9,6 +9,7 @@ import { CORE_ACTIVITIES } from "@/lib/activity-colors";
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
 import HomeMarketWidget from "@/components/HomeMarketWidget";
+import { canAccessAdmin } from "@/lib/permissions";
 
 async function getLatestArticle() {
   return prisma.newsArticle.findFirst({
@@ -56,6 +57,16 @@ export default async function HomePage() {
   const userHasMembership = session
     ? !!(await prisma.membership.findUnique({ where: { userId: session.user.id }, select: { id: true } }))
     : false;
+
+  const isBureau = session ? canAccessAdmin(session.user.role ?? "") : false;
+
+  const bureauMeetings = isBureau
+    ? await prisma.meeting.findMany({
+        where: { type: "BUREAU", date: { gte: new Date() } },
+        orderBy: { date: "asc" },
+        take: 3,
+      })
+    : [];
 
   return (
     <div>
@@ -122,6 +133,47 @@ export default async function HomePage() {
       </section>
 
       {userHasMembership && <HomePollWidget />}
+
+      {isBureau && bureauMeetings.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 pb-8 pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">🏢 Réunions de bureau</h2>
+            <Link
+              href="/admin/reunions"
+              className="rounded-md border border-primary-700 px-3 py-1.5 text-sm text-primary-300 hover:bg-primary-900"
+            >
+              Gérer les réunions →
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {bureauMeetings.map((m) => (
+              <div
+                key={m.id}
+                className="rounded-xl border border-primary-800 bg-primary-900/50 p-4"
+              >
+                <p className="text-sm font-semibold text-primary-300">
+                  {new Date(m.date).toLocaleDateString("fr-FR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {new Date(m.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  {m.location && <span className="ml-2">· 📍 {m.location}</span>}
+                </p>
+                {m.agenda && (
+                  <p className="mt-2 line-clamp-3 text-xs text-slate-300 leading-relaxed">
+                    {m.agenda}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {userHasMembership && <HomeMarketWidget />}
       <HomeCarouselWidget />
 
