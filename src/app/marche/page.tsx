@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { formatCentsToEuros } from "@/lib/money";
 
 type ListingUser = { id: string; firstName: string; name: string };
@@ -46,7 +47,7 @@ type FormState = {
   description: string;
   price: string;
   category: string;
-  photos: string;
+  photoUrls: string[];
 };
 
 const EMPTY_FORM: FormState = {
@@ -55,8 +56,112 @@ const EMPTY_FORM: FormState = {
   description: "",
   price: "",
   category: "",
-  photos: "",
+  photoUrls: [],
 };
+
+type Preview = { serverUrl: string; previewUrl: string };
+
+function PhotoUpload({
+  initialUrls = [],
+  onChange,
+}: {
+  initialUrls?: string[];
+  onChange: (urls: string[]) => void;
+}) {
+  const [previews, setPreviews] = useState<Preview[]>(
+    initialUrls.map((u) => ({ serverUrl: u, previewUrl: u }))
+  );
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleFiles(files: FileList) {
+    setUploading(true);
+    setUploadError(null);
+    const added: Preview[] = [];
+    for (const file of Array.from(files)) {
+      const previewUrl = URL.createObjectURL(file);
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch("/api/marketplace/upload", { method: "POST", body: fd });
+        if (res.ok) {
+          const { url } = (await res.json()) as { url: string };
+          added.push({ serverUrl: url, previewUrl });
+        } else {
+          const d = (await res.json()) as { error?: string };
+          setUploadError(d.error ?? "Erreur lors de l'upload.");
+          URL.revokeObjectURL(previewUrl);
+        }
+      } catch {
+        setUploadError("Erreur réseau lors de l'upload.");
+        URL.revokeObjectURL(previewUrl);
+      }
+    }
+    const updated = [...previews, ...added];
+    setPreviews(updated);
+    onChange(updated.map((p) => p.serverUrl));
+    setUploading(false);
+  }
+
+  function remove(i: number) {
+    const p = previews[i];
+    if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl);
+    const updated = previews.filter((_, idx) => idx !== i);
+    setPreviews(updated);
+    onChange(updated.map((x) => x.serverUrl));
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-slate-400">Photos</label>
+      {uploadError && <p className="mb-1 text-xs text-red-400">{uploadError}</p>}
+      <div className="flex flex-wrap gap-2">
+        {previews.map((p, i) => (
+          <div key={i} className="relative h-20 w-20 flex-shrink-0">
+            <Image
+              src={p.previewUrl}
+              alt=""
+              fill
+              className="rounded object-cover"
+              unoptimized
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs leading-none text-white hover:bg-red-500"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <label
+          className={`flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded border border-dashed text-xs transition ${
+            uploading
+              ? "border-primary-800 text-slate-600 cursor-not-allowed"
+              : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-slate-300"
+          }`}
+        >
+          <span className="text-2xl leading-none">{uploading ? "⋯" : "+"}</span>
+          {!uploading && <span>Ajouter</span>}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={uploading}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) {
+                void handleFiles(e.target.files);
+                e.target.value = "";
+              }
+            }}
+          />
+        </label>
+      </div>
+      <p className="mt-1 text-xs text-slate-600">JPG, PNG, WEBP, GIF — max 10 Mo par photo</p>
+    </div>
+  );
+}
 
 function ListingForm({
   form,
@@ -140,16 +245,10 @@ function ListingForm({
         </select>
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs text-slate-400">Liens photos (un par ligne)</label>
-        <textarea
-          rows={2}
-          value={form.photos}
-          onChange={(e) => onChange({ ...form, photos: e.target.value })}
-          placeholder="https://…"
-          className="w-full rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-primary-500 focus:outline-none"
-        />
-      </div>
+      <PhotoUpload
+        initialUrls={form.photoUrls}
+        onChange={(urls) => onChange({ ...form, photoUrls: urls })}
+      />
     </div>
   );
 }
@@ -176,7 +275,7 @@ function ListingCard({
       description: listing.description,
       price: listing.price != null ? String(listing.price / 100) : "",
       category: listing.category ?? "",
-      photos: listing.photos ?? "",
+      photoUrls: listing.photos ? listing.photos.split("\n").filter(Boolean) : [],
     });
     setError(null);
     setEditing(true);
@@ -198,7 +297,7 @@ function ListingCard({
               ? Math.round(parseFloat(form.price) * 100)
               : null,
           category: form.category || null,
-          photos: form.photos || null,
+          photos: form.photoUrls.length > 0 ? form.photoUrls.join("\n") : null,
         }),
       });
       if (!res.ok) {
@@ -306,9 +405,9 @@ function ListingCard({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary-400 underline hover:text-primary-300"
+              className="relative block h-16 w-16 overflow-hidden rounded"
             >
-              Photo {i + 1}
+              <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" unoptimized />
             </a>
           ))}
         </div>
@@ -416,7 +515,7 @@ export default function MarchePage() {
               ? Math.round(parseFloat(form.price) * 100)
               : null,
           category: form.category || null,
-          photos: form.photos || null,
+          photos: form.photoUrls.length > 0 ? form.photoUrls.join("\n") : null,
         }),
       });
       if (!res.ok) {
@@ -493,7 +592,7 @@ export default function MarchePage() {
             disabled={submitting}
             className="mt-4 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-primary-400 disabled:opacity-50"
           >
-            {submitting ? "Publication…" : "Publier l&apos;annonce"}
+            {submitting ? "Publication…" : "Publier l'annonce"}
           </button>
         </div>
       )}
