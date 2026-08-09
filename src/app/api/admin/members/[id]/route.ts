@@ -27,6 +27,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       role: true,
       isActive: true,
       airsoftTrialDay: true,
+      airsoftHasOwnEquipment: true,
       createdAt: true,
       dateOfBirth: true,
       phone: true,
