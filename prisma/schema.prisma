@@ -79,6 +79,8 @@ model AssocDocument {
   category    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  eventLinks  EventAssocDocument[]
 }
 
 model Membership {
@@ -117,11 +119,11 @@ model Event {
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
 
-  registrations EventRegistration[]
-  menus         MealMenu[]
-  expenses      EventExpense[]
-  boardGames    BoardGame[]
-  documents     EventDocument[]
+  registrations   EventRegistration[]
+  menus           MealMenu[]
+  expenses        EventExpense[]
+  boardGames      BoardGame[]
+  assocDocuments  EventAssocDocument[]
 }
 
 model BoardGame {
@@ -419,14 +421,14 @@ model ActivityDocument {
   createdAt      DateTime @default(now())
 }
 
-model EventDocument {
-  id        String   @id @default(cuid())
-  eventId   String
-  name      String
-  content   Bytes
-  createdAt DateTime @default(now())
+model EventAssocDocument {
+  eventId    String
+  documentId String
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event    Event         @relation(fields: [eventId],    references: [id], onDelete: Cascade)
+  document AssocDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, documentId])
 }
 
 model Meeting {
