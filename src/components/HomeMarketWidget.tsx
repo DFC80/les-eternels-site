@@ -48,6 +48,104 @@ const EMPTY_FORM: FormState = {
   category: "", activityKey: "", visibility: "ALL",
 };
 
+type VisibilityEdit = { activityKey: string; visibility: string };
+
+function VisibilityPanel({
+  listing,
+  onSaved,
+  onClose,
+}: {
+  listing: Listing;
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  const [activityKey, setActivityKey] = useState(listing.activityKey ?? "");
+  const [visibility, setVisibility] = useState(listing.visibility ?? "ALL");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    await fetch(`/api/marketplace/${listing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        activityKey: activityKey || null,
+        visibility: activityKey ? visibility : "ALL",
+      }),
+    });
+    setSaving(false);
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div
+      className="mt-2 space-y-2 rounded-lg border border-primary-700 bg-primary-950 p-3"
+      onClick={(e) => e.preventDefault()}
+    >
+      <p className="text-xs font-semibold text-slate-400">Visibilité de l&apos;annonce</p>
+
+      <select
+        value={activityKey}
+        onChange={(e) => {
+          const k = e.target.value;
+          setActivityKey(k);
+          if (!k) setVisibility("ALL");
+        }}
+        className="w-full rounded border border-primary-800 bg-primary-900 px-2 py-1.5 text-xs text-slate-200 focus:border-primary-500 focus:outline-none"
+      >
+        <option value="">Toutes les activités</option>
+        {ACTIVITIES.map((a) => (
+          <option key={a.key} value={a.key}>{a.label}</option>
+        ))}
+      </select>
+
+      {activityKey && (
+        <div className="flex flex-col gap-1.5">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+            <input
+              type="radio"
+              name={`vis-${listing.id}`}
+              value="ALL"
+              checked={visibility === "ALL"}
+              onChange={() => setVisibility("ALL")}
+              className="accent-primary-400"
+            />
+            Visible par tous les membres
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+            <input
+              type="radio"
+              name={`vis-${listing.id}`}
+              value="ACTIVITY"
+              checked={visibility === "ACTIVITY"}
+              onChange={() => setVisibility("ACTIVITY")}
+              className="accent-primary-400"
+            />
+            Membres de l&apos;activité uniquement
+          </label>
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="rounded bg-primary-500 px-3 py-1 text-xs font-semibold text-primary-950 hover:bg-primary-400 disabled:opacity-50"
+        >
+          {saving ? "…" : "Enregistrer"}
+        </button>
+        <button
+          onClick={onClose}
+          className="rounded border border-primary-800 px-3 py-1 text-xs text-slate-400 hover:bg-primary-900"
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function HomeMarketWidget() {
   const { data: session } = useSession();
   const [listings, setListings] = useState<Listing[]>([]);
@@ -57,6 +155,7 @@ export default function HomeMarketWidget() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [editingVisibilityId, setEditingVisibilityId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/marketplace");
@@ -70,6 +169,8 @@ export default function HomeMarketWidget() {
   useEffect(() => { load(); }, []);
 
   if (!session) return null;
+
+  const currentUserId = (session.user as { id?: string })?.id;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -213,7 +314,6 @@ export default function HomeMarketWidget() {
             </select>
           </div>
 
-          {/* Visibilité — uniquement si une activité est sélectionnée */}
           {form.activityKey && (
             <div className="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2">
               <span className="text-xs text-slate-400">Visibilité :</span>
@@ -281,38 +381,68 @@ export default function HomeMarketWidget() {
             const t = TYPE_INFO[l.type] ?? TYPE_INFO.VENTE;
             const firstPhoto = l.photos?.split("\n").find((u) => u.trim());
             const activity = ACTIVITIES.find((a) => a.key === l.activityKey);
+            const isOwner = l.user.id === currentUserId;
+            const isEditingVisibility = editingVisibilityId === l.id;
+
             return (
-              <Link
-                key={l.id}
-                href="/marche"
-                className="rounded-xl border border-primary-800 bg-primary-900/50 p-3 transition hover:border-primary-600 hover:bg-primary-800/60"
-              >
-                {firstPhoto && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={firstPhoto}
-                    alt=""
-                    className="mb-2 h-28 w-full rounded-lg object-cover"
-                  />
-                )}
-                <div className="flex flex-wrap gap-1">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.bg} ${t.color}`}>
-                    {t.label}
-                  </span>
-                  {activity && (
-                    <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
-                      {activity.label}
-                    </span>
+              <div key={l.id} className="rounded-xl border border-primary-800 bg-primary-900/50 p-3 transition hover:border-primary-600 hover:bg-primary-800/60">
+                <Link href="/marche" className="block">
+                  {firstPhoto && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={firstPhoto}
+                      alt=""
+                      className="mb-2 h-28 w-full rounded-lg object-cover"
+                    />
                   )}
-                </div>
-                <h3 className="mt-1 font-display text-sm text-silver-100 line-clamp-2">{l.title}</h3>
-                {l.price != null && (
-                  <p className="mt-0.5 text-sm font-semibold text-primary-300">{formatCentsToEuros(l.price)}</p>
+                  <div className="flex flex-wrap gap-1">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.bg} ${t.color}`}>
+                      {t.label}
+                    </span>
+                    {activity && (
+                      <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                        {activity.label}
+                      </span>
+                    )}
+                    {l.visibility === "ACTIVITY" && (
+                      <span className="inline-block rounded-full border border-primary-800 bg-primary-950 px-2 py-0.5 text-xs text-primary-400">
+                        🔒
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-1 font-display text-sm text-silver-100 line-clamp-2">{l.title}</h3>
+                  {l.price != null && (
+                    <p className="mt-0.5 text-sm font-semibold text-primary-300">{formatCentsToEuros(l.price)}</p>
+                  )}
+                  <p className="mt-1 text-xs text-slate-500">
+                    {l.user.firstName} · {new Date(l.createdAt).toLocaleDateString("fr-FR")}
+                  </p>
+                </Link>
+
+                {isOwner && (
+                  <div className="mt-2 border-t border-primary-800 pt-2">
+                    {!isEditingVisibility ? (
+                      <button
+                        onClick={() => setEditingVisibilityId(l.id)}
+                        className="text-xs text-slate-500 hover:text-primary-300"
+                      >
+                        ✏ Visibilité :{" "}
+                        <span className="text-slate-400">
+                          {l.visibility === "ACTIVITY"
+                            ? `🔒 ${activity?.label ?? "Activité"}`
+                            : "🌐 Tous les membres"}
+                        </span>
+                      </button>
+                    ) : (
+                      <VisibilityPanel
+                        listing={l}
+                        onSaved={load}
+                        onClose={() => setEditingVisibilityId(null)}
+                      />
+                    )}
+                  </div>
                 )}
-                <p className="mt-1 text-xs text-slate-500">
-                  {l.user.firstName} · {new Date(l.createdAt).toLocaleDateString("fr-FR")}
-                </p>
-              </Link>
+              </div>
             );
           })}
         </div>
