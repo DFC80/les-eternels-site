@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const [emergencyContactFirstName, setEmergencyContactFirstName] = useState("");
   const [emergencyContactLastName, setEmergencyContactLastName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [airsoftHasOwnEquipment, setAirsoftHasOwnEquipment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,6 +56,7 @@ export default function ProfilePage() {
         setEmergencyContactFirstName(data.emergencyContactFirstName ?? "");
         setEmergencyContactLastName(data.emergencyContactLastName ?? "");
         setEmergencyContactPhone(data.emergencyContactPhone ?? "");
+        setAirsoftHasOwnEquipment(!!data.airsoftHasOwnEquipment);
       });
   }, []);
 
@@ -79,6 +81,7 @@ export default function ProfilePage() {
         emergencyContactFirstName,
         emergencyContactLastName,
         emergencyContactPhone,
+        airsoftHasOwnEquipment,
       }),
     });
 
@@ -148,7 +151,8 @@ export default function ProfilePage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">
-            Date de naissance <span className="text-red-400">*</span>
+            Date de naissance{" "}
+            <span className="text-xs font-normal text-slate-500">(optionnel)</span>
           </label>
           <div className="flex items-center gap-3">
             <DateInput
@@ -261,6 +265,24 @@ export default function ProfilePage() {
               className={inputClass}
             />
           </div>
+        </div>
+
+        <div className="rounded-lg border border-primary-700 bg-primary-950/60 p-4">
+          <p className="text-sm font-medium text-slate-200">🔫 Airsoft</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Ces informations peuvent être utilisées par les organisateurs d'événements airsoft.
+          </p>
+          <label className="mt-3 flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={airsoftHasOwnEquipment}
+              onChange={(e) => setAirsoftHasOwnEquipment(e.target.checked)}
+              className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary-400"
+            />
+            <span className="text-sm text-slate-300">
+              Je possède ma propre réplique et mon équipement de protection airsoft
+            </span>
+          </label>
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
