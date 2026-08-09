@@ -22,6 +22,7 @@ export async function GET(request: Request) {
   const docs = await prisma.activityDocument.findMany({
     where: activityKey ? { activityKey } : undefined,
     orderBy: { createdAt: "asc" },
+    select: { id: true, activityKey: true, name: true, filename: true, showInEvents: true, createdAt: true },
   });
 
   return NextResponse.json(docs);
@@ -51,15 +52,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Le fichier ne doit pas dépasser 10 Mo." }, { status: 400 });
   }
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-
   const filename = `${randomUUID()}.pdf`;
-  const dest = path.join(UPLOAD_DIR, filename);
   const bytes = await file.arrayBuffer();
-  await writeFile(dest, Buffer.from(bytes));
+  const content = Buffer.from(bytes);
+
+  // Also write to disk as fallback, but primary storage is DB
+  try {
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(path.join(UPLOAD_DIR, filename), content);
+  } catch { /* non-fatal — DB content is the authoritative source */ }
 
   const doc = await prisma.activityDocument.create({
-    data: { activityKey, name, filename },
+    data: { activityKey, name, filename, content },
   });
 
   return NextResponse.json(doc, { status: 201 });
