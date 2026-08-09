@@ -16,6 +16,8 @@ type Listing = {
   price: number | null;
   photos: string | null;
   category: string | null;
+  activityKey: string | null;
+  visibility: string;
   status: "ACTIVE" | "VENDU" | "CLOS";
   createdAt: string;
   user: ListingUser;
@@ -41,12 +43,20 @@ const STATUS_LABELS: Record<string, string> = {
   CLOS:   "Annonce close",
 };
 
+const ACTIVITIES = [
+  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de plateau" },
+  { key: "JEUX_DE_ROLE",    label: "🐉 Jeux de rôle" },
+  { key: "AIRSOFT",         label: "🎯 Airsoft" },
+];
+
 type FormState = {
   type: string;
   title: string;
   description: string;
   price: string;
   category: string;
+  activityKey: string;
+  visibility: string;
   photoUrls: string[];
 };
 
@@ -56,6 +66,8 @@ const EMPTY_FORM: FormState = {
   description: "",
   price: "",
   category: "",
+  activityKey: "",
+  visibility: "ALL",
   photoUrls: [],
 };
 
@@ -158,7 +170,7 @@ function PhotoUpload({
           />
         </label>
       </div>
-      <p className="mt-1 text-xs text-slate-600">JPG, PNG, WEBP, GIF — max 10 Mo par photo</p>
+      <p className="mt-1 text-xs text-slate-600">JPG, PNG, WEBP, GIF — max 10 Mo par photo</p>
     </div>
   );
 }
@@ -198,7 +210,7 @@ function ListingForm({
           type="text"
           value={form.title}
           onChange={(e) => onChange({ ...form, title: e.target.value })}
-          placeholder="Ex : Réplique M4 AEG, gilet tactique…"
+          placeholder="Ex : Réplique M4 AEG, gilet tactique…"
           className="w-full rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-primary-500 focus:outline-none"
         />
       </div>
@@ -229,21 +241,69 @@ function ListingForm({
         </div>
       )}
 
-      <div>
-        <label className="mb-1 block text-xs text-slate-400">Catégorie</label>
-        <select
-          value={form.category}
-          onChange={(e) => onChange({ ...form, category: e.target.value })}
-          className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 focus:border-primary-500 focus:outline-none"
-        >
-          <option value="">— Non spécifiée —</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_LABELS[c]}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-slate-400">Catégorie</label>
+          <select
+            value={form.category}
+            onChange={(e) => onChange({ ...form, category: e.target.value })}
+            className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 focus:border-primary-500 focus:outline-none"
+          >
+            <option value="">— Non spécifiée —</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {CATEGORY_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-slate-400">Activité concernée</label>
+          <select
+            value={form.activityKey}
+            onChange={(e) => {
+              const key = e.target.value;
+              onChange({ ...form, activityKey: key, visibility: key ? form.visibility : "ALL" });
+            }}
+            className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 focus:border-primary-500 focus:outline-none"
+          >
+            <option value="">Toutes les activités</option>
+            {ACTIVITIES.map((a) => (
+              <option key={a.key} value={a.key}>{a.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* Visibilité — uniquement si une activité est sélectionnée */}
+      {form.activityKey && (
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-primary-800 bg-primary-950/40 px-3 py-2">
+          <span className="text-xs text-slate-400">Visibilité :</span>
+          <label className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-300">
+            <input
+              type="radio"
+              name="visibility"
+              value="ALL"
+              checked={form.visibility === "ALL"}
+              onChange={() => onChange({ ...form, visibility: "ALL" })}
+              className="accent-primary-400"
+            />
+            Tous les membres
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-300">
+            <input
+              type="radio"
+              name="visibility"
+              value="ACTIVITY"
+              checked={form.visibility === "ACTIVITY"}
+              onChange={() => onChange({ ...form, visibility: "ACTIVITY" })}
+              className="accent-primary-400"
+            />
+            Membres de l&apos;activité uniquement
+          </label>
+        </div>
+      )}
 
       <PhotoUpload
         initialUrls={form.photoUrls}
@@ -275,6 +335,8 @@ function ListingCard({
       description: listing.description,
       price: listing.price != null ? String(listing.price / 100) : "",
       category: listing.category ?? "",
+      activityKey: listing.activityKey ?? "",
+      visibility: listing.visibility ?? "ALL",
       photoUrls: listing.photos ? listing.photos.split("\n").filter(Boolean) : [],
     });
     setError(null);
@@ -297,6 +359,8 @@ function ListingCard({
               ? Math.round(parseFloat(form.price) * 100)
               : null,
           category: form.category || null,
+          activityKey: form.activityKey || null,
+          visibility: form.activityKey ? form.visibility : "ALL",
           photos: form.photoUrls.length > 0 ? form.photoUrls.join("\n") : null,
         }),
       });
@@ -322,13 +386,14 @@ function ListingCard({
   }
 
   async function deleteListing() {
-    if (!confirm("Supprimer cette annonce ?")) return;
+    if (!confirm("Supprimer cette annonce ?")) return;
     await fetch(`/api/marketplace/${listing.id}`, { method: "DELETE" });
     onChanged();
   }
 
   const typeInfo = TYPE_INFO[listing.type] ?? TYPE_INFO.VENTE;
   const photos = listing.photos ? listing.photos.split("\n").filter(Boolean) : [];
+  const activity = ACTIVITIES.find((a) => a.key === listing.activityKey);
 
   if (editing) {
     return (
@@ -366,13 +431,19 @@ function ListingCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                typeInfo.bg
-              } ${typeInfo.color}`}
-            >
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeInfo.bg} ${typeInfo.color}`}>
               {typeInfo.label}
             </span>
+            {activity && (
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                {activity.label}
+              </span>
+            )}
+            {listing.visibility === "ACTIVITY" && (
+              <span className="rounded-full bg-primary-950 border border-primary-800 px-2 py-0.5 text-xs text-primary-400">
+                🔒 Activité
+              </span>
+            )}
             {listing.category && (
               <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
                 {CATEGORY_LABELS[listing.category] ?? listing.category}
@@ -515,6 +586,8 @@ export default function MarchePage() {
               ? Math.round(parseFloat(form.price) * 100)
               : null,
           category: form.category || null,
+          activityKey: form.activityKey || null,
+          visibility: form.activityKey ? form.visibility : "ALL",
           photos: form.photoUrls.length > 0 ? form.photoUrls.join("\n") : null,
         }),
       });
@@ -542,7 +615,7 @@ export default function MarchePage() {
   if (!session) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <h1 className="font-display text-3xl text-silver-100">Brocante airsoft</h1>
+        <h1 className="font-display text-3xl text-silver-100">Brocante</h1>
         <p className="mt-4 text-slate-400">
           <Link href="/login" className="text-primary-300 hover:underline">
             Connectez-vous
@@ -565,7 +638,7 @@ export default function MarchePage() {
     <div className="mx-auto max-w-3xl px-4 py-12">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl text-silver-100">Brocante airsoft</h1>
+          <h1 className="font-display text-3xl text-silver-100">Brocante</h1>
           <p className="mt-1 text-sm text-slate-400">
             Espace réservé aux membres — vente, échange et recherche d&apos;équipements.
           </p>
@@ -644,7 +717,7 @@ export default function MarchePage() {
           <p className="mt-6 text-slate-400">
             {filter === "ALL"
               ? "Aucune annonce pour le moment."
-              : `Aucune annonce de type « ${TYPE_INFO[filter].label} » pour le moment.`}
+              : `Aucune annonce de type « ${TYPE_INFO[filter].label} » pour le moment.`}
           </p>
         ) : (
           <div className="mt-4 space-y-4">
