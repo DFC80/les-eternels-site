@@ -167,6 +167,7 @@ model EventRegistration {
   status           String   @default("APPROVED") // APPROVED par défaut | PENDING | REJECTED
   participationFee Int      @default(0)          // 0 = membre, 500 = 5€ participation invité airsoft
   isTrialDay       Boolean  @default(false)       // inscription en journée d'essai airsoft
+  hasOwnEquipment  Boolean  @default(false)       // membre possède sa propre réplique et équipement airsoft
   isPaid           Boolean  @default(false)       // frais (repas, participation, locations) payés en ligne
   paidAt           DateTime?
   createdAt        DateTime @default(now())

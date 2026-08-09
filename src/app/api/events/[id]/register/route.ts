@@ -41,6 +41,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const body = await request.json().catch(() => ({}));
   const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
+  const hasOwnEquipment: boolean = event.activityType === "AIRSOFT" && !!body.hasOwnEquipment;
   const wantsMeal = !!body.wantsMeal && event.hasMeal;
   const mealNotes = wantsMeal ? body.mealNotes || null : null;
   const mealOrders: MealOrderInput[] = wantsMeal && Array.isArray(body.mealOrders) ? body.mealOrders : [];
@@ -134,6 +135,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       mealNotes,
       participationFee,
       isTrialDay,
+      hasOwnEquipment,
       status: "APPROVED",
       mealOrders: mealOrders.length > 0
         ? {

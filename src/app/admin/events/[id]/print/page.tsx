@@ -177,6 +177,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
                 <th>Email</th>
                 <th>Statut</th>
                 {event.hasMeal && <th>Repas</th>}
+                {event.activityType === "AIRSOFT" && <th>Matériel propre</th>}
                 <th>Date inscription</th>
               </tr>
             </thead>
@@ -187,6 +188,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
                   <td>{r.user.email}</td>
                   <td className={`badge-${r.status.toLowerCase()}`}>{STATUS_LABELS[r.status]}</td>
                   {event.hasMeal && <td>{r.wantsMeal ? "✓" : "—"}</td>}
+                  {event.activityType === "AIRSOFT" && <td>{r.hasOwnEquipment ? "✓" : "—"}</td>}
                   <td>{fmtDate(r.createdAt)}</td>
                 </tr>
               ))}
