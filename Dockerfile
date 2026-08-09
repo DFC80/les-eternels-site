@@ -17,6 +17,8 @@ COPY . .
 # Passe le provider SQLite → PostgreSQL pour le build de production
 RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
 RUN npx prisma generate
+# Compile seed.ts → seed.js (bundle bcryptjs, @prisma/client reste externe)
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --external:@prisma/client --outfile=prisma/seed.js
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN npm run build
