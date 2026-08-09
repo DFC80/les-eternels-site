@@ -197,6 +197,7 @@ export default function EventCalendar() {
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
+  const [profileAirsoftHasOwnEquipment, setProfileAirsoftHasOwnEquipment] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
 
@@ -264,6 +265,12 @@ export default function EventCalendar() {
       .then((data: ActivityMeta[]) =>
         setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate", membershipRequired: false }])
       );
+    if (session) {
+      fetch("/api/profile")
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment); })
+        .catch(() => {});
+    }
   }, [session]);
 
   const cells = useMemo(() => buildMonthGrid(month), [month]);
@@ -328,7 +335,7 @@ export default function EventCalendar() {
     setEventDocs([]);
     setDocMsg(null);
     setDocAcknowledged(new Set());
-    setHasOwnEquipment(false);
+    setHasOwnEquipment(ev.activityType === "AIRSOFT" ? profileAirsoftHasOwnEquipment : false);
     setShowConfirmation(false);
     fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`)
       .then((r) => r.ok ? r.json() : [])
