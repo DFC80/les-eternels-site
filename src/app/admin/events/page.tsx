@@ -155,10 +155,10 @@ export default function AdminEventsPage() {
   const [kiosqueError, setKiosqueError] = useState<string | null>(null);
   const [kiosqueMessage, setKiosqueMessage] = useState<string | null>(null);
   const [docsFor, setDocsFor] = useState<string | null>(null);
-  const [eventDocuments, setEventDocuments] = useState<{ id: string; name: string; createdAt: string }[]>([]);
-  const [newDocName, setNewDocName] = useState("");
-  const [newDocFile, setNewDocFile] = useState<File | null>(null);
-  const [docUploading, setDocUploading] = useState(false);
+  const [eventDocuments, setEventDocuments] = useState<{ id: string; name: string; description: string | null; mime: string; size: number; visibility: string }[]>([]);
+  const [availableDocs, setAvailableDocs] = useState<{ id: string; name: string; description: string | null; mime: string; size: number; visibility: string }[]>([]);
+  const [docFilter, setDocFilter] = useState("");
+  const [docLinking, setDocLinking] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
 
   async function load() {
@@ -444,37 +444,40 @@ export default function AdminEventsPage() {
     if (docsFor === eventId) {
       setDocsFor(null);
       setEventDocuments([]);
+      setAvailableDocs([]);
+      setDocFilter("");
       setDocError(null);
       return;
     }
-    await loadEventDocs(eventId);
+    const [linkedRes, allRes] = await Promise.all([
+      fetch(`/api/admin/events/${eventId}/documents`),
+      fetch("/api/admin/assoc-documents"),
+    ]);
+    if (linkedRes.ok) setEventDocuments(await linkedRes.json());
+    if (allRes.ok) setAvailableDocs(await allRes.json());
     setDocsFor(eventId);
-    setNewDocName("");
-    setNewDocFile(null);
+    setDocFilter("");
     setDocError(null);
   }
 
-  async function uploadDoc(eventId: string) {
-    if (!newDocName.trim() || !newDocFile) return;
-    setDocUploading(true);
+  async function linkDoc(eventId: string, documentId: string) {
+    setDocLinking(true);
     setDocError(null);
-    const fd = new FormData();
-    fd.append("name", newDocName.trim());
-    fd.append("file", newDocFile);
-    const res = await fetch(`/api/admin/events/${eventId}/documents`, { method: "POST", body: fd });
-    setDocUploading(false);
+    const res = await fetch(`/api/admin/events/${eventId}/documents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId }),
+    });
+    setDocLinking(false);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setDocError(body.error ?? "Erreur lors de l'envoi.");
+      setDocError(body.error ?? "Erreur lors de l'association.");
       return;
     }
-    setNewDocName("");
-    setNewDocFile(null);
     await loadEventDocs(eventId);
   }
 
-  async function deleteEventDoc(eventId: string, docId: string) {
-    if (!confirm("Supprimer ce document ?")) return;
+  async function unlinkDoc(eventId: string, docId: string) {
     const res = await fetch(`/api/admin/events/${eventId}/documents/${docId}`, { method: "DELETE" });
     if (res.ok) setEventDocuments((prev) => prev.filter((d) => d.id !== docId));
   }
@@ -1007,54 +1010,80 @@ export default function AdminEventsPage() {
         {docsFor === ev.id && (
           <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
             <p className="mb-3 font-semibold text-silver-100">📄 Documents de l'événement</p>
+
+            {/* Linked docs */}
             {eventDocuments.length === 0 ? (
-              <p className="text-slate-500">Aucun document pour cet événement.</p>
+              <p className="text-slate-500">Aucun document associé à cet événement.</p>
             ) : (
-              <ul className="mb-3 space-y-2">
+              <ul className="mb-3 space-y-1">
                 {eventDocuments.map((doc) => (
                   <li key={doc.id} className="flex items-center justify-between gap-2">
                     <a
                       href={`/api/event-docs/${doc.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary-300 hover:underline"
+                      className="text-primary-300 hover:underline truncate"
                     >
                       {doc.name}
                     </a>
                     <button
-                      onClick={() => deleteEventDoc(ev.id, doc.id)}
-                      className="text-xs text-red-400 hover:underline"
+                      onClick={() => unlinkDoc(ev.id, doc.id)}
+                      className="flex-shrink-0 text-xs text-red-400 hover:underline"
                     >
-                      Supprimer
+                      Retirer
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="mt-3 space-y-2">
-              <input
-                value={newDocName}
-                onChange={(e) => setNewDocName(e.target.value)}
-                placeholder="Nom du document"
-                className={inputClass}
-              />
-              <div className="flex gap-2">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => setNewDocFile(e.target.files?.[0] ?? null)}
-                  className="flex-1 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-primary-800 file:px-2 file:py-1 file:text-xs file:text-slate-200"
-                />
-                <button
-                  onClick={() => uploadDoc(ev.id)}
-                  disabled={docUploading || !newDocName.trim() || !newDocFile}
-                  className="rounded-md bg-primary-400 px-3 py-2 text-xs font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
-                >
-                  {docUploading ? "Envoi…" : "Ajouter"}
-                </button>
-              </div>
-              {docError && <p className="text-xs text-red-400">{docError}</p>}
-            </div>
+
+            {/* Picker: AssocDocuments not yet linked */}
+            {(() => {
+              const linkedIds = new Set(eventDocuments.map((d) => d.id));
+              const unlinked = availableDocs.filter(
+                (d) => !linkedIds.has(d.id) &&
+                  (!docFilter || d.name.toLowerCase().includes(docFilter.toLowerCase()))
+              );
+              return (
+                <div className="mt-3 border-t border-primary-700 pt-3">
+                  <p className="mb-2 text-xs font-medium text-slate-400">Associer un document de la bibliothèque :</p>
+                  {availableDocs.length === 0 ? (
+                    <p className="text-xs text-slate-500">Aucun document disponible dans la bibliothèque. <a href="/admin/documents" className="text-primary-300 hover:underline">Ajouter des documents →</a></p>
+                  ) : (
+                    <>
+                      <input
+                        value={docFilter}
+                        onChange={(e) => setDocFilter(e.target.value)}
+                        placeholder="Rechercher un document…"
+                        className="mb-2 w-full rounded-md border border-primary-700 bg-primary-900 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                      />
+                      {unlinked.length === 0 ? (
+                        <p className="text-xs text-slate-500">{docFilter ? "Aucun résultat." : "Tous les documents sont déjà associés."}</p>
+                      ) : (
+                        <ul className="max-h-40 space-y-1 overflow-y-auto">
+                          {unlinked.map((doc) => (
+                            <li key={doc.id} className="flex items-center justify-between gap-2">
+                              <span className="truncate text-slate-200">{doc.name}
+                                {doc.visibility === "PRIVATE" && <span className="ml-1 text-xs text-red-400">🔒</span>}
+                              </span>
+                              <button
+                                onClick={() => linkDoc(ev.id, doc.id)}
+                                disabled={docLinking}
+                                className="flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium bg-primary-800 text-primary-200 hover:bg-primary-700 disabled:opacity-50"
+                              >
+                                + Associer
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {docError && <p className="mt-2 text-xs text-red-400">{docError}</p>}
           </div>
         )}
       </div>

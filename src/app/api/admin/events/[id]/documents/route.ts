@@ -5,56 +5,47 @@ import { authOptions } from "@/lib/auth";
 import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+async function requireAccess() {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "activites")) {
-    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
-  }
+  if (!session || !sessionHasAccess(session.user, "activites")) return null;
+  return session;
+}
 
-  const docs = await prisma.eventDocument.findMany({
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await requireAccess();
+  if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+
+  const links = await prisma.eventAssocDocument.findMany({
     where: { eventId: params.id },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, createdAt: true },
+    include: {
+      document: {
+        select: { id: true, name: true, description: true, mime: true, size: true, visibility: true },
+      },
+    },
+    orderBy: { document: { name: "asc" } },
   });
 
-  return NextResponse.json(docs);
+  return NextResponse.json(links.map((l) => l.document));
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "activites")) {
-    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
-  }
+  const session = await requireAccess();
+  if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+
+  const { documentId } = await request.json() as { documentId?: string };
+  if (!documentId) return NextResponse.json({ error: "documentId manquant." }, { status: 400 });
 
   const event = await prisma.event.findUnique({ where: { id: params.id }, select: { id: true } });
-  if (!event) {
-    return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
-  }
+  if (!event) return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
 
-  const formData = await request.formData();
-  const name = (formData.get("name") as string | null)?.trim();
-  const file = formData.get("file") as File | null;
+  const doc = await prisma.assocDocument.findUnique({ where: { id: documentId }, select: { id: true } });
+  if (!doc) return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
 
-  if (!name || !file || file.size === 0) {
-    return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
-  }
-
-  if (file.type !== "application/pdf") {
-    return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés." }, { status: 400 });
-  }
-
-  const MAX_SIZE = 10 * 1024 * 1024;
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "Le fichier ne doit pas dépasser 10 Mo." }, { status: 400 });
-  }
-
-  const bytes = await file.arrayBuffer();
-  const content = Buffer.from(bytes);
-
-  const doc = await prisma.eventDocument.create({
-    data: { eventId: params.id, name, content },
-    select: { id: true, name: true, createdAt: true },
+  await prisma.eventAssocDocument.upsert({
+    where: { eventId_documentId: { eventId: params.id, documentId } },
+    create: { eventId: params.id, documentId },
+    update: {},
   });
 
-  return NextResponse.json(doc, { status: 201 });
+  return NextResponse.json({ ok: true }, { status: 201 });
 }

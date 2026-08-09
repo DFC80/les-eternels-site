@@ -14,12 +14,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  const doc = await prisma.eventDocument.findUnique({ where: { id: params.docId } });
-  if (!doc || doc.eventId !== params.id) {
-    return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
-  }
-
-  await prisma.eventDocument.delete({ where: { id: params.docId } });
+  await prisma.eventAssocDocument.deleteMany({
+    where: { eventId: params.id, documentId: params.docId },
+  });
 
   return NextResponse.json({ ok: true });
 }
