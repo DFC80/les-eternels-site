@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { CORE_ACTIVITIES } from "@/lib/activity-colors";
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
+import HomeMarketWidget from "@/components/HomeMarketWidget";
 
 async function getLatestArticle() {
   return prisma.newsArticle.findFirst({
@@ -121,6 +122,7 @@ export default async function HomePage() {
       </section>
 
       {userHasMembership && <HomePollWidget />}
+      {userHasMembership && <HomeMarketWidget />}
       <HomeCarouselWidget />
 
       {latestAG && (
