@@ -18,15 +18,19 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [hasMembership, setHasMembership] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!session) { setBalance(null); setHasMembership(false); return; }
+    if (!session) { setBalance(null); setHasMembership(false); setAvatarSrc(null); return; }
     const fetchBalance = () =>
       fetch("/api/balance").then((r) => r.ok ? r.json() : null).then((d) => { if (d) setBalance(d.balance); });
     fetchBalance();
     const id = setInterval(fetchBalance, 10000);
     fetch("/api/membership").then((r) => r.ok ? r.json() : null).then((d) => setHasMembership(!!(d?.id)));
+    fetch("/api/avatar").then((r) => r.ok ? r.blob() : null).then((b) => {
+      if (b) setAvatarSrc(URL.createObjectURL(b));
+    }).catch(() => {});
     return () => clearInterval(id);
   }, [session]);
 
@@ -56,6 +60,12 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
   ];
 
   const isAdmin = session?.user?.role && canAccessAdmin(session.user.role);
+
+  function initials(fullName?: string | null) {
+    if (!fullName) return "?";
+    const parts = fullName.trim().split(/\s+/);
+    return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary-800 bg-primary-950/95 backdrop-blur">
@@ -93,11 +103,17 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen((o) => !o)}
-                  className="flex items-center gap-1.5 rounded-md border border-primary-700 bg-primary-900 px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:bg-primary-800"
+                  className="flex items-center gap-2 rounded-full border border-primary-700 bg-primary-900 p-0.5 pr-2.5 text-sm font-medium text-slate-200 transition hover:bg-primary-800"
+                  aria-label="Mon compte"
                 >
-                  <span>Mon compte</span>
+                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-800 text-xs font-semibold uppercase text-slate-300">
+                    {avatarSrc
+                      ? <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                      : initials(session.user?.name)}
+                  </span>
+                  <span className="hidden xl:inline">{session.user?.name?.split(" ")[0]}</span>
                   <svg
-                    className={`h-3.5 w-3.5 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                    className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -195,6 +211,18 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
           {session && (
             <>
               <div className="my-2 border-t border-primary-800" />
+              <Link
+                href="/profil"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 py-2.5"
+              >
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-700 bg-primary-800 text-sm font-semibold uppercase text-slate-300">
+                  {avatarSrc
+                    ? <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                    : initials(session.user?.name)}
+                </span>
+                <span className="text-sm text-slate-200">{session.user?.name}</span>
+              </Link>
               <Link href="/profil" onClick={() => setMobileOpen(false)} className="block py-2.5 text-sm text-slate-200">
                 Mon profil
               </Link>
