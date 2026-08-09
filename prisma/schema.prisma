@@ -54,6 +54,9 @@ model User {
   emergencyContactLastName  String?
   emergencyContactPhone     String?
 
+  avatarContent  Bytes?
+  avatarMime     String?
+
   registrations   EventRegistration[]
   membership      Membership?
   snackOrders     SnackOrder[]

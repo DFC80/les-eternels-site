@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import BalanceTopUpCard from "@/components/BalanceTopUpCard";
 import DateInput from "@/components/DateInput";
@@ -39,6 +39,11 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetch("/api/profile")
       .then((res) => res.json())
@@ -58,7 +63,38 @@ export default function ProfilePage() {
         setEmergencyContactPhone(data.emergencyContactPhone ?? "");
         setAirsoftHasOwnEquipment(!!data.airsoftHasOwnEquipment);
       });
+
+    fetch("/api/avatar")
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (blob) setAvatarSrc(URL.createObjectURL(blob));
+      })
+      .catch(() => {});
   }, []);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarError(null);
+    setAvatarUploading(true);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/avatar", { method: "POST", body: form });
+    setAvatarUploading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAvatarError(data.error ?? "Erreur lors du téléversement.");
+      return;
+    }
+    const blob = await fetch("/api/avatar").then((r) => r.blob());
+    setAvatarSrc(URL.createObjectURL(blob));
+  }
+
+  async function handleAvatarDelete() {
+    setAvatarError(null);
+    await fetch("/api/avatar", { method: "DELETE" });
+    setAvatarSrc(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,6 +156,52 @@ export default function ProfilePage() {
         onSubmit={handleSubmit}
         className="mt-6 space-y-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6"
       >
+        {/* Avatar */}
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            className="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border-2 border-primary-700 bg-primary-950 focus:outline-none focus:ring-2 focus:ring-primary-400"
+            title="Changer la photo de profil"
+          >
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="Photo de profil" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center font-display text-2xl text-slate-400">
+                {firstName && name
+                  ? `${firstName[0]}${name[0]}`.toUpperCase()
+                  : firstName
+                  ? firstName[0].toUpperCase()
+                  : "?"}
+              </span>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {avatarUploading ? "…" : "Modifier"}
+            </span>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-300">Photo de profil</p>
+            <p className="text-xs text-slate-500">JPEG, PNG, GIF ou WebP · 2 Mo max</p>
+            {avatarSrc && (
+              <button
+                type="button"
+                onClick={handleAvatarDelete}
+                className="mt-1 text-xs text-red-400 hover:underline"
+              >
+                Supprimer la photo
+              </button>
+            )}
+            {avatarError && <p className="mt-1 text-xs text-red-400">{avatarError}</p>}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-slate-300">
