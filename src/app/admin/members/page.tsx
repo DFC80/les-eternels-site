@@ -39,6 +39,7 @@ type MemberDetail = {
   role: string;
   isActive: boolean;
   airsoftTrialDay: boolean;
+  airsoftHasOwnEquipment: boolean;
   createdAt: string;
   dateOfBirth: string | null;
   phone: string | null;
@@ -756,29 +757,45 @@ export default function AdminMembersPage() {
                   )}
                 </div>
 
-                {canEdit && (
-                  <div className="mt-4 rounded-lg border border-primary-700 bg-primary-900/40 p-3">
-                    <p className="text-sm font-medium text-silver-100">🎯 Airsoft — Journée d'essai</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Permet de s'inscrire à un événement airsoft sans cotisation et sans frais de participation.
-                    </p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className={`text-sm font-medium ${detail.airsoftTrialDay ? "text-emerald-400" : "text-slate-400"}`}>
-                        {detail.airsoftTrialDay ? "Journée d'essai activée" : "Pas de journée d'essai"}
-                      </span>
-                      <button
-                        onClick={() => toggleTrialDay(!detail.airsoftTrialDay)}
-                        className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
-                          detail.airsoftTrialDay
-                            ? "bg-red-900/60 text-red-300 hover:bg-red-800"
-                            : "bg-emerald-900/60 text-emerald-300 hover:bg-emerald-800"
-                        }`}
-                      >
-                        {detail.airsoftTrialDay ? "Retirer" : "Activer"}
-                      </button>
-                    </div>
+                <div className="mt-4 rounded-lg border border-primary-700 bg-primary-900/40 p-3 space-y-3">
+                  <p className="text-sm font-medium text-silver-100">🎯 Airsoft</p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Matériel propre :</span>
+                    <span className={detail.airsoftHasOwnEquipment ? "text-emerald-400" : "text-slate-400"}>
+                      {detail.airsoftHasOwnEquipment ? "Oui" : "Non"}
+                    </span>
                   </div>
-                )}
+                  {canEdit && (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        Journée d'essai : permet de s'inscrire à un événement airsoft sans cotisation et sans frais de participation.
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-medium ${detail.airsoftTrialDay ? "text-emerald-400" : "text-slate-400"}`}>
+                          {detail.airsoftTrialDay ? "Journée d'essai activée" : "Pas de journée d'essai"}
+                        </span>
+                        <button
+                          onClick={() => toggleTrialDay(!detail.airsoftTrialDay)}
+                          className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                            detail.airsoftTrialDay
+                              ? "bg-red-900/60 text-red-300 hover:bg-red-800"
+                              : "bg-emerald-900/60 text-emerald-300 hover:bg-emerald-800"
+                          }`}
+                        >
+                          {detail.airsoftTrialDay ? "Retirer" : "Activer"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {!canEdit && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Journée d'essai :</span>
+                      <span className={detail.airsoftTrialDay ? "text-emerald-400" : "text-slate-400"}>
+                        {detail.airsoftTrialDay ? "Activée" : "Non"}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-6 flex justify-end">
                   <button
