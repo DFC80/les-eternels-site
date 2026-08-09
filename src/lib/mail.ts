@@ -28,7 +28,7 @@ function wrapHtml(title: string, bodyHtml: string) {
 
 const BLOCKED_EMAILS = ["admin@les-eternels.fr"];
 
-export async function sendMail(to: string, subject: string, html: string) {
+export async function sendMail(to: string, subject: string, html: string, options?: { replyTo?: string }) {
   if (BLOCKED_EMAILS.includes(to.toLowerCase().trim())) {
     console.warn(`[mail] Adresse bloquée, email à ${to} non envoyé : "${subject}"`);
     return;
@@ -43,7 +43,7 @@ export async function sendMail(to: string, subject: string, html: string) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
   try {
-    await transporter.sendMail({ from, to, subject, html });
+    await transporter.sendMail({ from, to, subject, html, ...(options?.replyTo ? { replyTo: options.replyTo } : {}) });
   } catch (err) {
     console.error(`[mail] Échec d'envoi à ${to} ("${subject}") :`, err);
   }
@@ -634,6 +634,76 @@ export async function sendAirsoftTrialDayUsedEmail(params: { to: string; firstNa
     `
   );
   await sendMail(to, "Journée d'essai Airsoft utilisée — Les Éternels", html);
+}
+
+export async function sendContactFormEmail(params: {
+  senderName: string;
+  senderEmail: string;
+  subject: string;
+  message: string;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
+  if (!adminEmail) return;
+
+  const { senderName, senderEmail, subject, message } = params;
+  const lines = message.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .split("\n").map((l) => `<p style="margin:4px 0;">${l || "&nbsp;"}</p>`).join("");
+
+  const html = wrapHtml(
+    `📩 Message de contact — ${subject}`,
+    `
+      <p>Un visiteur a envoyé un message via le formulaire de contact du site.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Nom</td>
+          <td style="padding:6px 12px;">${senderName}</td>
+        </tr>
+        <tr style="background:#f9f9f9">
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Email</td>
+          <td style="padding:6px 12px;"><a href="mailto:${senderEmail}">${senderEmail}</a></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Sujet</td>
+          <td style="padding:6px 12px;">${subject}</td>
+        </tr>
+      </table>
+      <p style="margin-top:20px;font-weight:bold;color:#555;">Message :</p>
+      <div style="margin:8px 0;padding:12px 16px;background:#f9fafb;border-left:4px solid #6366f1;">
+        ${lines}
+      </div>
+      <p style="margin-top:20px;font-size:12px;color:#888;">
+        Répondez directement à cet email pour contacter ${senderName}.
+      </p>
+    `
+  );
+
+  await sendMail(
+    adminEmail,
+    `Contact — ${subject}`,
+    html,
+    { replyTo: `${senderName} <${senderEmail}>` }
+  );
+
+  // Confirmation to sender
+  const confirmHtml = wrapHtml(
+    "Votre message a bien été reçu",
+    `
+      <p>Bonjour ${senderName},</p>
+      <p>Nous avons bien reçu votre message et nous vous répondrons dans les meilleurs délais.</p>
+      <p style="margin-top:16px;font-weight:bold;color:#555;">Récapitulatif :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Sujet</td>
+          <td style="padding:6px 12px;">${subject}</td>
+        </tr>
+      </table>
+      <div style="margin-top:12px;padding:12px 16px;background:#f9fafb;border-left:4px solid #6366f1;">
+        ${lines}
+      </div>
+      <p style="margin-top:20px;">À bientôt !</p>
+    `
+  );
+  await sendMail(senderEmail, "Votre message — Les Éternels", confirmHtml);
 }
 
 export async function sendAirsoftTrialDayEmail(params: { to: string; firstName: string }) {
