@@ -61,6 +61,7 @@ model User {
   boardGames      BoardGame[]
   newsComments    NewsComment[]
   payments        Payment[]
+  marketListings  MarketListing[]
 }
 
 model Membership {
@@ -460,4 +461,20 @@ model PollVoteChange {
   poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   @@unique([pollId, userId])
+}
+
+model MarketListing {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // VENTE | ECHANGE | RECHERCHE
+  title       String
+  description String
+  price       Int?     // centimes, pour VENTE uniquement
+  photos      String?  // URLs séparées par des retours à la ligne
+  category    String?  // REPLIQUE | PROTECTION | TENUE | ACCESSOIRE | AUTRE
+  status      String   @default("ACTIVE") // ACTIVE | VENDU | CLOS
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
