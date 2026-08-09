@@ -14,6 +14,8 @@ type Listing = {
   price: number | null;
   photos: string | null;
   category: string | null;
+  activityKey: string | null;
+  visibility: string;
   status: "ACTIVE" | "VENDU" | "CLOS";
   createdAt: string;
   user: ListingUser;
@@ -25,15 +27,26 @@ const TYPE_INFO: Record<string, { label: string; color: string; bg: string }> = 
   RECHERCHE: { label: "Recherche", color: "text-amber-300",   bg: "bg-amber-900/60" },
 };
 
+const ACTIVITIES = [
+  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de plateau" },
+  { key: "JEUX_DE_ROLE",    label: "🐉 Jeux de rôle" },
+  { key: "AIRSOFT",         label: "🎯 Airsoft" },
+];
+
 type FormState = {
   type: string;
   title: string;
   description: string;
   price: string;
   category: string;
+  activityKey: string;
+  visibility: string;
 };
 
-const EMPTY_FORM: FormState = { type: "VENTE", title: "", description: "", price: "", category: "" };
+const EMPTY_FORM: FormState = {
+  type: "VENTE", title: "", description: "", price: "",
+  category: "", activityKey: "", visibility: "ALL",
+};
 
 export default function HomeMarketWidget() {
   const { data: session } = useSession();
@@ -69,6 +82,8 @@ export default function HomeMarketWidget() {
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category || null,
+        activityKey: form.activityKey || null,
+        visibility: form.activityKey ? form.visibility : "ALL",
       };
       if (form.type === "VENTE" && form.price.trim()) {
         const val = parseFloat(form.price.replace(",", "."));
@@ -96,7 +111,7 @@ export default function HomeMarketWidget() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-8 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl text-silver-100">🛒 Brocante airsoft</h2>
+        <h2 className="font-display text-2xl text-silver-100">🛒 Brocante</h2>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setShowForm((v) => !v); setError(null); setSuccess(false); }}
@@ -127,7 +142,7 @@ export default function HomeMarketWidget() {
           onSubmit={submit}
           className="mt-4 space-y-3 rounded-xl border border-primary-700 bg-primary-900/60 p-4"
         >
-          {/* Type selector */}
+          {/* Type */}
           <div className="flex gap-2">
             {(["VENTE", "ECHANGE", "RECHERCHE"] as const).map((t) => (
               <button
@@ -183,7 +198,49 @@ export default function HomeMarketWidget() {
               <option value="ACCESSOIRE">Accessoire</option>
               <option value="AUTRE">Autre</option>
             </select>
+            <select
+              value={form.activityKey}
+              onChange={(e) => {
+                const key = e.target.value;
+                setForm((f) => ({ ...f, activityKey: key, visibility: key ? f.visibility : "ALL" }));
+              }}
+              className="rounded-lg border border-primary-800 bg-primary-950 px-3 py-2 text-sm text-slate-300 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="">Toutes activités</option>
+              {ACTIVITIES.map((a) => (
+                <option key={a.key} value={a.key}>{a.label}</option>
+              ))}
+            </select>
           </div>
+
+          {/* Visibilité — uniquement si une activité est sélectionnée */}
+          {form.activityKey && (
+            <div className="flex items-center gap-3 rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2">
+              <span className="text-xs text-slate-400">Visibilité :</span>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-300">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="ALL"
+                  checked={form.visibility === "ALL"}
+                  onChange={() => setForm((f) => ({ ...f, visibility: "ALL" }))}
+                  className="accent-primary-400"
+                />
+                Tous les membres
+              </label>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-300">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value="ACTIVITY"
+                  checked={form.visibility === "ACTIVITY"}
+                  onChange={() => setForm((f) => ({ ...f, visibility: "ACTIVITY" }))}
+                  className="accent-primary-400"
+                />
+                Membres de l&apos;activité uniquement
+              </label>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -223,6 +280,7 @@ export default function HomeMarketWidget() {
           {listings.map((l) => {
             const t = TYPE_INFO[l.type] ?? TYPE_INFO.VENTE;
             const firstPhoto = l.photos?.split("\n").find((u) => u.trim());
+            const activity = ACTIVITIES.find((a) => a.key === l.activityKey);
             return (
               <Link
                 key={l.id}
@@ -237,9 +295,16 @@ export default function HomeMarketWidget() {
                     className="mb-2 h-28 w-full rounded-lg object-cover"
                   />
                 )}
-                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.bg} ${t.color}`}>
-                  {t.label}
-                </span>
+                <div className="flex flex-wrap gap-1">
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.bg} ${t.color}`}>
+                    {t.label}
+                  </span>
+                  {activity && (
+                    <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                      {activity.label}
+                    </span>
+                  )}
+                </div>
                 <h3 className="mt-1 font-display text-sm text-silver-100 line-clamp-2">{l.title}</h3>
                 {l.price != null && (
                   <p className="mt-0.5 text-sm font-semibold text-primary-300">{formatCentsToEuros(l.price)}</p>

@@ -472,6 +472,8 @@ model MarketListing {
   price       Int?     // centimes, pour VENTE uniquement
   photos      String?  // URLs séparées par des retours à la ligne
   category    String?  // REPLIQUE | PROTECTION | TENUE | ACCESSOIRE | AUTRE
+  activityKey String?  // clé de l'activité concernée (null = toutes activités)
+  visibility  String   @default("ALL") // ALL | ACTIVITY
   status      String   @default("ACTIVE") // ACTIVE | VENDU | CLOS
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

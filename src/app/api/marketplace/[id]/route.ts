@@ -32,10 +32,15 @@ export async function PUT(
     price?: number | null;
     photos?: string | null;
     category?: string | null;
+    activityKey?: string | null;
+    visibility?: string;
     status?: string;
   };
 
-  const { title, description, price, photos, category, status } = body;
+  const { title, description, price, photos, category, activityKey, visibility, status } = body;
+
+  const resolvedVisibility =
+    visibility === "ACTIVITY" && activityKey ? "ACTIVITY" : visibility === "ALL" ? "ALL" : undefined;
 
   const updated = await prisma.marketListing.update({
     where: { id: params.id },
@@ -45,6 +50,8 @@ export async function PUT(
       ...(price !== undefined ? { price: price != null ? Math.round(Number(price)) : null } : {}),
       ...(photos !== undefined ? { photos: photos || null } : {}),
       ...(category !== undefined ? { category: category || null } : {}),
+      ...(activityKey !== undefined ? { activityKey: activityKey || null } : {}),
+      ...(resolvedVisibility !== undefined ? { visibility: resolvedVisibility } : {}),
       ...(status && ["ACTIVE", "VENDU", "CLOS"].includes(status) ? { status } : {}),
     },
     include: { user: { select: { id: true, firstName: true, name: true } } },
