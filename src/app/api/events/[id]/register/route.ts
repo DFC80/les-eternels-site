@@ -106,7 +106,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   // Expand equipment selections to include associated items automatically
-  let allRentals: { equipmentId: string; quantity: number }[] = [];
+  let allRentals: { equipmentId: string; quantity: number; isFree?: boolean }[] = [];
   if (equipmentSelections.length > 0) {
     const selectedWithAssocs = await prisma.equipment.findMany({
       where: { id: { in: equipmentSelections.map((s) => s.id) } },
@@ -124,7 +124,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
         }
       }
     }
-    allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({ equipmentId, quantity }));
+    const selectedIds = new Set(equipmentSelections.map((s) => s.id));
+    allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({
+      equipmentId,
+      quantity,
+      isFree: !selectedIds.has(equipmentId),
+    }));
   }
 
   // Validation côté serveur : vérifie que le stock des éléments associés est suffisant
@@ -189,12 +194,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       : Promise.resolve([]),
   ]);
 
-  // Récap email : tous les équipements loués (sélectionnés + associés automatiques)
-  const equipmentList = equipmentRecords.map((eq) => ({
-    name: eq.name,
-    rentalCost: eq.rentalCost,
-    quantity: allRentals.find((r) => r.equipmentId === eq.id)?.quantity ?? 1,
-  }));
+  // Récap email : éléments associés auto-ajoutés sont gratuits (inclus dans le prix de la réplique)
+  const equipmentList = equipmentRecords.map((eq) => {
+    const rental = allRentals.find((r) => r.equipmentId === eq.id);
+    return {
+      name: eq.name,
+      rentalCost: rental?.isFree ? 0 : eq.rentalCost,
+      quantity: rental?.quantity ?? 1,
+    };
+  });
 
   if (user) {
     await Promise.all([
