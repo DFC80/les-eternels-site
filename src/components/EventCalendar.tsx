@@ -840,8 +840,9 @@ export default function EventCalendar() {
                                             const item = equipmentList.find((e) => e.id === a.itemId);
                                             if (!item) return null;
                                             const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
-                                            const itemAvail = Math.max(0, (item.stock ?? 1) - itemTaken);
-                                            const itemOk = a.quantity <= itemAvail;
+                                            const itemRaw = (item.stock ?? 1) - itemTaken;
+                                            const itemOk = itemRaw >= 0;
+                                            const itemAvail = Math.max(0, itemRaw);
                                             return (
                                               <li key={a.itemId} className={`text-xs ${itemOk ? "text-slate-500" : "text-red-400 font-medium"}`}>
                                                 + {a.quantity > 1 ? `${a.quantity}× ` : ""}{item.name}
