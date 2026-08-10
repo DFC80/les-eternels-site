@@ -101,3 +101,29 @@ export async function PUT(request: Request) {
 
   return NextResponse.json(user);
 }
+
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const data: Record<string, unknown> = {};
+
+  if (typeof body.airsoftHasOwnEquipment === "boolean") {
+    data.airsoftHasOwnEquipment = body.airsoftHasOwnEquipment;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: session.user.id },
+    data,
+    select: SELECT_FIELDS,
+  });
+
+  return NextResponse.json(user);
+}

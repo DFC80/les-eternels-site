@@ -197,6 +197,7 @@ export default function EventCalendar() {
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
+  const [profileAirsoftHasOwnEquipment, setProfileAirsoftHasOwnEquipment] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
   const [stockWarning, setStockWarning] = useState<string | null>(null);
@@ -265,6 +266,12 @@ export default function EventCalendar() {
       .then((data: ActivityMeta[]) =>
         setActivityMeta([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate", membershipRequired: false }])
       );
+    if (session) {
+      fetch("/api/profile")
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment); })
+        .catch(() => {});
+    }
   }, [session]);
 
   const cells = useMemo(() => buildMonthGrid(month), [month]);
@@ -336,7 +343,7 @@ export default function EventCalendar() {
     setEventDocs([]);
     setDocMsg(null);
     setDocAcknowledged(new Set());
-    setHasOwnEquipment(false);
+    setHasOwnEquipment(ev.activityType === "AIRSOFT" ? profileAirsoftHasOwnEquipment : false);
     setShowConfirmation(false);
     Promise.all([
       fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`).then((r) => r.ok ? r.json() : []),
@@ -1228,7 +1235,16 @@ export default function EventCalendar() {
                     <input
                       type="checkbox"
                       checked={hasOwnEquipment}
-                      onChange={(e) => setHasOwnEquipment(e.target.checked)}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setHasOwnEquipment(v);
+                        setProfileAirsoftHasOwnEquipment(v);
+                        fetch("/api/profile", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ airsoftHasOwnEquipment: v }),
+                        }).catch(() => {});
+                      }}
                       className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary-400"
                     />
                     <span className="text-slate-300">
