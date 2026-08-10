@@ -21,7 +21,7 @@ async function getLatestArticle() {
 
 async function getActivities() {
   for (const a of CORE_ACTIVITIES) {
-    await prisma.activity.upsert({ where: { key: a.key }, update: {}, create: a });
+    await prisma.activity.upsert({ where: { key: a.key }, update: { label: a.label }, create: a });
     await prisma.activity.updateMany({ where: { key: a.key, price: 0 }, data: { price: a.price } });
   }
   return prisma.activity.findMany({ where: { isActive: true }, orderBy: { order: "asc" } });

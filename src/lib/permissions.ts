@@ -26,7 +26,7 @@ export const HARDCODED_SECTION_MAP: Record<string, AdminSection[]> = {
   Comptoir: ["kiosque"],
   Airsoft: ["events", "equipements", "galerie"],
   "Jeux de rôle": ["events", "galerie"],
-  "Jeux de plateau": ["events", "galerie"],
+  "Jeux de société": ["events", "galerie"],
   "Jeux de figurine": ["events", "galerie"],
 };
 
@@ -45,7 +45,7 @@ export function getAllowedActivityTypes(role: string): string[] | null {
   const map: Record<string, string[]> = {
     Airsoft: ["AIRSOFT"],
     "Jeux de rôle": ["JEUX_DE_ROLE"],
-    "Jeux de plateau": ["JEUX_DE_PLATEAU"],
+    "Jeux de société": ["JEUX_DE_PLATEAU"],
     "Jeux de figurine": ["JEUX_DE_FIGURINE"],
   };
   return map[role] ?? null;

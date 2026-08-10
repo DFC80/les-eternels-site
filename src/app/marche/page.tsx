@@ -44,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const ACTIVITIES = [
-  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de plateau" },
+  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de société" },
   { key: "JEUX_DE_ROLE",    label: "🐉 Jeux de rôle" },
   { key: "AIRSOFT",         label: "🎯 Airsoft" },
 ];

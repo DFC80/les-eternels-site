@@ -16,7 +16,7 @@ export function getColors(color: string) {
 }
 
 export const CORE_ACTIVITIES = [
-  { key: "JEUX_DE_PLATEAU", label: "Jeux de plateau", emoji: "🎲", color: "emerald", order: 0, membershipRequired: true, isCore: true, price: 10 },
+  { key: "JEUX_DE_PLATEAU", label: "Jeux de société", emoji: "🎲", color: "emerald", order: 0, membershipRequired: true, isCore: true, price: 10 },
   { key: "JEUX_DE_ROLE",    label: "Jeux de rôle",    emoji: "🐉", color: "violet",  order: 1, membershipRequired: true, isCore: true, price: 10 },
   { key: "AIRSOFT",         label: "Airsoft",          emoji: "🎯", color: "amber",   order: 2, membershipRequired: true, isCore: true, price: 20 },
 ];

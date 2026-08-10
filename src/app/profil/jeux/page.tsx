@@ -183,7 +183,7 @@ export default function MesJeuxPage() {
               <span className="font-medium text-slate-100">Visible pour les organisateurs</span>
               <br />
               <span className="text-slate-400">
-                Les administrateurs et responsables Jeux de plateau pourront sélectionner ce jeu lors de la création d'un événement.
+                Les administrateurs et responsables Jeux de société pourront sélectionner ce jeu lors de la création d'un événement.
               </span>
             </span>
           </label>
