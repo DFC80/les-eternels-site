@@ -127,6 +127,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
     allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({ equipmentId, quantity }));
   }
 
+  // Validation côté serveur : vérifie que le stock des éléments associés est suffisant
+  if (allRentals.length > 0) {
+    const itemIds = allRentals.map((r) => r.equipmentId);
+    const equipmentStocks = await prisma.equipment.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, name: true, stock: true },
+    });
+    const rentedByOthers = await prisma.equipmentRental.groupBy({
+      by: ["equipmentId"],
+      where: {
+        equipmentId: { in: itemIds },
+        status: { not: "REJECTED" },
+        registration: { eventId: params.id },
+      },
+      _sum: { quantity: true },
+    });
+    const rentedMap = new Map(rentedByOthers.map((r) => [r.equipmentId, r._sum.quantity ?? 0]));
+    for (const rental of allRentals) {
+      const eq = equipmentStocks.find((e) => e.id === rental.equipmentId);
+      if (!eq) continue;
+      const alreadyRented = rentedMap.get(rental.equipmentId) ?? 0;
+      const available = Math.max(0, eq.stock - alreadyRented);
+      if (rental.quantity > available) {
+        return NextResponse.json(
+          { error: `Stock insuffisant pour "${eq.name}" (disponible : ${available}, demandé : ${rental.quantity}).` },
+          { status: 409 }
+        );
+      }
+    }
+  }
+
   const registration = await prisma.eventRegistration.create({
     data: {
       userId: session.user.id,
