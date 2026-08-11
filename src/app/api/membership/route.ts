@@ -43,14 +43,13 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (
-    !user?.dateOfBirth ||
     !user?.addressStreet ||
     !user?.addressCity ||
     !user?.addressPostalCode ||
     !user?.gender
   ) {
     return NextResponse.json(
-      { error: "Veuillez compléter votre profil (date de naissance, adresse, genre) avant d'adhérer." },
+      { error: "Veuillez compléter votre profil (adresse et genre) avant d'adhérer." },
       { status: 400 }
     );
   }
