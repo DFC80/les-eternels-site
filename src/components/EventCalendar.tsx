@@ -193,6 +193,8 @@ export default function EventCalendar() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [participationAccepted, setParticipationAccepted] = useState<boolean | null>(null);
   const [editingMeal, setEditingMeal] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState(false);
+  const [editEquipmentSelection, setEditEquipmentSelection] = useState<Record<string, number>>({});
   const [eventDocs, setEventDocs] = useState<{ id: string; name: string; kind: "activity" | "event" }[]>([]);
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
@@ -368,6 +370,13 @@ export default function EventCalendar() {
     setDocAcknowledged(new Set());
     setHasOwnEquipment(ev.activityType === "AIRSOFT" ? profileAirsoftHasOwnEquipment : false);
     setShowConfirmation(false);
+    setEditingEquipment(false);
+    const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
+    const currentNonFreeRentals: Record<string, number> = {};
+    for (const r of myReg?.rentals ?? []) {
+      if (!r.isFree) currentNonFreeRentals[r.equipmentId] = r.quantity ?? 1;
+    }
+    setEditEquipmentSelection(currentNonFreeRentals);
     Promise.all([
       fetch(`/api/activity-docs?activityKey=${ev.activityType}&showInEvents=true`).then((r) => r.ok ? r.json() : []),
       fetch(`/api/event-docs?eventId=${ev.id}`).then((r) => r.ok ? r.json() : []),
@@ -379,7 +388,6 @@ export default function EventCalendar() {
         ])
       )
       .catch(() => {});
-    const myReg = session && ev.registrations.find((r) => r.userId === session.user.id);
     setWantsMeal(myReg?.wantsMeal ?? false);
     setMealNotes(myReg?.mealNotes ?? "");
     const initialQuantities: Record<string, number> = {};
@@ -430,6 +438,35 @@ export default function EventCalendar() {
     setEditingMeal(false);
     const fresh = await loadEvents();
     setSelected((prev) => (prev ? fresh.find((e) => e.id === prev.id) ?? prev : prev));
+  }
+
+  async function handleUpdateEquipment(ev: CalendarEvent) {
+    const equipmentSelections = Object.entries(editEquipmentSelection)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, quantity]) => ({ id, quantity }));
+    setLoadingAction(true);
+    setActionError(null);
+    const res = await fetch(`/api/events/${ev.id}/register/equipment`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ equipmentSelections }),
+    });
+    setLoadingAction(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error ?? "Une erreur est survenue.");
+      return;
+    }
+    setEditingEquipment(false);
+    const fresh = await loadEvents();
+    const freshEv = fresh.find((e) => e.id === ev.id) ?? ev;
+    setSelected(freshEv);
+    const updatedReg = freshEv.registrations.find((r) => r.userId === session?.user.id);
+    const updatedNonFree: Record<string, number> = {};
+    for (const r of updatedReg?.rentals ?? []) {
+      if (!r.isFree) updatedNonFree[r.equipmentId] = r.quantity ?? 1;
+    }
+    setEditEquipmentSelection(updatedNonFree);
   }
 
   async function handleRegister(ev: CalendarEvent) {
@@ -1107,43 +1144,226 @@ export default function EventCalendar() {
 
             {selected.activityType === "AIRSOFT" && isRegistered(selected) && (
               <div className="mt-4 rounded-xl border border-primary-700 bg-primary-900/40 p-5 text-sm text-slate-300">
-                {(() => {
-                  const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
-                  if (!myReg || myReg.rentals.length === 0) {
-                    return "Vous n'avez pas loué de matériel pour cet événement.";
-                  }
-                  const total = myReg.rentals
-                    .filter((r) => r.status !== "REJECTED")
-                    .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost * (r.quantity ?? 1)), 0);
-                  const statusLabel = (s: string) =>
-                    s === "APPROVED" ? "Validée" : s === "REJECTED" ? "Refusée" : "En attente de validation";
-                  return (
-                    <>
-                      <p className="font-medium text-silver-100">🔫 Votre matériel loué</p>
-                      <ul className="mt-2 space-y-1">
-                        {myReg.rentals.map((r) => (
-                          <li key={r.id}>
-                            {r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} —{" "}
-                            <span
-                              className={
-                                r.status === "APPROVED"
-                                  ? "text-emerald-400"
-                                  : r.status === "REJECTED"
-                                    ? "text-red-400"
-                                    : "text-amber-400"
-                              }
-                            >
-                              {statusLabel(r.status)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-2 font-medium text-silver-100">
-                        Total matériel : {total}€ à régler sur place
-                      </p>
-                    </>
-                  );
-                })()}
+                {editingEquipment ? (
+                  <>
+                    <p className="font-display text-lg text-silver-100">🔫 Modifier votre location de matériel</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Sélectionnez les répliques souhaitées. Vos locations actuelles seront remplacées.
+                    </p>
+                    {(() => {
+                      const taken = takenEquipmentQuantities(selected);
+                      const virtualDeductions = computeVirtualDeductions(editEquipmentSelection, equipmentList);
+                      const cats = equipmentCategories.length > 0
+                        ? equipmentCategories
+                        : [...new Set(equipmentList.map((eq) => eq.category))].map((k) => ({ key: k, label: k, emoji: "📦" }));
+                      return cats.map((cat) => {
+                        const items = equipmentList.filter((eq) => eq.category === cat.key);
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={cat.key} className="mt-4">
+                            <p className="text-sm font-medium text-slate-300">{cat.emoji} {cat.label}</p>
+                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                              {items.map((eq) => {
+                                const qty = editEquipmentSelection[eq.id] ?? 0;
+                                const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
+                                const available = Math.max(0, (eq.stock ?? 1) - takenQty);
+                                const isFull = available <= 0;
+                                const insufficientAssoc = eq.associations.find((a) => {
+                                  const item = equipmentList.find((e) => e.id === a.itemId);
+                                  if (!item) return false;
+                                  const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                  const itemAvail = Math.max(0, (item.stock ?? 1) - itemTaken);
+                                  return a.quantity > itemAvail;
+                                });
+                                const disabled = eq.status !== "DISPONIBLE" || isFull;
+                                const firstPhoto = eq.photos?.split("\n").map((p) => p.trim()).filter(Boolean)[0];
+                                return (
+                                  <div
+                                    key={eq.id}
+                                    className={`rounded-xl border-2 p-3 transition ${
+                                      qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                    } ${disabled && qty === 0 ? "opacity-50" : ""}`}
+                                  >
+                                    <button
+                                      type="button"
+                                      disabled={disabled && qty === 0 && !insufficientAssoc}
+                                      onClick={() => {
+                                        if (qty > 0) {
+                                          setEditEquipmentSelection((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                          setStockWarning(null);
+                                        } else if (!disabled) {
+                                          if (insufficientAssoc) {
+                                            const item = equipmentList.find((e) => e.id === insufficientAssoc.itemId);
+                                            setStockWarning(`Stock insuffisant pour "${item?.name ?? "un élément associé"}" — impossible de sélectionner cette réplique.`);
+                                          } else {
+                                            setEditEquipmentSelection((prev) => ({ ...prev, [eq.id]: 1 }));
+                                            setStockWarning(null);
+                                          }
+                                        }
+                                      }}
+                                      className="flex w-full gap-3 text-left disabled:cursor-not-allowed"
+                                    >
+                                      {firstPhoto && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={firstPhoto} alt={eq.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                                      )}
+                                      <div>
+                                        <p className="font-medium text-silver-100">{eq.name}</p>
+                                        <p className="text-xs text-slate-400">
+                                          {eq.rentalCost}€ · {available}/{eq.stock ?? 1} dispo.
+                                          {eq.propulsion && ` · ${eq.propulsion.split(",").map((v) => v.trim()).join(", ")}`}
+                                          {eq.fps != null && ` · ${eq.fps} FPS`}
+                                          {eq.bbWeight != null && ` · ${eq.bbWeight}g`}
+                                          {eq.magazineCapacity != null && ` · ${eq.magazineCapacity} billes`}
+                                        </p>
+                                        {eq.info && <p className="mt-1 text-xs text-slate-400">{eq.info}</p>}
+                                        {eq.associations.length > 0 && (
+                                          <ul className="mt-1.5 space-y-0.5">
+                                            {eq.associations.map((a) => {
+                                              const item = equipmentList.find((e) => e.id === a.itemId);
+                                              if (!item) return null;
+                                              const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                              const itemRaw = (item.stock ?? 1) - itemTaken;
+                                              const itemOk = itemRaw >= 0;
+                                              const itemAvail = Math.max(0, itemRaw);
+                                              return (
+                                                <li key={a.itemId} className={`text-xs ${itemOk ? "text-slate-500" : "text-red-400 font-medium"}`}>
+                                                  + {a.quantity > 1 ? `${a.quantity}× ` : ""}{item.name}
+                                                  {!itemOk && ` (stock insuffisant : ${itemAvail} dispo.)`}
+                                                </li>
+                                              );
+                                            })}
+                                          </ul>
+                                        )}
+                                        {isFull ? (
+                                          <p className="mt-1 text-xs text-amber-400">Plus disponible pour cet événement</p>
+                                        ) : insufficientAssoc && qty === 0 ? (
+                                          <p className="mt-1 text-xs text-red-400">Éléments associés insuffisants en stock</p>
+                                        ) : eq.status !== "DISPONIBLE" && (
+                                          <p className="mt-1 text-xs text-amber-400">
+                                            {eq.status === "HORS_SERVICE" ? "Hors-service" : "Indisponible"}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </button>
+                                    {qty > 0 && (
+                                      <div className="mt-3 flex items-center gap-2 border-t border-primary-700 pt-3">
+                                        <span className="text-xs text-slate-400">Quantité :</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (qty <= 1) {
+                                              setEditEquipmentSelection((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                            } else {
+                                              setEditEquipmentSelection((prev) => ({ ...prev, [eq.id]: qty - 1 }));
+                                            }
+                                          }}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800"
+                                        >−</button>
+                                        <span className="w-6 text-center text-sm font-medium text-silver-100">{qty}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (qty < available) {
+                                              const blocked = eq.associations.find((a) => {
+                                                const item = equipmentList.find((e) => e.id === a.itemId);
+                                                if (!item) return false;
+                                                const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                                const itemAvail = Math.max(0, (item.stock ?? 1) - itemTaken);
+                                                return a.quantity > itemAvail;
+                                              });
+                                              if (blocked) {
+                                                const item = equipmentList.find((e) => e.id === blocked.itemId);
+                                                setStockWarning(`Impossible d'augmenter la quantité : stock insuffisant pour "${item?.name ?? "un élément associé"}".`);
+                                              } else {
+                                                setEditEquipmentSelection((prev) => ({ ...prev, [eq.id]: qty + 1 }));
+                                                setStockWarning(null);
+                                              }
+                                            }
+                                          }}
+                                          disabled={qty >= available}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                                        >+</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                    {stockWarning && (
+                      <div className="mt-3 rounded-lg border border-red-700 bg-red-950/60 px-4 py-2.5 text-sm text-red-300">
+                        ⚠️ {stockWarning}
+                      </div>
+                    )}
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => handleUpdateEquipment(selected)}
+                        disabled={loadingAction}
+                        className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-50"
+                      >
+                        {loadingAction ? "Enregistrement…" : "Enregistrer"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingEquipment(false); setStockWarning(null); }}
+                        className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800/60"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {(() => {
+                      const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
+                      if (!myReg || myReg.rentals.length === 0) {
+                        return <p>Vous n&apos;avez pas loué de matériel pour cet événement.</p>;
+                      }
+                      const total = myReg.rentals
+                        .filter((r) => r.status !== "REJECTED")
+                        .reduce((sum, r) => sum + (r.isFree ? 0 : r.equipment.rentalCost * (r.quantity ?? 1)), 0);
+                      const statusLabel = (s: string) =>
+                        s === "APPROVED" ? "Validée" : s === "REJECTED" ? "Refusée" : "En attente de validation";
+                      return (
+                        <>
+                          <p className="font-medium text-silver-100">🔫 Votre matériel loué</p>
+                          <ul className="mt-2 space-y-1">
+                            {myReg.rentals.map((r) => (
+                              <li key={r.id}>
+                                {r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name} — {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} —{" "}
+                                <span
+                                  className={
+                                    r.status === "APPROVED"
+                                      ? "text-emerald-400"
+                                      : r.status === "REJECTED"
+                                        ? "text-red-400"
+                                        : "text-amber-400"
+                                  }
+                                >
+                                  {statusLabel(r.status)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="mt-2 font-medium text-silver-100">
+                            Total matériel : {total}€ à régler sur place
+                          </p>
+                        </>
+                      );
+                    })()}
+                    {!isRegistrationClosed(selected) && (
+                      <button
+                        onClick={() => setEditingEquipment(true)}
+                        className="mt-3 rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-800/60"
+                      >
+                        ✏️ Modifier mon matériel loué
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
