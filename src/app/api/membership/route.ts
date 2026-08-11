@@ -89,6 +89,24 @@ export async function POST(request: Request) {
     include: { extraActivities: true },
   });
 
+  // Archiver la cotisation existante si on change de saison
+  if (existing && existing.year !== targetYear) {
+    await prisma.membershipHistory.create({
+      data: {
+        userId: existing.userId,
+        year: existing.year,
+        wantsBoardGames: existing.wantsBoardGames,
+        wantsRolePlay: existing.wantsRolePlay,
+        wantsAirsoft: existing.wantsAirsoft,
+        amount: existing.amount,
+        isPaid: existing.isPaid,
+        paidAt: existing.paidAt,
+        paidAmount: existing.paidAmount,
+        activityKeys: JSON.stringify(existing.extraActivities.map((a) => a.activityKey)),
+      },
+    });
+  }
+
   // Bloquer le passage à la saison suivante si la cotisation courante est déjà réglée
   if (targetYear !== currentYear && existing?.isPaid && existing?.year === currentYear) {
     return NextResponse.json(

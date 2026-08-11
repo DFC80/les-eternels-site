@@ -61,6 +61,15 @@ type MemberDetail = {
     isPaid: boolean;
     extraActivities: { activityKey: string }[];
   } | null;
+  membershipHistory: {
+    id: string;
+    year: number;
+    amount: number;
+    isPaid: boolean;
+    paidAmount: number;
+    paidAt: string | null;
+    activityKeys: string[];
+  }[];
 };
 
 const GENDER_LABELS: Record<string, string> = { HOMME: "Homme", FEMME: "Femme", AUTRE: "Autre" };
@@ -980,6 +989,44 @@ export default function AdminMembersPage() {
                     </div>
                   )}
                 </div>
+
+                {detail.membershipHistory && detail.membershipHistory.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-primary-700 bg-primary-900/40 p-3">
+                    <p className="text-sm font-medium text-silver-100">Historique des cotisations</p>
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-xs text-slate-300">
+                        <thead>
+                          <tr className="text-left text-slate-500">
+                            <th className="pb-1 pr-4">Saison</th>
+                            <th className="pb-1 pr-4">Montant</th>
+                            <th className="pb-1 pr-4">Statut</th>
+                            <th className="pb-1">Activités</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detail.membershipHistory.map((h) => (
+                            <tr key={h.id} className="border-t border-primary-800/50">
+                              <td className="py-1 pr-4 font-medium">{h.year}-{h.year + 1}</td>
+                              <td className="py-1 pr-4">{h.amount}€</td>
+                              <td className="py-1 pr-4">
+                                {h.isPaid ? (
+                                  <span className="text-emerald-400">Réglée{h.paidAt ? ` (${new Date(h.paidAt).toLocaleDateString("fr-FR")})` : ""}</span>
+                                ) : (
+                                  <span className="text-slate-500">Non réglée</span>
+                                )}
+                              </td>
+                              <td className="py-1 text-slate-400">
+                                {h.activityKeys.length > 0
+                                  ? h.activityKeys.map((k) => activities.find((a) => a.key === k)?.label ?? k).join(", ")
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-6 flex justify-end">
                   <button

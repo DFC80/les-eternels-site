@@ -57,9 +57,10 @@ model User {
   avatarContent  Bytes?
   avatarMime     String?
 
-  registrations   EventRegistration[]
-  membership      Membership?
-  snackOrders     SnackOrder[]
+  registrations      EventRegistration[]
+  membership         Membership?
+  membershipHistory  MembershipHistory[]
+  snackOrders        SnackOrder[]
   balance         Int                  @default(0)
   balanceTopUps   BalanceTopUp[]
   boardGames      BoardGame[]
@@ -331,6 +332,23 @@ model Activity {
   isActive           Boolean  @default(true)    // visible sur le site si true
   price              Int      @default(0)       // tarif d'adhésion pour cette activité (€)
   createdAt          DateTime @default(now())
+}
+
+model MembershipHistory {
+  id              String    @id @default(cuid())
+  userId          String
+  year            Int
+  wantsBoardGames Boolean   @default(false)
+  wantsRolePlay   Boolean   @default(false)
+  wantsAirsoft    Boolean   @default(false)
+  amount          Int
+  isPaid          Boolean   @default(false)
+  paidAt          DateTime?
+  paidAmount      Int       @default(0)
+  activityKeys    String    @default("[]")
+  archivedAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model MembershipActivity {

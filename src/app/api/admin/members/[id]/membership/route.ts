@@ -37,9 +37,30 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const user = await prisma.user.findUnique({ where: { id: params.id } });
   if (!user) return NextResponse.json({ error: "Membre introuvable." }, { status: 404 });
 
-  const existing = await prisma.membership.findUnique({ where: { userId: params.id } });
+  const existing = await prisma.membership.findUnique({
+    where: { userId: params.id },
+    include: { extraActivities: true },
+  });
   if (existing?.isPaid && existing.year === targetYear) {
     return NextResponse.json({ error: "Une cotisation réglée existe déjà pour cette saison." }, { status: 400 });
+  }
+
+  // Archiver la cotisation existante si on change de saison
+  if (existing && existing.year !== targetYear) {
+    await prisma.membershipHistory.create({
+      data: {
+        userId: existing.userId,
+        year: existing.year,
+        wantsBoardGames: existing.wantsBoardGames,
+        wantsRolePlay: existing.wantsRolePlay,
+        wantsAirsoft: existing.wantsAirsoft,
+        amount: existing.amount,
+        isPaid: existing.isPaid,
+        paidAt: existing.paidAt,
+        paidAmount: existing.paidAmount,
+        activityKeys: JSON.stringify(existing.extraActivities.map((a) => a.activityKey)),
+      },
+    });
   }
 
   const coreKeys: string[] = [];
