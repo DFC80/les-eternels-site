@@ -229,8 +229,13 @@ export default function MonComptePage() {
 
       {membership && membership.isFuture && (
         <div className="mt-6 rounded-md border border-sky-700 bg-sky-950 px-4 py-3 text-sm text-sky-300">
-          Vous êtes pré-inscrit·e pour la saison {membership.year}-{membership.year + 1}{membership.isPaid ? ` — cotisation de ${membership.amount}€ réglée` : ` — cotisation de ${membership.amount}€ en attente de règlement`}.
-          Pour adhérer à la saison en cours ({currentSeasonLabel()}), sélectionnez-la ci-dessous.
+          Vous êtes pré-inscrit·e pour la saison {membership.year}-{membership.year + 1}{membership.isPaid ? ` — cotisation de ${membership.amount}€ réglée` : ` — cotisation de ${membership.amount}€ en attente de règlement`}.{" "}
+          {!membership.isPaid && (
+            <>
+              Pour modifier votre adhésion tant qu&apos;elle n&apos;est pas réglée, contactez un administrateur via le{" "}
+              <Link href="/contact" className="underline hover:text-sky-100">formulaire de contact</Link>.
+            </>
+          )}
         </div>
       )}
 
