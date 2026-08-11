@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       isFree: r.isFree,
       quantity: r.quantity,
       memberName: `${r.registration.user.firstName} ${r.registration.user.name}`,
-      equipment: { id: r.equipment.id, name: r.equipment.name, rentalCost: r.equipment.rentalCost },
+      equipment: { id: r.equipment.id, name: r.equipment.name, rentalCost: r.equipment.rentalCost, category: r.equipment.category },
     }))
   );
 }

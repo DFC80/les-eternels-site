@@ -134,6 +134,8 @@ export default function AdminEquipementsPage() {
   const [assocDraft, setAssocDraft] = useState<Record<string, { itemId: string; quantity: number }[]>>({});
   const [savingAssoc, setSavingAssoc] = useState<string | null>(null);
 
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
   // Category management
   const [catForm, setCatForm] = useState(EMPTY_CAT_FORM);
   const [catError, setCatError] = useState<string | null>(null);
@@ -682,17 +684,36 @@ export default function AdminEquipementsPage() {
       {/* Sections par catégorie */}
       {categories.map((cat) => {
         const catItems = items.filter((i) => i.category === cat.key);
+        const isCollapsed = collapsedCategories.has(cat.key);
         return (
-          <div key={cat.key}>
-            <h2 className="mt-10 font-display text-xl text-silver-100">
-              {cat.emoji} {cat.label} ({catItems.length})
-            </h2>
-            <div className="mt-4 space-y-3">
-              {catItems.length === 0 && (
-                <p className="text-sm text-slate-400">Aucun équipement dans cette catégorie.</p>
-              )}
-              {catItems.map(renderCard)}
-            </div>
+          <div key={cat.key} className="mt-10">
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsedCategories((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(cat.key)) next.delete(cat.key);
+                  else next.add(cat.key);
+                  return next;
+                })
+              }
+              className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 hover:bg-primary-900/40"
+            >
+              <span className="font-display text-xl text-silver-100">
+                {cat.emoji} {cat.label} ({catItems.length})
+              </span>
+              <span className={`text-slate-400 transition-transform duration-200 ${isCollapsed ? "" : "rotate-180"}`}>
+                ▾
+              </span>
+            </button>
+            {!isCollapsed && (
+              <div className="mt-4 space-y-3">
+                {catItems.length === 0 && (
+                  <p className="text-sm text-slate-400">Aucun équipement dans cette catégorie.</p>
+                )}
+                {catItems.map(renderCard)}
+              </div>
+            )}
           </div>
         );
       })}

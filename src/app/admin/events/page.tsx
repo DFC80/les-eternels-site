@@ -53,7 +53,7 @@ type Rental = {
   isFree: boolean;
   quantity: number;
   memberName: string;
-  equipment: { id: string; name: string; rentalCost: number };
+  equipment: { id: string; name: string; rentalCost: number; category: string };
 };
 
 type EventRegistrationAdmin = {
@@ -144,6 +144,7 @@ export default function AdminEventsPage() {
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [rentalsFor, setRentalsFor] = useState<string | null>(null);
   const [rentals, setRentals] = useState<Rental[]>([]);
+  const [rentalsCategoryFilter, setRentalsCategoryFilter] = useState<string | null>(null);
   const [registrationsFor, setRegistrationsFor] = useState<string | null>(null);
   const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationAdmin[]>([]);
   const [availableGames, setAvailableGames] = useState<AvailableGame[]>([]);
@@ -328,8 +329,10 @@ export default function AdminEventsPage() {
     if (rentalsFor === eventId) {
       setRentalsFor(null);
       setRentals([]);
+      setRentalsCategoryFilter(null);
       return;
     }
+    setRentalsCategoryFilter(null);
     await loadRentals(eventId);
     setRentalsFor(eventId);
   }
@@ -845,66 +848,101 @@ export default function AdminEventsPage() {
           <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
             {rentals.length === 0 ? (
               <p className="text-slate-500">Aucune demande de location pour cet événement.</p>
-            ) : (
-              <ul className="space-y-3">
-                {rentals.map((r) => (
-                  <li key={r.id} className="rounded-lg border border-primary-800 bg-primary-900/40 p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-slate-200">
-                          {r.memberName} — <span className="font-medium">{r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name}</span>
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} ·{" "}
-                          <span
-                            className={
-                              r.status === "APPROVED"
-                                ? "text-emerald-400"
-                                : r.status === "REJECTED"
-                                  ? "text-red-400"
-                                  : "text-amber-400"
-                            }
-                          >
-                            {r.status === "APPROVED"
-                              ? "Validée"
-                              : r.status === "REJECTED"
-                                ? "Refusée"
-                                : "En attente"}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1 text-xs text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={r.isFree}
-                            onChange={(e) => updateRental(ev.id, r.id, { isFree: e.target.checked })}
-                            className="h-3.5 w-3.5 rounded border-primary-600 bg-primary-950 accent-primary-400"
-                          />
-                          Gratuit
-                        </label>
-                        {r.status !== "APPROVED" && (
-                          <button
-                            onClick={() => updateRental(ev.id, r.id, { status: "APPROVED" })}
-                            className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
-                          >
-                            Valider
-                          </button>
-                        )}
-                        {r.status !== "REJECTED" && (
-                          <button
-                            onClick={() => updateRental(ev.id, r.id, { status: "REJECTED" })}
-                            className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
-                          >
-                            Refuser
-                          </button>
-                        )}
-                      </div>
+            ) : (() => {
+              const rentalCategories = [...new Set(rentals.map((r) => r.equipment.category))];
+              const filtered = rentalsCategoryFilter
+                ? rentals.filter((r) => r.equipment.category === rentalsCategoryFilter)
+                : rentals;
+              return (
+                <>
+                  {rentalCategories.length > 1 && (
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => setRentalsCategoryFilter(null)}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                          rentalsCategoryFilter === null
+                            ? "border-primary-400 bg-primary-800 text-silver-100"
+                            : "border-primary-700 text-slate-400 hover:border-primary-500 hover:text-slate-200"
+                        }`}
+                      >
+                        Toutes
+                      </button>
+                      {rentalCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setRentalsCategoryFilter(cat === rentalsCategoryFilter ? null : cat)}
+                          className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                            rentalsCategoryFilter === cat
+                              ? "border-primary-400 bg-primary-800 text-silver-100"
+                              : "border-primary-700 text-slate-400 hover:border-primary-500 hover:text-slate-200"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  )}
+                  <ul className="space-y-3">
+                    {filtered.map((r) => (
+                      <li key={r.id} className="rounded-lg border border-primary-800 bg-primary-900/40 p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-slate-200">
+                              {r.memberName} — <span className="font-medium">{r.quantity > 1 ? `${r.quantity}× ` : ""}{r.equipment.name}</span>
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {r.isFree ? "Gratuit" : `${r.equipment.rentalCost * (r.quantity ?? 1)}€`} ·{" "}
+                              <span
+                                className={
+                                  r.status === "APPROVED"
+                                    ? "text-emerald-400"
+                                    : r.status === "REJECTED"
+                                      ? "text-red-400"
+                                      : "text-amber-400"
+                                }
+                              >
+                                {r.status === "APPROVED"
+                                  ? "Validée"
+                                  : r.status === "REJECTED"
+                                    ? "Refusée"
+                                    : "En attente"}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1 text-xs text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={r.isFree}
+                                onChange={(e) => updateRental(ev.id, r.id, { isFree: e.target.checked })}
+                                className="h-3.5 w-3.5 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                              />
+                              Gratuit
+                            </label>
+                            {r.status !== "APPROVED" && (
+                              <button
+                                onClick={() => updateRental(ev.id, r.id, { status: "APPROVED" })}
+                                className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
+                              >
+                                Valider
+                              </button>
+                            )}
+                            {r.status !== "REJECTED" && (
+                              <button
+                                onClick={() => updateRental(ev.id, r.id, { status: "REJECTED" })}
+                                className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
+                              >
+                                Refuser
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              );
+            })()}
           </div>
         )}
 
