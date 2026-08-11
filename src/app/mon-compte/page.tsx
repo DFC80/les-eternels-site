@@ -49,6 +49,15 @@ export default function MonComptePage() {
   const [saving, setSaving] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
+  const [membershipHistory, setMembershipHistory] = useState<{
+    id: string;
+    year: number;
+    amount: number;
+    isPaid: boolean;
+    paidAmount: number;
+    paidAt: string | null;
+    activityKeys: string[];
+  }[]>([]);
 
   async function payOnline() {
     setError(null);
@@ -75,10 +84,11 @@ export default function MonComptePage() {
   };
 
   async function load() {
-    const [memberRes, actRes, settingsRes] = await Promise.all([
+    const [memberRes, actRes, settingsRes, histRes] = await Promise.all([
       fetch("/api/membership"),
       fetch("/api/activities"),
       fetch("/api/settings"),
+      fetch("/api/membership/history"),
     ]);
     if (settingsRes.ok) {
       const s = await settingsRes.json();
@@ -108,6 +118,7 @@ export default function MonComptePage() {
         setSelectedYear(data.year);
       }
     }
+    if (histRes.ok) setMembershipHistory(await histRes.json());
   }
 
   useEffect(() => { load(); }, []);
@@ -388,6 +399,44 @@ export default function MonComptePage() {
           Compléter mon profil (obligatoire pour adhérer)
         </Link>
       </p>
+
+      {membershipHistory.length > 0 && (
+        <div className="mt-12">
+          <h2 className="font-display text-xl text-silver-100">Historique des cotisations</h2>
+          <div className="mt-4 overflow-x-auto rounded-xl border border-primary-800">
+            <table className="w-full text-sm text-slate-200">
+              <thead>
+                <tr className="border-b border-primary-800 bg-primary-900/60 text-left text-xs text-slate-400">
+                  <th className="px-4 py-2">Saison</th>
+                  <th className="px-4 py-2">Montant</th>
+                  <th className="px-4 py-2">Statut</th>
+                  <th className="px-4 py-2 hidden sm:table-cell">Activités</th>
+                </tr>
+              </thead>
+              <tbody>
+                {membershipHistory.map((h) => (
+                  <tr key={h.id} className="border-t border-primary-800/60">
+                    <td className="px-4 py-2 font-medium">{h.year}-{h.year + 1}</td>
+                    <td className="px-4 py-2">{h.amount}€</td>
+                    <td className="px-4 py-2">
+                      {h.isPaid ? (
+                        <span className="text-emerald-400">Réglée{h.paidAt ? ` (${new Date(h.paidAt).toLocaleDateString("fr-FR")})` : ""}</span>
+                      ) : (
+                        <span className="text-slate-500">Non réglée</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 hidden sm:table-cell text-slate-400">
+                      {h.activityKeys.length > 0
+                        ? h.activityKeys.map((k) => allActivities.find((a) => a.key === k)?.label ?? k).join(", ")
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

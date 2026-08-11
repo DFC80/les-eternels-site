@@ -50,6 +50,22 @@ export async function GET(_request: Request, { params }: { params: { id: string 
           extraActivities: { select: { activityKey: true } },
         },
       },
+      membershipHistory: {
+        orderBy: { year: "desc" },
+        select: {
+          id: true,
+          year: true,
+          wantsBoardGames: true,
+          wantsRolePlay: true,
+          wantsAirsoft: true,
+          amount: true,
+          isPaid: true,
+          paidAmount: true,
+          paidAt: true,
+          activityKeys: true,
+          archivedAt: true,
+        },
+      },
     },
   });
 
@@ -60,6 +76,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   return NextResponse.json({
     ...member,
     bureauRoles: member.bureauRoles.map((r) => r.bureauRole),
+    membershipHistory: member.membershipHistory.map((h) => ({
+      ...h,
+      activityKeys: JSON.parse(h.activityKeys) as string[],
+    })),
   });
 }
 
