@@ -34,6 +34,23 @@ async function getLatestPublishedAG() {
   });
 }
 
+async function getUpcomingEvents() {
+  return prisma.event.findMany({
+    where: { startsAt: { gt: new Date() }, bureauOnly: false },
+    orderBy: { startsAt: "asc" },
+    take: 3,
+    select: {
+      id: true,
+      title: true,
+      activityType: true,
+      location: true,
+      startsAt: true,
+      capacity: true,
+      _count: { select: { registrations: true } },
+    },
+  });
+}
+
 async function getSettings() {
   const rows = await prisma.siteSetting.findMany({
     where: { key: { in: ["description", "logoVersion"] } },
@@ -46,12 +63,13 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, activities, { description, logoSrc }, latestArticle, latestAG] = await Promise.all([
+  const [session, activities, { description, logoSrc }, latestArticle, latestAG, upcomingEvents] = await Promise.all([
     getServerSession(authOptions),
     getActivities(),
     getSettings(),
     getLatestArticle(),
     getLatestPublishedAG(),
+    getUpcomingEvents(),
   ]);
 
   const userHasMembership = session
@@ -131,6 +149,51 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+
+      {upcomingEvents.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">Prochains événements</h2>
+            <Link href="/calendar" className="text-sm text-primary-300 hover:text-silver-200 hover:underline">
+              Voir le calendrier →
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {upcomingEvents.map((ev) => {
+              const act = activities.find((a) => a.key === ev.activityType);
+              const isFull = ev.capacity != null && ev._count.registrations >= ev.capacity;
+              return (
+                <Link
+                  key={ev.id}
+                  href={`/calendar?event=${ev.id}`}
+                  className="rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60"
+                >
+                  {act && <span className="text-2xl">{act.emoji}</span>}
+                  <h3 className="mt-2 font-display text-base text-silver-100">{ev.title}</h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    📅{" "}
+                    {new Date(ev.startsAt).toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                    {" · "}
+                    {new Date(ev.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  {ev.location && (
+                    <p className="mt-1 text-xs text-slate-500">📍 {ev.location}</p>
+                  )}
+                  {ev.capacity != null && (
+                    <p className={`mt-2 text-xs font-medium ${isFull ? "text-red-400" : "text-slate-500"}`}>
+                      {isFull ? "Complet" : `${ev._count.registrations} / ${ev.capacity} inscrit${ev._count.registrations > 1 ? "s" : ""}`}
+                    </p>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {userHasMembership && <HomePollWidget />}
 

@@ -199,6 +199,7 @@ export default function EventCalendar() {
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
   const [profileAirsoftHasOwnEquipment, setProfileAirsoftHasOwnEquipment] = useState(false);
   const [profileHasEmergencyContact, setProfileHasEmergencyContact] = useState(false);
+  const [autoOpenDone, setAutoOpenDone] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
   const [stockWarning, setStockWarning] = useState<string | null>(null);
@@ -257,6 +258,20 @@ export default function EventCalendar() {
     if (eqRes.ok) setEquipmentList(await eqRes.json());
     if (catRes.ok) setEquipmentCategories(await catRes.json());
   }
+
+  // Auto-open event from URL param (?event=<id>), once events are loaded
+  useEffect(() => {
+    if (autoOpenDone || events.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("event");
+    if (!id) return;
+    const ev = events.find((e) => e.id === id);
+    if (ev) {
+      openEvent(ev);
+      setAutoOpenDone(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, autoOpenDone]);
 
   useEffect(() => {
     loadEvents();
