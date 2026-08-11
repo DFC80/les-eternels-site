@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { canAccessSection, isFullAdmin } from "@/lib/permissions";
+import { currentSeasonYear, nextSeasonYear } from "@/lib/membership";
 
 type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean; isActive: boolean };
 
@@ -110,6 +111,11 @@ export default function AdminMembersPage() {
   const [groupSending, setGroupSending] = useState(false);
   const [groupResult, setGroupResult] = useState<{ sent: number; recipients: string[] } | null>(null);
   const [groupError, setGroupError] = useState<string | null>(null);
+
+  const [createMembershipFor, setCreateMembershipFor] = useState<{ id: string; firstName: string; name: string } | null>(null);
+  const [createForm, setCreateForm] = useState({ year: currentSeasonYear(), wantsBoardGames: false, wantsRolePlay: false, wantsAirsoft: false, extraKeys: [] as string[], isPaid: false });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSaving, setCreateSaving] = useState(false);
 
   async function load() {
     const [membersRes, rolesRes, actsRes] = await Promise.all([
@@ -256,6 +262,39 @@ export default function AdminMembersPage() {
       return;
     }
     setEmailSuccess(true);
+  }
+
+  function openCreateMembership(m: Member) {
+    setCreateMembershipFor({ id: m.id, firstName: m.firstName, name: m.name });
+    setCreateForm({ year: currentSeasonYear(), wantsBoardGames: false, wantsRolePlay: false, wantsAirsoft: false, extraKeys: [], isPaid: false });
+    setCreateError(null);
+  }
+
+  async function submitCreateMembership(e: React.FormEvent) {
+    e.preventDefault();
+    if (!createMembershipFor) return;
+    setCreateSaving(true);
+    setCreateError(null);
+    const res = await fetch(`/api/admin/members/${createMembershipFor.id}/membership`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        year: createForm.year,
+        wantsBoardGames: createForm.wantsBoardGames,
+        wantsRolePlay: createForm.wantsRolePlay,
+        wantsAirsoft: createForm.wantsAirsoft,
+        extraActivityKeys: createForm.extraKeys,
+        isPaid: createForm.isPaid,
+      }),
+    });
+    setCreateSaving(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setCreateError(body.error ?? "Erreur lors de la création.");
+      return;
+    }
+    setCreateMembershipFor(null);
+    await load();
   }
 
   function openGroupEmail() {
@@ -457,6 +496,13 @@ export default function AdminMembersPage() {
                         </div>
                       );
                     })()
+                  ) : canEdit ? (
+                    <button
+                      onClick={() => openCreateMembership(m)}
+                      className="rounded px-2 py-1 text-xs font-medium text-primary-300 hover:bg-primary-900 border border-primary-700"
+                    >
+                      + Créer une adhésion
+                    </button>
                   ) : (
                     <span className="text-slate-500">Pas d'adhésion</span>
                   )}
@@ -649,6 +695,126 @@ export default function AdminMembersPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {createMembershipFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCreateMembershipFor(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-primary-700 bg-primary-950 p-6 shadow-2xl shadow-black/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-xl text-silver-100">
+              📋 Créer une adhésion
+            </h3>
+            <p className="mt-1 text-sm text-slate-400">
+              {createMembershipFor.firstName} {createMembershipFor.name}
+            </p>
+
+            <form onSubmit={submitCreateMembership} className="mt-5 space-y-5">
+              {/* Saison */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Saison</label>
+                <select
+                  value={createForm.year}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, year: Number(e.target.value) }))}
+                  className="mt-1 w-full rounded-md border border-primary-700 bg-primary-900 px-3 py-2 text-slate-100 focus:border-primary-400 focus:outline-none"
+                >
+                  <option value={currentSeasonYear()}>{currentSeasonYear()}-{currentSeasonYear() + 1} (en cours)</option>
+                  <option value={nextSeasonYear()}>{nextSeasonYear()}-{nextSeasonYear() + 1} (suivante)</option>
+                </select>
+              </div>
+
+              {/* Activités principales */}
+              <div>
+                <p className="text-sm font-medium text-slate-300">Activités principales</p>
+                <div className="mt-2 space-y-2">
+                  {activities.filter((a) => a.isCore && a.isActive).map((a) => (
+                    <label key={a.key} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={
+                          a.key === "JEUX_DE_PLATEAU" ? createForm.wantsBoardGames
+                          : a.key === "JEUX_DE_ROLE" ? createForm.wantsRolePlay
+                          : createForm.wantsAirsoft
+                        }
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          if (a.key === "JEUX_DE_PLATEAU") setCreateForm((f) => ({ ...f, wantsBoardGames: val }));
+                          else if (a.key === "JEUX_DE_ROLE") setCreateForm((f) => ({ ...f, wantsRolePlay: val }));
+                          else setCreateForm((f) => ({ ...f, wantsAirsoft: val }));
+                        }}
+                        className="accent-primary-400"
+                      />
+                      <span className="text-sm text-slate-200">{a.emoji} {a.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Activités supplémentaires */}
+              {activities.filter((a) => !a.isCore && a.isActive).length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-slate-300">Activités supplémentaires</p>
+                  <div className="mt-2 space-y-2">
+                    {activities.filter((a) => !a.isCore && a.isActive).map((a) => (
+                      <label key={a.key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={createForm.extraKeys.includes(a.key)}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setCreateForm((f) => ({
+                              ...f,
+                              extraKeys: val ? [...f.extraKeys, a.key] : f.extraKeys.filter((k) => k !== a.key),
+                            }));
+                          }}
+                          className="accent-primary-400"
+                        />
+                        <span className="text-sm text-slate-200">{a.emoji} {a.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Marquer comme réglée */}
+              <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-primary-700 bg-primary-900/40 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={createForm.isPaid}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, isPaid: e.target.checked }))}
+                  className="accent-emerald-400"
+                />
+                <div>
+                  <p className="text-sm font-medium text-slate-200">Marquer comme réglée</p>
+                  <p className="text-xs text-slate-400">Un email de confirmation sera envoyé au membre.</p>
+                </div>
+              </label>
+
+              {createError && <p className="text-sm text-red-400">{createError}</p>}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreateMembershipFor(null)}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-slate-300 hover:bg-primary-900"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={createSaving}
+                  className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                >
+                  {createSaving ? "Création…" : "Créer l'adhésion"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
