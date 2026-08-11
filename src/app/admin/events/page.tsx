@@ -56,6 +56,8 @@ type Rental = {
   equipment: { id: string; name: string; rentalCost: number; category: string };
 };
 
+type EquipmentCategory = { id: string; key: string; label: string; emoji: string; order: number };
+
 type EventRegistrationAdmin = {
   id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
@@ -161,6 +163,7 @@ export default function AdminEventsPage() {
   const [docFilter, setDocFilter] = useState("");
   const [docLinking, setDocLinking] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
+  const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
 
   async function load() {
     const res = await fetch("/api/events");
@@ -180,6 +183,10 @@ export default function AdminEventsPage() {
       .then((data: ActivityOption[]) =>
         setActivityOptions([...data.filter((a) => a.isActive), { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate", isActive: true }])
       );
+    fetch("/api/equipment-categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: EquipmentCategory[]) => setEquipmentCategories(data))
+      .catch(() => {});
   }, []);
 
   function resetForm() {
@@ -849,13 +856,13 @@ export default function AdminEventsPage() {
             {rentals.length === 0 ? (
               <p className="text-slate-500">Aucune demande de location pour cet événement.</p>
             ) : (() => {
-              const rentalCategories = [...new Set(rentals.map((r) => r.equipment.category))];
+              const rentalCategories = [...new Set(rentals.map((r) => r.equipment.category).filter(Boolean))];
               const filtered = rentalsCategoryFilter
                 ? rentals.filter((r) => r.equipment.category === rentalsCategoryFilter)
                 : rentals;
               return (
                 <>
-                  {rentalCategories.length > 1 && (
+                  {rentalCategories.length > 0 && (
                     <div className="mb-3 flex flex-wrap gap-1.5">
                       <button
                         onClick={() => setRentalsCategoryFilter(null)}
@@ -867,19 +874,22 @@ export default function AdminEventsPage() {
                       >
                         Toutes
                       </button>
-                      {rentalCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setRentalsCategoryFilter(cat === rentalsCategoryFilter ? null : cat)}
-                          className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
-                            rentalsCategoryFilter === cat
-                              ? "border-primary-400 bg-primary-800 text-silver-100"
-                              : "border-primary-700 text-slate-400 hover:border-primary-500 hover:text-slate-200"
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
+                      {rentalCategories.map((catKey) => {
+                        const catMeta = equipmentCategories.find((c) => c.key === catKey);
+                        return (
+                          <button
+                            key={catKey}
+                            onClick={() => setRentalsCategoryFilter(catKey === rentalsCategoryFilter ? null : catKey)}
+                            className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                              rentalsCategoryFilter === catKey
+                                ? "border-primary-400 bg-primary-800 text-silver-100"
+                                : "border-primary-700 text-slate-400 hover:border-primary-500 hover:text-slate-200"
+                            }`}
+                          >
+                            {catMeta ? `${catMeta.emoji} ${catMeta.label}` : catKey}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                   <ul className="space-y-3">
