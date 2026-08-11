@@ -48,10 +48,14 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
-        // Si user.role est "MEMBER" mais qu'il a un rôle bureau, on utilise ce rôle
+        // Si user.role est "MEMBER" mais qu'il a un rôle bureau, on utilise ce rôle.
+        // On priorise les rôles admin complets pour éviter qu'un rôle secondaire (ex: "Airsoft")
+        // masque un rôle plus privilégié (ex: "Vice-président") trié en second.
+        const bureauLabels = user.bureauRoles.map((r) => r.bureauRole.label);
+        const fullAdminBureauLabel = bureauLabels.find((l) => FULL_ADMIN_ROLES.includes(l));
         const effectiveRole =
-          user.role === "MEMBER" && user.bureauRoles.length > 0
-            ? user.bureauRoles[0].bureauRole.label
+          user.role === "MEMBER" && bureauLabels.length > 0
+            ? (fullAdminBureauLabel ?? bureauLabels[0])
             : user.role;
 
         return {
@@ -70,7 +74,22 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as { role: string }).role;
         token.allowedSections = await fetchAllowedSections(token.role as string);
       } else if (trigger === "update") {
-        // Rechargement forcé des permissions (ex: après modification via la page permissions)
+        // Rechargement forcé du rôle et des permissions depuis la DB
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          include: {
+            bureauRoles: { include: { bureauRole: true }, orderBy: { bureauRole: { order: "asc" } } },
+          },
+        });
+        if (dbUser) {
+          const bureauLabels = dbUser.bureauRoles.map((r) => r.bureauRole.label);
+          const fullAdminBureauLabel = bureauLabels.find((l) => FULL_ADMIN_ROLES.includes(l));
+          const effectiveRole =
+            dbUser.role === "MEMBER" && bureauLabels.length > 0
+              ? (fullAdminBureauLabel ?? bureauLabels[0])
+              : dbUser.role;
+          token.role = effectiveRole;
+        }
         token.allowedSections = await fetchAllowedSections(token.role as string);
       }
       return token;
