@@ -71,8 +71,9 @@ export function sessionHasAccess(
   const role = user?.role ?? "";
   if (isFullAdmin(role)) return true;
   const sections = (user as { allowedSections?: string[] | null } | null)?.allowedSections;
+  if (sections === null) return true; // null = accès complet (rôle full admin)
   if (sections !== undefined) {
-    return Array.isArray(sections) && sections.includes(section);
+    return sections.includes(section);
   }
   return canAccessSection(role, section);
 }
