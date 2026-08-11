@@ -116,6 +116,7 @@ export default function AdminMembersPage() {
   const [createForm, setCreateForm] = useState({ year: currentSeasonYear(), wantsBoardGames: false, wantsRolePlay: false, wantsAirsoft: false, extraKeys: [] as string[], isPaid: false });
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSaving, setCreateSaving] = useState(false);
+  const [isEditMembership, setIsEditMembership] = useState(false);
 
   async function load() {
     const [membersRes, rolesRes, actsRes] = await Promise.all([
@@ -264,9 +265,17 @@ export default function AdminMembersPage() {
     setEmailSuccess(true);
   }
 
-  function openCreateMembership(m: Member) {
+  function openCreateMembership(m: Member, prefill?: NonNullable<Member["membership"]>) {
     setCreateMembershipFor({ id: m.id, firstName: m.firstName, name: m.name });
-    setCreateForm({ year: currentSeasonYear(), wantsBoardGames: false, wantsRolePlay: false, wantsAirsoft: false, extraKeys: [], isPaid: false });
+    setIsEditMembership(!!prefill);
+    setCreateForm(prefill ? {
+      year: prefill.year,
+      wantsBoardGames: prefill.wantsBoardGames,
+      wantsRolePlay: prefill.wantsRolePlay,
+      wantsAirsoft: prefill.wantsAirsoft,
+      extraKeys: prefill.extraActivities.map((a) => a.activityKey),
+      isPaid: false,
+    } : { year: currentSeasonYear(), wantsBoardGames: false, wantsRolePlay: false, wantsAirsoft: false, extraKeys: [], isPaid: false });
     setCreateError(null);
   }
 
@@ -462,13 +471,22 @@ export default function AdminMembersPage() {
                                 {ms.year}-{ms.year + 1} — {ms.isPaid ? `${ms.paidAmount}€ réglé ✓` : `${ms.amount}€ en attente`}
                               </button>
                               {!ms.isPaid && (
-                                <button
-                                  onClick={() => deleteMembership(m.id)}
-                                  title="Supprimer cette cotisation"
-                                  className="rounded px-1.5 py-1 text-xs text-red-400 hover:bg-red-950 hover:text-red-300"
-                                >
-                                  ✕
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => openCreateMembership(m, ms)}
+                                    title="Modifier cette cotisation"
+                                    className="rounded px-1.5 py-1 text-xs text-primary-300 hover:bg-primary-900"
+                                  >
+                                    ✏️
+                                  </button>
+                                  <button
+                                    onClick={() => deleteMembership(m.id)}
+                                    title="Supprimer cette cotisation"
+                                    className="rounded px-1.5 py-1 text-xs text-red-400 hover:bg-red-950 hover:text-red-300"
+                                  >
+                                    ✕
+                                  </button>
+                                </>
                               )}
                             </div>
                           ) : (
@@ -709,7 +727,7 @@ export default function AdminMembersPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-display text-xl text-silver-100">
-              📋 Créer une adhésion
+              📋 {isEditMembership ? "Modifier l'adhésion" : "Créer une adhésion"}
             </h3>
             <p className="mt-1 text-sm text-slate-400">
               {createMembershipFor.firstName} {createMembershipFor.name}
@@ -811,7 +829,7 @@ export default function AdminMembersPage() {
                   disabled={createSaving}
                   className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
                 >
-                  {createSaving ? "Création…" : "Créer l'adhésion"}
+                  {createSaving ? (isEditMembership ? "Enregistrement…" : "Création…") : (isEditMembership ? "Enregistrer les modifications" : "Créer l'adhésion")}
                 </button>
               </div>
             </form>
