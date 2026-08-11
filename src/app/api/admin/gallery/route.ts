@@ -5,8 +5,6 @@ import { authOptions } from "@/lib/auth";
 import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-const VALID_ACTIVITIES = ["JEUX_DE_PLATEAU", "JEUX_DE_ROLE", "AIRSOFT", "AUTRE"];
-
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session || !sessionHasAccess(session.user, "galerie")) {
@@ -35,8 +33,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Photo et date requises." }, { status: 400 });
   }
 
-  if (activityType && !VALID_ACTIVITIES.includes(activityType)) {
-    return NextResponse.json({ error: "Activité invalide." }, { status: 400 });
+  if (activityType && activityType !== "AUTRE") {
+    const validActivity = await prisma.activity.findUnique({ where: { key: activityType } });
+    if (!validActivity) {
+      return NextResponse.json({ error: "Activité invalide." }, { status: 400 });
+    }
   }
 
   const photo = await prisma.galleryPhoto.create({

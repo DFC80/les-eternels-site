@@ -28,7 +28,7 @@ const TYPE_INFO: Record<string, { label: string; color: string; bg: string }> = 
 };
 
 const ACTIVITIES = [
-  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de plateau" },
+  { key: "JEUX_DE_PLATEAU", label: "🎲 Jeux de société" },
   { key: "JEUX_DE_ROLE",    label: "🐉 Jeux de rôle" },
   { key: "AIRSOFT",         label: "🎯 Airsoft" },
 ];

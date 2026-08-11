@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
-  JEUX_DE_PLATEAU: "Jeux de plateau",
+  JEUX_DE_PLATEAU: "Jeux de société",
   JDR: "Jeu de rôle",
   AIRSOFT: "Airsoft",
   AUTRE: "Autre",
@@ -330,10 +330,10 @@ export default async function PrintEventPage({ params }: { params: { id: string 
           </tbody>
         </table>
 
-        {/* Jeux de plateau */}
+        {/* Jeux de société */}
         {event.boardGames.length > 0 && (
           <>
-            <h2>Jeux de plateau ({event.boardGames.length})</h2>
+            <h2>Jeux de société ({event.boardGames.length})</h2>
             <p style={{ fontSize: 12 }}>{event.boardGames.map((g) => g.name).join(", ")}</p>
           </>
         )}

@@ -198,8 +198,10 @@ export default function EventCalendar() {
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
   const [profileAirsoftHasOwnEquipment, setProfileAirsoftHasOwnEquipment] = useState(false);
+  const [profileHasEmergencyContact, setProfileHasEmergencyContact] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
 
   async function payEventOnline(registrationId: string) {
     setActionError(null);
@@ -268,7 +270,14 @@ export default function EventCalendar() {
     if (session) {
       fetch("/api/profile")
         .then((r) => r.ok ? r.json() : null)
-        .then((d) => { if (d) setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment); })
+        .then((d) => {
+          if (d) {
+            setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment);
+            setProfileHasEmergencyContact(
+              !!(d.emergencyContactFirstName?.trim() && d.emergencyContactLastName?.trim() && d.emergencyContactPhone?.trim())
+            );
+          }
+        })
         .catch(() => {});
     }
   }, [session]);
@@ -286,6 +295,19 @@ export default function EventCalendar() {
 
   const isRegistered = (ev: CalendarEvent) =>
     !!session && ev.registrations.some((r) => r.userId === session.user.id);
+
+  // Déductions virtuelles des éléments associés aux répliques actuellement sélectionnées.
+  function computeVirtualDeductions(selectedEq: Record<string, number>, eqList: Equipment[]): Map<string, number> {
+    const deductions = new Map<string, number>();
+    for (const [replicaId, qty] of Object.entries(selectedEq)) {
+      const replica = eqList.find((e) => e.id === replicaId);
+      if (!replica) continue;
+      for (const assoc of replica.associations) {
+        deductions.set(assoc.itemId, (deductions.get(assoc.itemId) ?? 0) + assoc.quantity * qty);
+      }
+    }
+    return deductions;
+  }
 
   // Somme des quantités déjà louées (en attente ou validées) par d'AUTRES membres pour cet événement.
   function takenEquipmentQuantities(ev: CalendarEvent): Map<string, number> {
@@ -744,6 +766,7 @@ export default function EventCalendar() {
                 {wantsEquipment &&
                   (() => {
                     const taken = takenEquipmentQuantities(selected);
+                    const virtualDeductions = computeVirtualDeductions(selectedEquipment, equipmentList);
                     const cats = equipmentCategories.length > 0
                       ? equipmentCategories
                       : [...new Set(equipmentList.map(eq => eq.category))].map(k => ({ key: k, label: k, emoji: "📦" }));
@@ -758,9 +781,18 @@ export default function EventCalendar() {
                           <div className="mt-2 grid gap-3 sm:grid-cols-2">
                             {items.map((eq) => {
                               const qty = selectedEquipment[eq.id] ?? 0;
-                              const takenQty = taken.get(eq.id) ?? 0;
+                              // Inclut les déductions virtuelles des répliques sélectionnées
+                              const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
                               const available = Math.max(0, (eq.stock ?? 1) - takenQty);
                               const isFull = available <= 0;
+                              // Pour les répliques : vérifie si les éléments associés ont assez de stock
+                              const insufficientAssoc = eq.associations.find((a) => {
+                                const item = equipmentList.find((e) => e.id === a.itemId);
+                                if (!item) return false;
+                                const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                const itemAvail = Math.max(0, (item.stock ?? 1) - itemTaken);
+                                return a.quantity > itemAvail;
+                              });
                               const disabled = eq.status !== "DISPONIBLE" || isFull;
                               const firstPhoto = eq.photos
                                 ?.split("\n")
@@ -775,12 +807,19 @@ export default function EventCalendar() {
                                 >
                                   <button
                                     type="button"
-                                    disabled={disabled && qty === 0}
+                                    disabled={disabled && qty === 0 && !insufficientAssoc}
                                     onClick={() => {
                                       if (qty > 0) {
                                         setSelectedEquipment((prev) => { const n = { ...prev }; delete n[eq.id]; return n; });
+                                        setStockWarning(null);
                                       } else if (!disabled) {
-                                        setSelectedEquipment((prev) => ({ ...prev, [eq.id]: 1 }));
+                                        if (insufficientAssoc) {
+                                          const item = equipmentList.find((e) => e.id === insufficientAssoc.itemId);
+                                          setStockWarning(`Stock insuffisant pour "${item?.name ?? "un élément associé"}" — impossible de sélectionner cette réplique.`);
+                                        } else {
+                                          setSelectedEquipment((prev) => ({ ...prev, [eq.id]: 1 }));
+                                          setStockWarning(null);
+                                        }
                                       }
                                     }}
                                     className="flex w-full gap-3 text-left disabled:cursor-not-allowed"
@@ -808,9 +847,14 @@ export default function EventCalendar() {
                                           {eq.associations.map((a) => {
                                             const item = equipmentList.find((e) => e.id === a.itemId);
                                             if (!item) return null;
+                                            const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                            const itemRaw = (item.stock ?? 1) - itemTaken;
+                                            const itemOk = itemRaw >= 0;
+                                            const itemAvail = Math.max(0, itemRaw);
                                             return (
-                                              <li key={a.itemId} className="text-xs text-slate-500">
+                                              <li key={a.itemId} className={`text-xs ${itemOk ? "text-slate-500" : "text-red-400 font-medium"}`}>
                                                 + {a.quantity > 1 ? `${a.quantity}× ` : ""}{item.name}
+                                                {!itemOk && ` (stock insuffisant : ${itemAvail} dispo.)`}
                                               </li>
                                             );
                                           })}
@@ -818,6 +862,8 @@ export default function EventCalendar() {
                                       )}
                                       {isFull ? (
                                         <p className="mt-1 text-xs text-amber-400">Plus disponible pour cet événement</p>
+                                      ) : insufficientAssoc && qty === 0 ? (
+                                        <p className="mt-1 text-xs text-red-400">Éléments associés insuffisants en stock</p>
                                       ) : eq.status !== "DISPONIBLE" && (
                                         <p className="mt-1 text-xs text-amber-400">
                                           {eq.status === "HORS_SERVICE" ? "Hors-service" : "Indisponible"}
@@ -843,7 +889,23 @@ export default function EventCalendar() {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          if (qty < available) setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty + 1 }));
+                                          if (qty < available) {
+                                            // Vérifie si les éléments associés ont assez de stock pour +1 réplique
+                                            const blocked = eq.associations.find((a) => {
+                                              const item = equipmentList.find((e) => e.id === a.itemId);
+                                              if (!item) return false;
+                                              const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                                              const itemAvail = Math.max(0, (item.stock ?? 1) - itemTaken);
+                                              return a.quantity > itemAvail;
+                                            });
+                                            if (blocked) {
+                                              const item = equipmentList.find((e) => e.id === blocked.itemId);
+                                              setStockWarning(`Impossible d'augmenter la quantité : stock insuffisant pour "${item?.name ?? "un élément associé"}".`);
+                                            } else {
+                                              setSelectedEquipment((prev) => ({ ...prev, [eq.id]: qty + 1 }));
+                                              setStockWarning(null);
+                                            }
+                                          }
                                         }}
                                         disabled={qty >= available}
                                         className="flex h-7 w-7 items-center justify-center rounded-full border border-primary-600 text-slate-200 hover:bg-primary-800 disabled:opacity-40"
@@ -858,6 +920,12 @@ export default function EventCalendar() {
                       );
                     });
                   })()}
+
+                    {stockWarning && (
+                      <div className="mt-3 rounded-lg border border-red-700 bg-red-950/60 px-4 py-2.5 text-sm text-red-300">
+                        ⚠️ {stockWarning}
+                      </div>
+                    )}
 
                     {selectedEquipmentTotal > 0 && (
                       <p className="mt-4 text-center text-sm text-slate-300">
@@ -1175,7 +1243,16 @@ export default function EventCalendar() {
                     <input
                       type="checkbox"
                       checked={hasOwnEquipment}
-                      onChange={(e) => setHasOwnEquipment(e.target.checked)}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setHasOwnEquipment(v);
+                        setProfileAirsoftHasOwnEquipment(v);
+                        fetch("/api/profile", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ airsoftHasOwnEquipment: v }),
+                        }).catch(() => {});
+                      }}
                       className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary-400"
                     />
                     <span className="text-slate-300">
@@ -1247,6 +1324,13 @@ export default function EventCalendar() {
               </div>
             )}
 
+            {selected.activityType === "AIRSOFT" && session && !isRegistered(selected) && !isRegistrationClosed(selected) && !profileHasEmergencyContact && (
+              <p className="mt-4 rounded-lg border border-red-800/60 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+                ⚠️ Votre <strong className="text-red-300">contact d&apos;urgence</strong> n&apos;est pas renseigné dans votre profil. Il est obligatoire pour vous inscrire à un événement airsoft.{" "}
+                <a href="/mon-compte" className="underline hover:text-red-200">Compléter mon profil →</a>
+              </p>
+            )}
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setSelected(null)}
@@ -1268,7 +1352,8 @@ export default function EventCalendar() {
                   disabled={
                     loadingAction ||
                     isRegistrationClosed(selected) ||
-                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true))
+                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true)) ||
+                    (selected.activityType === "AIRSOFT" && !profileHasEmergencyContact)
                   }
                   className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
                 >

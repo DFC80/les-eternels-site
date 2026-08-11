@@ -39,6 +39,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "Cet événement est complet." }, { status: 400 });
   }
 
+  // Contact d'urgence obligatoire pour les événements airsoft
+  if (event.activityType === "AIRSOFT") {
+    const userProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { emergencyContactFirstName: true, emergencyContactLastName: true, emergencyContactPhone: true },
+    });
+    if (
+      !userProfile?.emergencyContactFirstName?.trim() ||
+      !userProfile?.emergencyContactLastName?.trim() ||
+      !userProfile?.emergencyContactPhone?.trim()
+    ) {
+      return NextResponse.json(
+        { error: "Vous devez renseigner votre contact d'urgence (prénom, nom et téléphone) dans votre profil avant de vous inscrire à un événement airsoft." },
+        { status: 403 }
+      );
+    }
+  }
+
   const body = await request.json().catch(() => ({}));
   const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
   const hasOwnEquipment: boolean = event.activityType === "AIRSOFT" && !!body.hasOwnEquipment;
@@ -106,7 +124,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   // Expand equipment selections to include associated items automatically
-  let allRentals: { equipmentId: string; quantity: number }[] = [];
+  let allRentals: { equipmentId: string; quantity: number; isFree?: boolean }[] = [];
   if (equipmentSelections.length > 0) {
     const selectedWithAssocs = await prisma.equipment.findMany({
       where: { id: { in: equipmentSelections.map((s) => s.id) } },
@@ -124,7 +142,43 @@ export async function POST(request: Request, { params }: { params: { id: string 
         }
       }
     }
-    allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({ equipmentId, quantity }));
+    const selectedIds = new Set(equipmentSelections.map((s) => s.id));
+    allRentals = Array.from(rentalMap.entries()).map(([equipmentId, quantity]) => ({
+      equipmentId,
+      quantity,
+      isFree: !selectedIds.has(equipmentId),
+    }));
+  }
+
+  // Validation côté serveur : vérifie que le stock des éléments associés est suffisant
+  if (allRentals.length > 0) {
+    const itemIds = allRentals.map((r) => r.equipmentId);
+    const equipmentStocks = await prisma.equipment.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, name: true, stock: true },
+    });
+    const rentedByOthers = await prisma.equipmentRental.groupBy({
+      by: ["equipmentId"],
+      where: {
+        equipmentId: { in: itemIds },
+        status: { not: "REJECTED" },
+        registration: { eventId: params.id },
+      },
+      _sum: { quantity: true },
+    });
+    const rentedMap = new Map(rentedByOthers.map((r) => [r.equipmentId, r._sum.quantity ?? 0]));
+    for (const rental of allRentals) {
+      const eq = equipmentStocks.find((e) => e.id === rental.equipmentId);
+      if (!eq) continue;
+      const alreadyRented = rentedMap.get(rental.equipmentId) ?? 0;
+      const available = Math.max(0, eq.stock - alreadyRented);
+      if (rental.quantity > available) {
+        return NextResponse.json(
+          { error: `Stock insuffisant pour "${eq.name}" (disponible : ${available}, demandé : ${rental.quantity}).` },
+          { status: 409 }
+        );
+      }
+    }
   }
 
   const registration = await prisma.eventRegistration.create({
@@ -158,12 +212,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       : Promise.resolve([]),
   ]);
 
-  // Récap email : tous les équipements loués (sélectionnés + associés automatiques)
-  const equipmentList = equipmentRecords.map((eq) => ({
-    name: eq.name,
-    rentalCost: eq.rentalCost,
-    quantity: allRentals.find((r) => r.equipmentId === eq.id)?.quantity ?? 1,
-  }));
+  // Récap email : éléments associés auto-ajoutés sont gratuits (inclus dans le prix de la réplique)
+  const equipmentList = equipmentRecords.map((eq) => {
+    const rental = allRentals.find((r) => r.equipmentId === eq.id);
+    return {
+      name: eq.name,
+      rentalCost: rental?.isFree ? 0 : eq.rentalCost,
+      quantity: rental?.quantity ?? 1,
+    };
+  });
 
   if (user) {
     await Promise.all([

@@ -10,7 +10,7 @@ async function ensureDefaults() {
   for (const a of CORE_ACTIVITIES) {
     await prisma.activity.upsert({
       where: { key: a.key },
-      update: {},
+      update: { label: a.label },
       create: a,
     });
     // seed price if still 0 (first run after migration)
