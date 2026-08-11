@@ -39,6 +39,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "Cet événement est complet." }, { status: 400 });
   }
 
+  // Contact d'urgence obligatoire pour les événements airsoft
+  if (event.activityType === "AIRSOFT") {
+    const userProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { emergencyContactFirstName: true, emergencyContactLastName: true, emergencyContactPhone: true },
+    });
+    if (
+      !userProfile?.emergencyContactFirstName?.trim() ||
+      !userProfile?.emergencyContactLastName?.trim() ||
+      !userProfile?.emergencyContactPhone?.trim()
+    ) {
+      return NextResponse.json(
+        { error: "Vous devez renseigner votre contact d'urgence (prénom, nom et téléphone) dans votre profil avant de vous inscrire à un événement airsoft." },
+        { status: 403 }
+      );
+    }
+  }
+
   const body = await request.json().catch(() => ({}));
   const participationFee: number = event.activityType === "AIRSOFT" && body.participationFee === 500 ? 500 : 0;
   const hasOwnEquipment: boolean = event.activityType === "AIRSOFT" && !!body.hasOwnEquipment;

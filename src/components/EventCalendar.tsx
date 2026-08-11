@@ -198,6 +198,7 @@ export default function EventCalendar() {
   const [docAcknowledged, setDocAcknowledged] = useState<Set<string>>(new Set());
   const [hasOwnEquipment, setHasOwnEquipment] = useState(false);
   const [profileAirsoftHasOwnEquipment, setProfileAirsoftHasOwnEquipment] = useState(false);
+  const [profileHasEmergencyContact, setProfileHasEmergencyContact] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [payingEvent, setPayingEvent] = useState(false);
   const [stockWarning, setStockWarning] = useState<string | null>(null);
@@ -269,7 +270,14 @@ export default function EventCalendar() {
     if (session) {
       fetch("/api/profile")
         .then((r) => r.ok ? r.json() : null)
-        .then((d) => { if (d) setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment); })
+        .then((d) => {
+          if (d) {
+            setProfileAirsoftHasOwnEquipment(!!d.airsoftHasOwnEquipment);
+            setProfileHasEmergencyContact(
+              !!(d.emergencyContactFirstName?.trim() && d.emergencyContactLastName?.trim() && d.emergencyContactPhone?.trim())
+            );
+          }
+        })
         .catch(() => {});
     }
   }, [session]);
@@ -1316,6 +1324,13 @@ export default function EventCalendar() {
               </div>
             )}
 
+            {selected.activityType === "AIRSOFT" && session && !isRegistered(selected) && !isRegistrationClosed(selected) && !profileHasEmergencyContact && (
+              <p className="mt-4 rounded-lg border border-red-800/60 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+                ⚠️ Votre <strong className="text-red-300">contact d&apos;urgence</strong> n&apos;est pas renseigné dans votre profil. Il est obligatoire pour vous inscrire à un événement airsoft.{" "}
+                <a href="/mon-compte" className="underline hover:text-red-200">Compléter mon profil →</a>
+              </p>
+            )}
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setSelected(null)}
@@ -1337,7 +1352,8 @@ export default function EventCalendar() {
                   disabled={
                     loadingAction ||
                     isRegistrationClosed(selected) ||
-                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true))
+                    (!isEligible(selected) && !(selected.activityType === "AIRSOFT" && participationAccepted === true)) ||
+                    (selected.activityType === "AIRSOFT" && !profileHasEmergencyContact)
                   }
                   className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
                 >
