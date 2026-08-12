@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { formatCentsToEuros } from "@/lib/money";
 import ImageUpload from "@/components/ImageUpload";
 
@@ -37,6 +39,9 @@ const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
 export default function AdminProduitsPage() {
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "produits");
   const [items, setItems] = useState<Product[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -169,14 +174,16 @@ export default function AdminProduitsPage() {
             ) : (
               <p className="mt-1 text-xs text-slate-600 italic">Visible par tous les adhérents</p>
             )}
-            <div className="mt-2 flex gap-3 text-sm">
-              <button onClick={() => editItem(item)} className="text-primary-300 hover:text-silver-200 hover:underline">
-                Modifier
-              </button>
-              <button onClick={() => removeItem(item.id)} className="text-red-400 hover:underline">
-                Supprimer
-              </button>
-            </div>
+            {canWrite && (
+              <div className="mt-2 flex gap-3 text-sm">
+                <button onClick={() => editItem(item)} className="text-primary-300 hover:text-silver-200 hover:underline">
+                  Modifier
+                </button>
+                <button onClick={() => removeItem(item.id)} className="text-red-400 hover:underline">
+                  Supprimer
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -193,7 +200,7 @@ export default function AdminProduitsPage() {
         Gérez le stock et les prix des friandises et boissons proposées lors des soirées jeux.
       </p>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      {canWrite && <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <h2 className="col-span-full font-display text-lg text-silver-100">
           {form.id ? "Modifier le produit" : "Ajouter un produit"}
         </h2>
@@ -327,7 +334,7 @@ export default function AdminProduitsPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       {(
         [

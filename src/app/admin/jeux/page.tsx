@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 
 type BoardGame = {
   id: string;
@@ -14,6 +16,9 @@ type BoardGame = {
 };
 
 export default function AdminJeuxPage() {
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "jeux");
   const [games, setGames] = useState<BoardGame[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,19 +91,21 @@ export default function AdminJeuxPage() {
                 <p className="mt-1 text-xs text-slate-500">
                   Prêté par {game.owner.firstName} {game.owner.name}
                 </p>
-                <div className="mt-2 flex gap-3 text-sm">
-                  <button
-                    onClick={() =>
-                      toggleStatus(game.id, game.status === "DISPONIBLE" ? "INDISPONIBLE" : "DISPONIBLE")
-                    }
-                    className="text-primary-300 hover:text-silver-200 hover:underline"
-                  >
-                    {game.status === "DISPONIBLE" ? "Marquer indisponible" : "Marquer disponible"}
-                  </button>
-                  <button onClick={() => removeGame(game.id)} className="text-red-400 hover:underline">
-                    Supprimer
-                  </button>
-                </div>
+                {canWrite && (
+                  <div className="mt-2 flex gap-3 text-sm">
+                    <button
+                      onClick={() =>
+                        toggleStatus(game.id, game.status === "DISPONIBLE" ? "INDISPONIBLE" : "DISPONIBLE")
+                      }
+                      className="text-primary-300 hover:text-silver-200 hover:underline"
+                    >
+                      {game.status === "DISPONIBLE" ? "Marquer indisponible" : "Marquer disponible"}
+                    </button>
+                    <button onClick={() => removeGame(game.id)} className="text-red-400 hover:underline">
+                      Supprimer
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

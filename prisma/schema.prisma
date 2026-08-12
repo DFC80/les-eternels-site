@@ -158,7 +158,7 @@ model EventExpense {
 model GeneralExpense {
   id        String   @id @default(cuid())
   label     String
-  amount    Int
+  amount    Float
   date      DateTime @default(now())
   createdAt DateTime @default(now())
 }
@@ -166,7 +166,7 @@ model GeneralExpense {
 model GeneralCredit {
   id        String   @id @default(cuid())
   label     String
-  amount    Int
+  amount    Float
   date      DateTime @default(now())
   createdAt DateTime @default(now())
 }

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { unlink } from "fs/promises";
 import path from "path";
@@ -11,7 +11,7 @@ const UPLOAD_DIR = path.join(process.cwd(), "uploads", "activity-docs");
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "activites")) {
+  if (!session || !sessionHasWriteAccess(session.user, "activites")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "activites")) {
+  if (!session || !sessionHasWriteAccess(session.user, "activites")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 

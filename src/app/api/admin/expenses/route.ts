@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const expense = await prisma.generalExpense.create({
     data: {
       label,
-      amount: Math.round(Number(amount)),
+      amount: parseFloat(Number(amount).toFixed(2)),
       date: date ? new Date(date) : new Date(),
     },
   });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 
 type Meeting = {
@@ -58,6 +58,7 @@ function formatDate(iso: string) {
 export default function AdminReunionsPage() {
   const { data: session } = useSession();
   const user = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(user, "reunions");
 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -166,7 +167,7 @@ export default function AdminReunionsPage() {
       </p>
 
       {/* Formulaire */}
-      <form
+      {canWrite && <form
         onSubmit={handleSubmit}
         className="mt-8 rounded-xl border border-primary-800 bg-primary-900/40 p-6 space-y-4"
       >
@@ -279,13 +280,14 @@ export default function AdminReunionsPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       {/* Liste des assemblées générales */}
       <MeetingSection
         title="Assemblées générales"
         emoji="🏛️"
         meetings={agMeetings}
+        canWrite={canWrite}
         onEdit={editMeeting}
         onDelete={(m) => handleDelete(m.id, "assemblée générale")}
         onTogglePublished={togglePublished}
@@ -300,6 +302,7 @@ export default function AdminReunionsPage() {
         title="Réunions de bureau"
         emoji="📋"
         meetings={bureauMeetings}
+        canWrite={canWrite}
         onEdit={editMeeting}
         onDelete={(m) => handleDelete(m.id, "réunion de bureau")}
         onTogglePublished={togglePublished}
@@ -317,6 +320,7 @@ function MeetingSection({
   title,
   emoji,
   meetings,
+  canWrite,
   onEdit,
   onDelete,
   onTogglePublished,
@@ -329,6 +333,7 @@ function MeetingSection({
   title: string;
   emoji: string;
   meetings: Meeting[];
+  canWrite: boolean;
   onEdit: (m: Meeting) => void;
   onDelete: (m: Meeting) => void;
   onTogglePublished: (m: Meeting) => void;
@@ -389,29 +394,33 @@ function MeetingSection({
                   >
                     {isExpanded ? "Réduire" : "Voir détails"}
                   </button>
-                  <button onClick={() => onEdit(m)} className="text-primary-300 hover:underline">
-                    Modifier
-                  </button>
-                  {m.type === "ASSEMBLEE_GENERALE" && (
-                    <button
-                      onClick={() => onTogglePublished(m)}
-                      className={m.isPublished ? "text-amber-400 hover:underline" : "text-emerald-400 hover:underline"}
-                    >
-                      {m.isPublished ? "Retirer de l'accueil" : "Afficher sur l'accueil"}
-                    </button>
+                  {canWrite && (
+                    <>
+                      <button onClick={() => onEdit(m)} className="text-primary-300 hover:underline">
+                        Modifier
+                      </button>
+                      {m.type === "ASSEMBLEE_GENERALE" && (
+                        <button
+                          onClick={() => onTogglePublished(m)}
+                          className={m.isPublished ? "text-amber-400 hover:underline" : "text-emerald-400 hover:underline"}
+                        >
+                          {m.isPublished ? "Retirer de l'accueil" : "Afficher sur l'accueil"}
+                        </button>
+                      )}
+                      {m.type === "BUREAU" && (
+                        <button
+                          onClick={() => onSendReminder(m.id)}
+                          disabled={notifying === m.id}
+                          className="text-sky-400 hover:underline disabled:opacity-50"
+                        >
+                          {notifying === m.id ? "Envoi…" : "Envoyer un rappel"}
+                        </button>
+                      )}
+                      <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">
+                        Supprimer
+                      </button>
+                    </>
                   )}
-                  {m.type === "BUREAU" && (
-                    <button
-                      onClick={() => onSendReminder(m.id)}
-                      disabled={notifying === m.id}
-                      className="text-sky-400 hover:underline disabled:opacity-50"
-                    >
-                      {notifying === m.id ? "Envoi…" : "Envoyer un rappel"}
-                    </button>
-                  )}
-                  <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">
-                    Supprimer
-                  </button>
                 </div>
               </div>
 

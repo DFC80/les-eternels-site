@@ -2,17 +2,17 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-async function requireAccess() {
+async function requireWriteAccess() {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user as never, "documents")) return null;
+  if (!session || !sessionHasWriteAccess(session.user as never, "documents")) return null;
   return session;
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const session = await requireAccess();
+  const session = await requireWriteAccess();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const { name, description, visibility, category } = await request.json() as {
@@ -42,7 +42,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await requireAccess();
+  const session = await requireWriteAccess();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   await prisma.assocDocument.delete({ where: { id: params.id } });

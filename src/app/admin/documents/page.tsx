@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 
 type Doc = {
   id: string;
@@ -35,6 +35,7 @@ export default function AdminDocumentsPage() {
   const { data: session } = useSession();
   const user = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
   const canAccess = sessionHasAccess(user, "documents");
+  const canWrite = sessionHasWriteAccess(user, "documents");
 
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,12 +150,14 @@ export default function AdminDocumentsPage() {
             Gérez les documents de l'association. Les documents publics sont visibles par tous les membres ; les documents privés sont réservés aux administrateurs.
           </p>
         </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
-        >
-          + Ajouter un document
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setUploadOpen(true)}
+            className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
+          >
+            + Ajouter un document
+          </button>
+        )}
       </div>
 
       {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
@@ -208,20 +211,22 @@ export default function AdminDocumentsPage() {
                           {formatSize(doc.size)} · {new Date(doc.createdAt).toLocaleDateString("fr-FR")}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <button
-                          onClick={() => openEdit(doc)}
-                          className="text-sm text-primary-300 hover:underline"
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDelete(doc.id, doc.name)}
-                          className="text-sm text-red-400 hover:underline"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <button
+                            onClick={() => openEdit(doc)}
+                            className="text-sm text-primary-300 hover:underline"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => handleDelete(doc.id, doc.name)}
+                            className="text-sm text-red-400 hover:underline"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -232,7 +237,7 @@ export default function AdminDocumentsPage() {
       )}
 
       {/* Upload modal */}
-      {uploadOpen && (
+      {canWrite && uploadOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setUploadOpen(false)}
@@ -314,7 +319,7 @@ export default function AdminDocumentsPage() {
       )}
 
       {/* Edit modal */}
-      {editDoc && (
+      {canWrite && editDoc && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setEditDoc(null)}
