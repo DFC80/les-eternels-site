@@ -29,7 +29,7 @@ const CARDS: Card[] = [
   { href: "/admin/documents",    icon: "📁", title: "Documents",               section: "documents",    description: "Gérer les documents de l'association (statuts, CR, formulaires…). Visibilité publique ou privée." },
   { href: "/admin/parametres",   icon: "⚙️", title: "Paramètres",             section: "parametres",   description: "Modifier le descriptif de l'association affiché sur la page d'accueil." },
   { href: "/admin/permissions",  icon: "🔐", title: "Permissions",            section: "parametres",   description: "Configurer les sections admin accessibles pour chaque rôle de bureau.", fullAdminOnly: true },
-  { href: "/admin/notes",        icon: "📝", title: "Notes admin",            section: "parametres",   description: "Espace de notes interne réservé aux administrateurs.", fullAdminOnly: true },
+  { href: "/admin/notes",        icon: "📝", title: "Notes admin",            section: "notes",        description: "Espace de notes interne réservé aux administrateurs." },
 ];
 
 export default async function AdminHome() {

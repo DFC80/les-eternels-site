@@ -17,7 +17,8 @@ export type AdminSection =
   | "content"
   | "sondages"
   | "reunions"
-  | "documents";
+  | "documents"
+  | "notes";
 
 // Permissions par défaut (avant toute configuration en DB)
 export const HARDCODED_SECTION_MAP: Record<string, AdminSection[]> = {

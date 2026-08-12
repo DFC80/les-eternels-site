@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import PrintTrigger from "./PrintTrigger";
 
 export default async function PrintNotePage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) redirect("/login");
+  if (!session || !sessionHasAccess(session.user, "notes")) redirect("/login");
 
   const note = await prisma.adminNote.findUnique({
     where: { id: params.id },
