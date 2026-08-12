@@ -14,8 +14,12 @@ type Product = {
   photoUrl: string | null;
   price: number;
   stock: number;
+  volumeCl: number | null;
+  weightG: number | null;
   activities: ProductActivity[];
 };
+
+const VOLUME_OPTIONS = [15, 20, 25, 33, 50, 75, 100, 150];
 
 const EMPTY_FORM = {
   id: "",
@@ -24,6 +28,8 @@ const EMPTY_FORM = {
   photoUrl: "",
   price: "",
   stock: "",
+  volumeCl: "" as string,
+  weightG: "" as string,
   activityKeys: [] as string[],
 };
 
@@ -61,6 +67,8 @@ export default function AdminProduitsPage() {
       photoUrl: item.photoUrl ?? "",
       price: formatCentsToEuros(item.price).replace("€", "").trim(),
       stock: String(item.stock),
+      volumeCl: item.volumeCl != null ? String(item.volumeCl) : "",
+      weightG: item.weightG != null ? String(item.weightG) : "",
       activityKeys: item.activities.map((a) => a.activityKey),
     });
   }
@@ -86,6 +94,8 @@ export default function AdminProduitsPage() {
       price: form.price,
       stock: form.stock || "0",
       activityKeys: form.activityKeys,
+      volumeCl: form.category === "DRINK" && form.volumeCl ? Number(form.volumeCl) : null,
+      weightG: form.category === "SNACK" && form.weightG ? Number(form.weightG) : null,
     };
 
     const res = await fetch(form.id ? `/api/admin/products/${form.id}` : "/api/admin/products", {
@@ -140,7 +150,15 @@ export default function AdminProduitsPage() {
                 Stock : {item.stock}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-400">{formatCentsToEuros(item.price)}</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {formatCentsToEuros(item.price)}
+              {item.category === "DRINK" && item.volumeCl != null && (
+                <span className="ml-2 text-slate-500">· {item.volumeCl} cl</span>
+              )}
+              {item.category === "SNACK" && item.weightG != null && (
+                <span className="ml-2 text-slate-500">· {item.weightG} g</span>
+              )}
+            </p>
             {itemActivities.length > 0 ? (
               <p className="mt-1 text-xs text-slate-500">
                 Activités : {itemActivities.join(", ")}
@@ -223,6 +241,40 @@ export default function AdminProduitsPage() {
             className={inputClass}
           />
         </div>
+
+        {form.category === "DRINK" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-300">
+              Contenance <span className="text-slate-500">(optionnel)</span>
+            </label>
+            <select
+              value={form.volumeCl}
+              onChange={(e) => setForm({ ...form, volumeCl: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">— Non précisé</option>
+              {VOLUME_OPTIONS.map((v) => (
+                <option key={v} value={v}>{v} cl</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {form.category === "SNACK" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-300">
+              Poids <span className="text-slate-500">(optionnel, en grammes)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={form.weightG}
+              onChange={(e) => setForm({ ...form, weightG: e.target.value })}
+              placeholder="Ex: 100"
+              className={inputClass}
+            />
+          </div>
+        )}
 
         <div className="sm:col-span-2">
           <ImageUpload

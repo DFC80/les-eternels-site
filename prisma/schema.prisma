@@ -266,6 +266,8 @@ model Product {
   photoUrl  String?
   price     Int
   stock     Int      @default(0)
+  volumeCl  Int? // boissons uniquement
+  weightG   Int? // friandises uniquement
   createdAt DateTime @default(now())
 
   orderItems  SnackOrderItem[]

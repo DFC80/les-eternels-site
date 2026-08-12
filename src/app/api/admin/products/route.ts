@@ -32,13 +32,15 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { category, name, photoUrl, price, stock, activityKeys } = body as {
+  const { category, name, photoUrl, price, stock, activityKeys, volumeCl, weightG } = body as {
     category?: string;
     name?: string;
     photoUrl?: string | null;
     price?: string | number;
     stock?: string | number;
     activityKeys?: string[];
+    volumeCl?: number | null;
+    weightG?: number | null;
   };
 
   if (!category || !["SNACK", "DRINK"].includes(category) || !name || price == null) {
@@ -57,6 +59,8 @@ export async function POST(request: Request) {
       photoUrl: photoUrl || null,
       price: priceCents,
       stock: stock ? Math.round(Number(stock)) : 0,
+      volumeCl: category === "DRINK" && volumeCl ? Math.round(Number(volumeCl)) : null,
+      weightG: category === "SNACK" && weightG ? Math.round(Number(weightG)) : null,
       activities: activityKeys?.length
         ? { create: activityKeys.map((key) => ({ activityKey: key })) }
         : undefined,

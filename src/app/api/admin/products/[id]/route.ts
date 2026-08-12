@@ -17,13 +17,15 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { category, name, photoUrl, price, stock, activityKeys } = body as {
+  const { category, name, photoUrl, price, stock, activityKeys, volumeCl, weightG } = body as {
     category?: string;
     name?: string;
     photoUrl?: string | null;
     price?: string | number;
     stock?: string | number;
     activityKeys?: string[];
+    volumeCl?: number | null;
+    weightG?: number | null;
   };
 
   if (category && !["SNACK", "DRINK"].includes(category)) {
@@ -46,6 +48,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       photoUrl: photoUrl || null,
       ...(priceCents != null ? { price: priceCents } : {}),
       ...(stock != null ? { stock: Math.round(Number(stock)) } : {}),
+      ...(volumeCl !== undefined ? { volumeCl: volumeCl ? Math.round(Number(volumeCl)) : null } : {}),
+      ...(weightG !== undefined ? { weightG: weightG ? Math.round(Number(weightG)) : null } : {}),
       ...(activityKeys !== undefined && {
         activities: {
           deleteMany: {},
