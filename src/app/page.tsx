@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CORE_ACTIVITIES } from "@/lib/activity-colors";
+
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
 import HomeMarketWidget from "@/components/HomeMarketWidget";
@@ -19,13 +19,6 @@ async function getLatestArticle() {
   });
 }
 
-async function getActivities() {
-  for (const a of CORE_ACTIVITIES) {
-    await prisma.activity.upsert({ where: { key: a.key }, update: { label: a.label }, create: a });
-    await prisma.activity.updateMany({ where: { key: a.key, price: 0 }, data: { price: a.price } });
-  }
-  return prisma.activity.findMany({ where: { isActive: true }, orderBy: { order: "asc" } });
-}
 
 async function getLatestPublishedAG() {
   return prisma.meeting.findFirst({
@@ -70,9 +63,8 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, activities, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas] = await Promise.all([
+  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas] = await Promise.all([
     getServerSession(authOptions),
-    getActivities(),
     getSettings(),
     getLatestArticle(),
     getLatestPublishedAG(),
@@ -137,26 +129,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <h2 className="text-center font-display text-2xl text-silver-100">Nos activités</h2>
-        <div className={`mt-5 grid gap-4 ${activities.length <= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-          {activities.map((a) => (
-            <Link
-              key={a.key}
-              href={`/activites?activite=${a.key}`}
-              className="rounded-xl border border-primary-800 bg-primary-900/60 p-4 shadow-lg shadow-black/30 transition hover:border-primary-600 hover:bg-primary-800/60"
-            >
-              <div className="text-3xl">{a.emoji}</div>
-              <h3 className="mt-2 font-display text-base text-silver-100">{a.label}</h3>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-5 text-center">
-          <Link href="/activites" className="font-medium text-primary-300 hover:text-silver-200 hover:underline">
-            En savoir plus sur nos activités →
-          </Link>
-        </div>
-      </section>
 
       {upcomingEvents.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
@@ -168,7 +140,6 @@ export default async function HomePage() {
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {upcomingEvents.map((ev) => {
-              const act = activities.find((a) => a.key === ev.activityType);
               const isFull = ev.capacity != null && ev._count.registrations >= ev.capacity;
               return (
                 <Link
@@ -176,7 +147,6 @@ export default async function HomePage() {
                   href={`/calendar?event=${ev.id}`}
                   className="rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60"
                 >
-                  {act && <span className="text-2xl">{act.emoji}</span>}
                   <h3 className="mt-2 font-display text-base text-silver-100">{ev.title}</h3>
                   <p className="mt-1 text-xs text-slate-400">
                     📅{" "}
