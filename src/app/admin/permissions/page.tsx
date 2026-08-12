@@ -17,18 +17,62 @@ const ALL_SECTIONS = [
   { key: "content", label: "Actualités" },
   { key: "sondages", label: "Sondages" },
   { key: "reunions", label: "Réunions & AG" },
+  { key: "documents", label: "Documents" },
 ] as const;
+
+type Level = "none" | "read" | "write";
 
 type RoleRow = {
   label: string;
-  sections: string[];
+  permissions: Record<string, string>;
   fromDb: boolean;
 };
+
+const LEVEL_CYCLE: Level[] = ["none", "read", "write"];
+
+function nextLevel(current: Level): Level {
+  const idx = LEVEL_CYCLE.indexOf(current);
+  return LEVEL_CYCLE[(idx + 1) % LEVEL_CYCLE.length];
+}
+
+function LevelBadge({ level, onClick }: { level: Level; onClick: () => void }) {
+  if (level === "write") {
+    return (
+      <button
+        onClick={onClick}
+        title="Écriture — cliquer pour retirer"
+        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-emerald-900/60 text-emerald-300 hover:bg-emerald-800/60 transition"
+      >
+        ✏️ Écriture
+      </button>
+    );
+  }
+  if (level === "read") {
+    return (
+      <button
+        onClick={onClick}
+        title="Lecture — cliquer pour écriture"
+        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-sky-900/60 text-sky-300 hover:bg-sky-800/60 transition"
+      >
+        👁 Lecture
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      title="Aucun accès — cliquer pour lecture"
+      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-primary-900/40 text-slate-600 hover:bg-primary-800/60 hover:text-slate-400 transition"
+    >
+      —
+    </button>
+  );
+}
 
 export default function PermissionsPage() {
   const { update } = useSession();
   const [roles, setRoles] = useState<RoleRow[]>([]);
-  const [checked, setChecked] = useState<Record<string, Set<string>>>({});
+  const [levels, setLevels] = useState<Record<string, Record<string, Level>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -39,38 +83,26 @@ export default function PermissionsPage() {
       .then((r) => r.json())
       .then((data: { roles: RoleRow[] }) => {
         setRoles(data.roles);
-        const initial: Record<string, Set<string>> = {};
+        const initial: Record<string, Record<string, Level>> = {};
         for (const role of data.roles) {
-          initial[role.label] = new Set(role.sections);
+          initial[role.label] = {};
+          for (const s of ALL_SECTIONS) {
+            const dbLevel = role.permissions[s.key];
+            initial[role.label][s.key] = dbLevel === "read" ? "read" : dbLevel === "write" ? "write" : "none";
+          }
         }
-        setChecked(initial);
+        setLevels(initial);
       })
       .finally(() => setLoading(false));
   }, []);
 
   const toggle = (roleLabel: string, section: string) => {
-    setChecked((prev) => {
-      const next = { ...prev };
-      const s = new Set(next[roleLabel]);
-      if (s.has(section)) s.delete(section);
-      else s.add(section);
-      next[roleLabel] = s;
-      return next;
-    });
-    setSaved(false);
-  };
-
-  const toggleAll = (section: string) => {
-    const allChecked = roles.every((r) => checked[r.label]?.has(section));
-    setChecked((prev) => {
-      const next = { ...prev };
-      for (const role of roles) {
-        const s = new Set(next[role.label]);
-        if (allChecked) s.delete(section);
-        else s.add(section);
-        next[role.label] = s;
-      }
-      return next;
+    setLevels((prev) => {
+      const current: Level = prev[roleLabel]?.[section] ?? "none";
+      return {
+        ...prev,
+        [roleLabel]: { ...prev[roleLabel], [section]: nextLevel(current) },
+      };
     });
     setSaved(false);
   };
@@ -81,7 +113,9 @@ export default function PermissionsPage() {
     try {
       const permissions = roles.map((r) => ({
         role: r.label,
-        sections: Array.from(checked[r.label] ?? []),
+        entries: ALL_SECTIONS
+          .filter((s) => (levels[r.label]?.[s.key] ?? "none") !== "none")
+          .map((s) => ({ section: s.key, level: levels[r.label][s.key] })),
       }));
       const res = await fetch("/api/admin/permissions", {
         method: "PUT",
@@ -90,7 +124,6 @@ export default function PermissionsPage() {
       });
       if (!res.ok) throw new Error("Erreur lors de l'enregistrement.");
       setSaved(true);
-      // Rafraîchir la session de l'admin courant
       await update();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue.");
@@ -111,14 +144,21 @@ export default function PermissionsPage() {
     <div className="mx-auto max-w-7xl px-4 py-12">
       <h1 className="font-display text-3xl text-silver-100">Permissions des rôles</h1>
       <p className="mt-2 text-slate-400">
-        Définissez les sections du panel admin accessibles pour chaque rôle de bureau.
+        Définissez le niveau d'accès de chaque rôle de bureau aux sections du panel admin.
       </p>
       <p className="mt-1 text-sm text-slate-500">
         Les rôles <span className="text-slate-400">Président</span>,{" "}
         <span className="text-slate-400">Vice-président</span> et{" "}
-        <span className="text-slate-400">ADMIN</span> ont toujours accès à toutes les sections.
+        <span className="text-slate-400">ADMIN</span> ont toujours tous les droits.{" "}
         Les modifications prennent effet à la prochaine connexion des utilisateurs concernés.
       </p>
+
+      <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 bg-primary-900/40 text-slate-600">— Aucun accès</span>
+        <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 bg-sky-900/60 text-sky-300">👁 Lecture seule</span>
+        <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 bg-emerald-900/60 text-emerald-300">✏️ Écriture</span>
+        <span className="text-slate-600">Cliquez sur une cellule pour changer son niveau.</span>
+      </div>
 
       {roles.length === 0 ? (
         <p className="mt-8 text-slate-400">
@@ -130,7 +170,7 @@ export default function PermissionsPage() {
         </p>
       ) : (
         <>
-          <div className="mt-8 overflow-x-auto rounded-xl border border-primary-800">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-primary-800">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-primary-800 bg-primary-900/60">
@@ -140,9 +180,7 @@ export default function PermissionsPage() {
                   {ALL_SECTIONS.map((s) => (
                     <th
                       key={s.key}
-                      className="px-2 py-3 text-center font-medium text-slate-300 whitespace-nowrap cursor-pointer hover:text-silver-100"
-                      title={`Tout cocher / décocher pour "${s.label}"`}
-                      onClick={() => toggleAll(s.key)}
+                      className="px-2 py-3 text-center font-medium text-slate-300 whitespace-nowrap text-xs"
                     >
                       {s.label}
                     </th>
@@ -165,12 +203,10 @@ export default function PermissionsPage() {
                       )}
                     </td>
                     {ALL_SECTIONS.map((s) => (
-                      <td key={s.key} className="px-2 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={checked[role.label]?.has(s.key) ?? false}
-                          onChange={() => toggle(role.label, s.key)}
-                          className="h-4 w-4 accent-primary-400 cursor-pointer"
+                      <td key={s.key} className="px-2 py-2 text-center">
+                        <LevelBadge
+                          level={levels[role.label]?.[s.key] ?? "none"}
+                          onClick={() => toggle(role.label, s.key)}
                         />
                       </td>
                     ))}

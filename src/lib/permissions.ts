@@ -62,18 +62,46 @@ type SessionUser = {
   allowedSections?: string[] | null;
 };
 
-// Vérifie l'accès à une section depuis un objet session.user
-// Utilise allowedSections du JWT si présent, sinon fallback hardcodé
+// Convention JWT pour allowedSections :
+//   null            → accès complet (full admin)
+//   undefined       → fallback hardcodé (HARDCODED_SECTION_MAP) = écriture
+//   "section"       → écriture (backward compat)
+//   "section:write" → écriture (explicite)
+//   "section:read"  → lecture seule
+
+function resolveAllowedSections(user: SessionUser | null | undefined) {
+  return (user as { allowedSections?: string[] | null } | null)?.allowedSections;
+}
+
+// Lecture OU écriture — remplace l'ancien sessionHasAccess (même comportement pour les GET)
 export function sessionHasAccess(
   user: SessionUser | null | undefined,
   section: AdminSection
 ): boolean {
   const role = user?.role ?? "";
   if (isFullAdmin(role)) return true;
-  const sections = (user as { allowedSections?: string[] | null } | null)?.allowedSections;
-  if (sections === null) return true; // null = accès complet (rôle full admin)
+  const sections = resolveAllowedSections(user);
+  if (sections === null) return true;
   if (sections !== undefined) {
-    return sections.includes(section);
+    return sections.some(
+      (s) => s === section || s === `${section}:read` || s === `${section}:write`
+    );
+  }
+  return canAccessSection(role, section);
+}
+
+// Écriture uniquement — à utiliser sur les mutations (POST, PUT, DELETE)
+export function sessionHasWriteAccess(
+  user: SessionUser | null | undefined,
+  section: AdminSection
+): boolean {
+  const role = user?.role ?? "";
+  if (isFullAdmin(role)) return true;
+  const sections = resolveAllowedSections(user);
+  if (sections === null) return true;
+  if (sections !== undefined) {
+    // "section" (bare) = write pour compatibilité ascendante
+    return sections.includes(`${section}:write`) || sections.includes(section);
   }
   return canAccessSection(role, section);
 }

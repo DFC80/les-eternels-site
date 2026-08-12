@@ -425,6 +425,7 @@ model RolePermission {
   id        String @id @default(cuid())
   roleLabel String
   section   String
+  level     String @default("write") // "read" | "write"
 
   @@unique([roleLabel, section])
 }

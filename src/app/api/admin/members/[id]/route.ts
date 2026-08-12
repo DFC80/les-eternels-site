@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 ﻿import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { sendAccountValidatedEmail, sendAirsoftTrialDayEmail, sendAirsoftTrialDayUsedEmail } from "@/lib/mail";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "members")) return null;
+  if (!session || !sessionHasWriteAccess(session.user, "members")) return null;
   return session;
 }
 
