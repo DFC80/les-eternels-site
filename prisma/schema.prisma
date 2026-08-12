@@ -67,6 +67,7 @@ model User {
   newsComments    NewsComment[]
   payments        Payment[]
   marketListings  MarketListing[]
+  ideas           Idea[]
 }
 
 model AssocDocument {
@@ -532,4 +533,15 @@ model MarketListing {
   updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Idea {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  urgency     String   // HAUTE | MOYENNE | BASSE
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
