@@ -91,6 +91,22 @@ export function sessionHasAccess(
   return canAccessSection(role, section);
 }
 
+// Version token-based pour le middleware (pas de SessionUser wrapper)
+export function tokenHasAccess(
+  role: string,
+  allowedSections: string[] | null | undefined,
+  section: AdminSection
+): boolean {
+  if (isFullAdmin(role)) return true;
+  if (allowedSections === null) return true;
+  if (allowedSections !== undefined) {
+    return allowedSections.some(
+      (s) => s === section || s === `${section}:read` || s === `${section}:write`
+    );
+  }
+  return canAccessSection(role, section);
+}
+
 // Écriture uniquement — à utiliser sur les mutations (POST, PUT, DELETE)
 export function sessionHasWriteAccess(
   user: SessionUser | null | undefined,

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection, sessionHasWriteAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 
 type EquipmentCategory = { id: string; key: string; label: string; emoji: string; order: number };
 
@@ -430,7 +430,7 @@ export default function AdminEquipementsPage() {
     );
   }
 
-  if (session && !canAccessSection(role, "equipements")) {
+  if (session && !sessionHasAccess(sessionUser, "equipements")) {
     return <div className="mx-auto max-w-4xl px-4 py-12 text-slate-400">Accès non autorisé.</div>;
   }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection, isFullAdmin, sessionHasWriteAccess } from "@/lib/permissions";
+import { sessionHasAccess, isFullAdmin, sessionHasWriteAccess } from "@/lib/permissions";
 import { currentSeasonYear, nextSeasonYear } from "@/lib/membership";
 
 type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean; isActive: boolean };
@@ -344,7 +344,7 @@ export default function AdminMembersPage() {
     setGroupResult({ sent: data.sent, recipients: data.recipients ?? [] });
   }
 
-  if (session && !canAccessSection(role, "members")) {
+  if (session && !sessionHasAccess(sessionUser, "members")) {
     return <div className="mx-auto max-w-4xl px-4 py-12 text-slate-400">Accès non autorisé.</div>;
   }
 
