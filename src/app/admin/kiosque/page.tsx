@@ -192,6 +192,7 @@ export default function KiosquePage() {
             {filteredMembers.map((m) => (
               <button
                 key={m.id}
+                type="button"
                 onClick={() => selectMember(m.id)}
                 className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-3 text-left transition ${
                   selectedMemberId === m.id
@@ -228,6 +229,7 @@ export default function KiosquePage() {
                   className="w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                 />
                 <button
+                  type="button"
                   onClick={addBalance}
                   disabled={busy || !topUpAmount}
                   className="shrink-0 rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
@@ -246,6 +248,7 @@ export default function KiosquePage() {
           {activityKeys.length > 0 && (
             <div className="mb-5 flex flex-wrap gap-2">
               <button
+                type="button"
                 onClick={() => setActivityFilter(null)}
                 className={`rounded-full px-3 py-1 text-sm font-medium transition ${
                   activityFilter === null
@@ -258,6 +261,7 @@ export default function KiosquePage() {
               {activityKeys.map((key) => (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => setActivityFilter(activityFilter === key ? null : key)}
                   className={`rounded-full px-3 py-1 text-sm font-medium transition ${
                     activityFilter === key
@@ -347,6 +351,7 @@ export default function KiosquePage() {
                 Total : {formatCentsToEuros(cartTotal)}
               </p>
               <button
+                type="button"
                 onClick={confirmOrder}
                 disabled={busy}
                 className="mt-4 w-full rounded-md bg-primary-400 px-5 py-3 text-base font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
@@ -362,6 +367,7 @@ export default function KiosquePage() {
       </div>
       <div className="mt-10 border-t border-primary-800 pt-6">
         <button
+          type="button"
           onClick={toggleHistory}
           className="flex items-center gap-2 rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-300 hover:bg-primary-800"
         >
