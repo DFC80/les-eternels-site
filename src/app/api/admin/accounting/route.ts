@@ -102,7 +102,7 @@ export async function GET() {
   // Les ventes comptoir (totalSnackIncome) ne sont PAS comptées : elles débitent le solde
   // adhérent déjà encaissé via les recharges (totalBalanceTopUps). Les compter serait un double-compte.
   const netResultCents =
-    (totalMembershipIncome + totalEventIncome + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100 +
+    Math.round((totalMembershipIncome + totalEventIncome + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100) +
     totalBalanceTopUps;
 
   // Total encaissé en ligne (informatif : déjà inclus dans les catégories ci-dessus —

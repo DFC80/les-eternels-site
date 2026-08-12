@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   const credit = await prisma.generalCredit.create({
     data: {
       label,
-      amount: Math.round(Number(amount)),
+      amount: parseFloat(Number(amount).toFixed(2)),
       date: date ? new Date(date) : new Date(),
     },
   });

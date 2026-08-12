@@ -72,6 +72,10 @@ const PAYMENT_TYPE_LABELS: Record<OnlinePayment["type"], string> = {
   BALANCE_TOPUP: "Recharge solde",
 };
 
+function formatEuros(amount: number): string {
+  return (amount % 1 === 0 ? amount.toString() : amount.toFixed(2).replace(".", ",")) + "€";
+}
+
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
@@ -195,7 +199,7 @@ export default function ComptabilitePage() {
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Crédits divers</p>
-          <p className="mt-1 font-display text-2xl text-emerald-400">{totals.totalGeneralCredits}€</p>
+          <p className="mt-1 font-display text-2xl text-emerald-400">{formatEuros(totals.totalGeneralCredits)}</p>
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Dépenses événements</p>
@@ -203,7 +207,7 @@ export default function ComptabilitePage() {
         </div>
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-xs">Dépenses générales</p>
-          <p className="mt-1 font-display text-2xl text-red-400">{totals.totalGeneralExpenses}€</p>
+          <p className="mt-1 font-display text-2xl text-red-400">{formatEuros(totals.totalGeneralExpenses)}</p>
         </div>
         <div className="rounded-xl border-2 border-primary-400 bg-primary-800/50 p-4 text-center">
           <p className="text-[10px] uppercase tracking-wide text-slate-300 sm:text-xs">Résultat net</p>
@@ -387,6 +391,7 @@ export default function ComptabilitePage() {
         <input
           type="number"
           min={0}
+          step={0.01}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Montant €"
@@ -409,7 +414,7 @@ export default function ComptabilitePage() {
             className="flex items-center justify-between rounded-lg border border-primary-800 bg-primary-900/40 p-3 text-sm text-slate-200"
           >
             <span>
-              {exp.label} — {exp.amount}€ —{" "}
+              {exp.label} — {formatEuros(exp.amount)} —{" "}
               <span className="text-slate-400">{new Date(exp.date).toLocaleDateString("fr-FR")}</span>
             </span>
             {canWrite && <button onClick={() => removeGeneralExpense(exp.id)} className="text-red-400 hover:underline">
@@ -440,6 +445,7 @@ export default function ComptabilitePage() {
         <input
           type="number"
           min={0}
+          step={0.01}
           value={creditAmount}
           onChange={(e) => setCreditAmount(e.target.value)}
           placeholder="Montant €"
@@ -463,7 +469,7 @@ export default function ComptabilitePage() {
           >
             <span>
               {cr.label} —{" "}
-              <span className="text-emerald-400 font-semibold">+{cr.amount}€</span> —{" "}
+              <span className="text-emerald-400 font-semibold">+{formatEuros(cr.amount)}</span> —{" "}
               <span className="text-slate-400">{new Date(cr.date).toLocaleDateString("fr-FR")}</span>
             </span>
             {canWrite && <button onClick={() => removeGeneralCredit(cr.id)} className="text-red-400 hover:underline">
