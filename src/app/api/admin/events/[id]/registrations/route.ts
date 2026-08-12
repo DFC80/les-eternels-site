@@ -15,6 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { eventId: params.id },
     include: {
       user: { select: { firstName: true, name: true, email: true } },
+      mealOrders: { include: { menu: { select: { label: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       createdAt: r.createdAt,
       memberName: `${r.user.firstName} ${r.user.name}`,
       memberEmail: r.user.email,
+      mealOrders: r.mealOrders.map((o) => ({ menuLabel: o.menu?.label ?? null, quantity: o.quantity })),
     }))
   );
 }
