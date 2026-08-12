@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection } from "@/lib/permissions";
+import { canAccessSection, sessionHasWriteAccess } from "@/lib/permissions";
 
 type EquipmentCategory = { id: string; key: string; label: string; emoji: string; order: number };
 
@@ -121,6 +121,8 @@ function PhotosUploadField({ value, onChange, onUploadingChange }: { value: stri
 export default function AdminEquipementsPage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "equipements");
 
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [categories, setCategories] = useState<EquipmentCategory[]>([]);
@@ -324,27 +326,29 @@ export default function AdminEquipementsPage() {
               {item.magazineCapacity != null && ` · ${item.magazineCapacity} billes`}
             </p>
             {item.info && <p className="mt-1 text-sm text-slate-300">{item.info}</p>}
-            <div className="mt-2 flex flex-wrap gap-3 text-sm">
-              <button onClick={() => editItem(item)} className="text-primary-300 hover:text-silver-200 hover:underline">
-                Modifier
-              </button>
-              {isReplique && associableItems.length > 0 && (
-                <button
-                  onClick={() => {
-                    if (isExpanded) { setExpandedAssoc(null); } else {
-                      setAssocDraft((p) => ({ ...p, [item.id]: item.associations }));
-                      setExpandedAssoc(item.id);
-                    }
-                  }}
-                  className="text-amber-400 hover:underline"
-                >
-                  {isExpanded ? "Fermer" : `Éléments associés (${item.associations.length})`}
+            {canWrite && (
+              <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                <button onClick={() => editItem(item)} className="text-primary-300 hover:text-silver-200 hover:underline">
+                  Modifier
                 </button>
-              )}
-              <button onClick={() => removeItem(item.id)} className="text-red-400 hover:underline">
-                Supprimer
-              </button>
-            </div>
+                {isReplique && associableItems.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (isExpanded) { setExpandedAssoc(null); } else {
+                        setAssocDraft((p) => ({ ...p, [item.id]: item.associations }));
+                        setExpandedAssoc(item.id);
+                      }
+                    }}
+                    className="text-amber-400 hover:underline"
+                  >
+                    {isExpanded ? "Fermer" : `Éléments associés (${item.associations.length})`}
+                  </button>
+                )}
+                <button onClick={() => removeItem(item.id)} className="text-red-400 hover:underline">
+                  Supprimer
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -441,7 +445,7 @@ export default function AdminEquipementsPage() {
       <div className="mt-8 rounded-xl border border-primary-800 bg-primary-900/40 p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-silver-100">Catégories</h2>
-          {!showCatForm && (
+          {canWrite && !showCatForm && (
             <button
               onClick={() => { setCatForm(EMPTY_CAT_FORM); setShowCatForm(true); setCatError(null); }}
               className="rounded-md border border-primary-700 px-3 py-1.5 text-sm text-primary-300 hover:bg-primary-800/60"
@@ -456,20 +460,24 @@ export default function AdminEquipementsPage() {
             <div key={cat.id} className="flex items-center gap-1 rounded-lg border border-primary-700 bg-primary-900/60 px-3 py-1.5">
               <span className="text-base">{cat.emoji}</span>
               <span className="text-sm text-slate-200">{cat.label}</span>
-              <button
-                onClick={() => editCategory(cat)}
-                className="ml-1 text-xs text-primary-400 hover:text-primary-200"
-                title="Modifier"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => handleDeleteCategory(cat)}
-                className="text-xs text-red-500 hover:text-red-300"
-                title="Supprimer"
-              >
-                ✕
-              </button>
+              {canWrite && (
+                <>
+                  <button
+                    onClick={() => editCategory(cat)}
+                    className="ml-1 text-xs text-primary-400 hover:text-primary-200"
+                    title="Modifier"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(cat)}
+                    className="text-xs text-red-500 hover:text-red-300"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </div>
           ))}
           {categories.length === 0 && (
@@ -477,7 +485,7 @@ export default function AdminEquipementsPage() {
           )}
         </div>
 
-        {showCatForm && (
+        {canWrite && showCatForm && (
           <form onSubmit={handleSaveCategory} className="mt-4 flex flex-wrap items-end gap-3 border-t border-primary-700 pt-4">
             <div>
               <label className="block text-xs font-medium text-slate-400">Emoji</label>
@@ -520,7 +528,7 @@ export default function AdminEquipementsPage() {
       </div>
 
       {/* Formulaire équipement */}
-      <form onSubmit={handleSubmit} className="mt-6 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      {canWrite && <form onSubmit={handleSubmit} className="mt-6 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <h2 className="col-span-full font-display text-lg text-silver-100">
           {form.id ? "Modifier l'équipement" : "Ajouter un équipement"}
         </h2>
@@ -679,7 +687,7 @@ export default function AdminEquipementsPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       {/* Sections par catégorie */}
       {categories.map((cat) => {

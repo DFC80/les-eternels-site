@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getAllowedActivityTypes } from "@/lib/permissions";
+import { getAllowedActivityTypes, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 
 type MenuItem = { id: string; label: string; maxPerPerson: number | null };
@@ -131,6 +131,8 @@ function toInputDateTime(value: string) {
 export default function AdminEventsPage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "events");
   const allowedTypes = getAllowedActivityTypes(role);
 
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -601,7 +603,7 @@ export default function AdminEventsPage() {
           >
             {docsFor === ev.id ? "Masquer documents" : "📄 Documents"}
           </button>
-          {!isPast && (
+          {canWrite && !isPast && (
             <button
               onClick={() => editEvent(ev)}
               className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60"
@@ -617,23 +619,27 @@ export default function AdminEventsPage() {
           >
             🖨️ Imprimer
           </a>
-          <button
-            type="button"
-            onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
-            className={`rounded-md border px-3 py-1.5 transition ${
-              ev.showOnHome
-                ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
-            }`}
-          >
-            {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
-          </button>
-          <button
-            onClick={() => removeEvent(ev.id)}
-            className="rounded-md border border-red-900 px-3 py-1.5 text-red-400 hover:bg-red-950/40"
-          >
-            Supprimer
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
+              className={`rounded-md border px-3 py-1.5 transition ${
+                ev.showOnHome
+                  ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
+                  : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
+              }`}
+            >
+              {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
+            </button>
+          )}
+          {canWrite && (
+            <button
+              onClick={() => removeEvent(ev.id)}
+              className="rounded-md border border-red-900 px-3 py-1.5 text-red-400 hover:bg-red-950/40"
+            >
+              Supprimer
+            </button>
+          )}
         </div>
 
         {registrationsFor === ev.id && (
@@ -693,35 +699,37 @@ export default function AdminEventsPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => toggleRegistrationPaid(ev.id, r.id, !r.isPaid)}
-                          className={`rounded px-2 py-1 text-xs font-medium ${
-                            r.isPaid
-                              ? "bg-primary-900 text-slate-400 hover:bg-primary-800"
-                              : "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
-                          }`}
-                          title={r.isPaid ? "Repasser en non payé" : "Règlement reçu sur place"}
-                        >
-                          {r.isPaid ? "Annuler paiement" : "Marquer payé"}
-                        </button>
-                        {r.status !== "APPROVED" && (
+                      {canWrite && (
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => updateRegistration(ev.id, r.id, "APPROVED")}
-                            className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
+                            onClick={() => toggleRegistrationPaid(ev.id, r.id, !r.isPaid)}
+                            className={`rounded px-2 py-1 text-xs font-medium ${
+                              r.isPaid
+                                ? "bg-primary-900 text-slate-400 hover:bg-primary-800"
+                                : "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
+                            }`}
+                            title={r.isPaid ? "Repasser en non payé" : "Règlement reçu sur place"}
                           >
-                            Valider
+                            {r.isPaid ? "Annuler paiement" : "Marquer payé"}
                           </button>
-                        )}
-                        {r.status !== "REJECTED" && (
-                          <button
-                            onClick={() => updateRegistration(ev.id, r.id, "REJECTED")}
-                            className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
-                          >
-                            Refuser
-                          </button>
-                        )}
-                      </div>
+                          {r.status !== "APPROVED" && (
+                            <button
+                              onClick={() => updateRegistration(ev.id, r.id, "APPROVED")}
+                              className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
+                            >
+                              Valider
+                            </button>
+                          )}
+                          {r.status !== "REJECTED" && (
+                            <button
+                              onClick={() => updateRegistration(ev.id, r.id, "REJECTED")}
+                              className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
+                            >
+                              Refuser
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -846,39 +854,43 @@ export default function AdminEventsPage() {
                   <span>
                     {exp.label} — {exp.amount}€
                   </span>
-                  <button
-                    onClick={() => removeExpense(ev.id, exp.id)}
-                    className="text-red-400 hover:underline"
-                  >
-                    Supprimer
-                  </button>
+                  {canWrite && (
+                    <button
+                      onClick={() => removeExpense(ev.id, exp.id)}
+                      className="text-red-400 hover:underline"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </li>
               ))}
               {expenses.length === 0 && <li className="text-slate-500">Aucune dépense enregistrée.</li>}
             </ul>
 
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                value={newExpenseLabel}
-                onChange={(e) => setNewExpenseLabel(e.target.value)}
-                placeholder="Ex: Location terrain"
-                className={inputClass}
-              />
-              <input
-                type="number"
-                min={0}
-                value={newExpenseAmount}
-                onChange={(e) => setNewExpenseAmount(e.target.value)}
-                placeholder="Montant €"
-                className={`${inputClass} sm:w-32`}
-              />
-              <button
-                onClick={() => addExpense(ev.id)}
-                className="rounded-md bg-primary-400 px-3 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
-              >
-                Ajouter
-              </button>
-            </div>
+            {canWrite && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={newExpenseLabel}
+                  onChange={(e) => setNewExpenseLabel(e.target.value)}
+                  placeholder="Ex: Location terrain"
+                  className={inputClass}
+                />
+                <input
+                  type="number"
+                  min={0}
+                  value={newExpenseAmount}
+                  onChange={(e) => setNewExpenseAmount(e.target.value)}
+                  placeholder="Montant €"
+                  className={`${inputClass} sm:w-32`}
+                />
+                <button
+                  onClick={() => addExpense(ev.id)}
+                  className="rounded-md bg-primary-400 px-3 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
+                >
+                  Ajouter
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1041,7 +1053,7 @@ export default function AdminEventsPage() {
                             <span className="text-slate-200">{p.name}</span>
                             <span className="text-xs text-slate-400 ml-1">{(p.price / 100).toFixed(2)}€</span>
                             {p.stock === 0 && <span className="text-xs text-red-400 ml-1">Épuisé</span>}
-                            {p.stock > 0 && kiosqueMemberId && (
+                            {canWrite && p.stock > 0 && kiosqueMemberId && (
                               <>
                                 <button onClick={() => kiosqueAddToCart(p.id, -1)} className="ml-2 w-5 h-5 rounded bg-primary-800 text-slate-300 hover:bg-primary-700 text-center leading-5">−</button>
                                 <span className="w-4 text-center text-slate-200">{qty}</span>
@@ -1057,7 +1069,7 @@ export default function AdminEventsPage() {
               )}
 
               {/* Panier et validation */}
-              {cartLines.length > 0 && (
+              {canWrite && cartLines.length > 0 && (
                 <div className="mt-3 rounded-lg border border-primary-700 bg-primary-900/40 p-3">
                   <p className="text-xs font-medium text-slate-400 mb-1">Panier — {member?.firstName} {member?.name}</p>
                   <ul className="mb-2 space-y-0.5">
@@ -1105,12 +1117,14 @@ export default function AdminEventsPage() {
                     >
                       {doc.name}
                     </a>
-                    <button
-                      onClick={() => unlinkDoc(ev.id, doc.id)}
-                      className="flex-shrink-0 text-xs text-red-400 hover:underline"
-                    >
-                      Retirer
-                    </button>
+                    {canWrite && (
+                      <button
+                        onClick={() => unlinkDoc(ev.id, doc.id)}
+                        className="flex-shrink-0 text-xs text-red-400 hover:underline"
+                      >
+                        Retirer
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1145,13 +1159,15 @@ export default function AdminEventsPage() {
                               <span className="truncate text-slate-200">{doc.name}
                                 {doc.visibility === "PRIVATE" && <span className="ml-1 text-xs text-red-400">🔒</span>}
                               </span>
-                              <button
-                                onClick={() => linkDoc(ev.id, doc.id)}
-                                disabled={docLinking}
-                                className="flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium bg-primary-800 text-primary-200 hover:bg-primary-700 disabled:opacity-50"
-                              >
-                                + Associer
-                              </button>
+                              {canWrite && (
+                                <button
+                                  onClick={() => linkDoc(ev.id, doc.id)}
+                                  disabled={docLinking}
+                                  className="flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium bg-primary-800 text-primary-200 hover:bg-primary-700 disabled:opacity-50"
+                                >
+                                  + Associer
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -1173,7 +1189,7 @@ export default function AdminEventsPage() {
     <div className="mx-auto max-w-5xl px-4 py-12">
       <h1 className="font-display text-3xl text-silver-100">Événements</h1>
 
-      <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      {canWrite && <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <h2 className="col-span-full font-display text-lg text-silver-100">
           {form.id ? "Modifier l'événement" : "Créer un événement"}
         </h2>
@@ -1480,7 +1496,7 @@ export default function AdminEventsPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       <h2 className="mt-10 font-display text-xl text-silver-100">À venir</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getAllowedActivityTypes } from "@/lib/permissions";
+import { getAllowedActivityTypes, sessionHasWriteAccess } from "@/lib/permissions";
 import ImageUpload from "@/components/ImageUpload";
 import DateInput from "@/components/DateInput";
 
@@ -26,6 +26,8 @@ const EMPTY_FORM = { url: "", date: today, comment: "", activityType: "AUTRE" };
 export default function AdminGaleriePage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "galerie");
   const allowedTypes = getAllowedActivityTypes(role);
 
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -114,7 +116,7 @@ export default function AdminGaleriePage() {
       <h1 className="font-display text-3xl text-silver-100">Galerie photo</h1>
       <p className="mt-2 text-slate-400">Ajoutez des photos de l'association à la galerie publique.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      {canWrite && <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <ImageUpload
             label="Photo"
@@ -166,7 +168,7 @@ export default function AdminGaleriePage() {
         >
           {saving ? "Ajout..." : "Ajouter la photo"}
         </button>
-      </form>
+      </form>}
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         {visiblePhotos.map((p) => (
@@ -181,7 +183,7 @@ export default function AdminGaleriePage() {
                     : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
                 </p>
               </div>
-              {editingComment?.id === p.id ? (
+              {canWrite && editingComment?.id === p.id ? (
                 <div className="mt-2">
                   <textarea
                     value={editingComment.value}
@@ -210,27 +212,31 @@ export default function AdminGaleriePage() {
               ) : (
                 <div className="mt-1 flex items-start gap-1">
                   <p className="flex-1 text-sm text-slate-300">{p.comment || <span className="italic text-slate-500">Aucune description</span>}</p>
+                  {canWrite && (
+                    <button
+                      onClick={() => setEditingComment({ id: p.id, value: p.comment ?? "" })}
+                      className="shrink-0 text-xs text-slate-400 hover:text-slate-200"
+                      title="Modifier la description"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+              )}
+              {canWrite && (
+                <div className="mt-2 flex items-center gap-3">
                   <button
-                    onClick={() => setEditingComment({ id: p.id, value: p.comment ?? "" })}
-                    className="shrink-0 text-xs text-slate-400 hover:text-slate-200"
-                    title="Modifier la description"
+                    onClick={() => toggleFavorite(p)}
+                    title={p.isFavorite ? "Retirer du carrousel d'accueil" : "Mettre en favori (carrousel d'accueil)"}
+                    className={`text-base transition-transform hover:scale-110 ${p.isFavorite ? "opacity-100" : "opacity-30 hover:opacity-70"}`}
                   >
-                    ✏️
+                    ⭐
+                  </button>
+                  <button onClick={() => removePhoto(p.id)} className="text-sm text-red-400 hover:underline">
+                    Supprimer
                   </button>
                 </div>
               )}
-              <div className="mt-2 flex items-center gap-3">
-                <button
-                  onClick={() => toggleFavorite(p)}
-                  title={p.isFavorite ? "Retirer du carrousel d'accueil" : "Mettre en favori (carrousel d'accueil)"}
-                  className={`text-base transition-transform hover:scale-110 ${p.isFavorite ? "opacity-100" : "opacity-30 hover:opacity-70"}`}
-                >
-                  ⭐
-                </button>
-                <button onClick={() => removePhoto(p.id)} className="text-sm text-red-400 hover:underline">
-                  Supprimer
-                </button>
-              </div>
             </div>
           </div>
         ))}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { COLOR_OPTIONS, type ColorKey } from "@/lib/activity-colors";
 
 type Activity = {
@@ -25,6 +27,9 @@ const inputClass =
 const EMPTY_FORM = { label: "", emoji: "🎯", color: "slate" as ColorKey, membershipRequired: false, price: 0 };
 
 export default function AdminActivitiesPage() {
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "activites");
   const [activities, setActivities] = useState<Activity[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
@@ -219,7 +224,7 @@ export default function AdminActivitiesPage() {
       </p>
 
       {/* ── Ajouter une activité ── */}
-      <section className="mt-8">
+      {canWrite && <section className="mt-8">
         <h2 className="font-display text-xl text-silver-100">Ajouter une activité</h2>
         <form
           onSubmit={addActivity}
@@ -296,7 +301,7 @@ export default function AdminActivitiesPage() {
             {adding ? "Ajout..." : "Ajouter l'activité"}
           </button>
         </form>
-      </section>
+      </section>}
 
       {/* ── Liste des activités + contenus ── */}
       <section className="mt-10">
@@ -335,31 +340,33 @@ export default function AdminActivitiesPage() {
                       {a.isCore && " · Activité principale"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        onClick={() => moveActivity(a.id, "up")}
-                        disabled={idx === 0}
-                        className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-primary-800 hover:text-slate-100 disabled:opacity-20"
-                        title="Monter"
-                      >▲</button>
-                      <button
-                        onClick={() => moveActivity(a.id, "down")}
-                        disabled={idx === sorted.length - 1}
-                        className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-primary-800 hover:text-slate-100 disabled:opacity-20"
-                        title="Descendre"
-                      >▼</button>
+                  {canWrite && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => moveActivity(a.id, "up")}
+                          disabled={idx === 0}
+                          className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-primary-800 hover:text-slate-100 disabled:opacity-20"
+                          title="Monter"
+                        >▲</button>
+                        <button
+                          onClick={() => moveActivity(a.id, "down")}
+                          disabled={idx === sorted.length - 1}
+                          className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-primary-800 hover:text-slate-100 disabled:opacity-20"
+                          title="Descendre"
+                        >▼</button>
+                      </div>
+                      {!a.isCore && (
+                        <button onClick={() => deleteActivity(a.id, a.label)} className="text-sm text-red-400 hover:underline">
+                          Supprimer
+                        </button>
+                      )}
                     </div>
-                    {!a.isCore && (
-                      <button onClick={() => deleteActivity(a.id, a.label)} className="text-sm text-red-400 hover:underline">
-                        Supprimer
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Champs éditables — disponibles pour toutes les activités */}
-                {meta && (
+                {canWrite && meta && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-slate-300">Nom affiché</label>
@@ -451,37 +458,39 @@ export default function AdminActivitiesPage() {
                 )}
 
                 {/* Texte de présentation */}
-                <div className="mt-5 border-t border-primary-800 pt-5">
-                  <label className="block text-sm font-medium text-slate-300">Texte de présentation</label>
-                  <textarea
-                    rows={5}
-                    value={drafts[a.key] ?? ""}
-                    onChange={(e) => setDrafts((prev) => ({ ...prev, [a.key]: e.target.value }))}
-                    className="mt-2 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
-                    placeholder="Décrivez cette activité..."
-                  />
-                  {contentError && saving === null && (
-                    <p className="mt-1 text-sm text-red-400">{contentError}</p>
-                  )}
-                  <div className="mt-2 flex items-center gap-4">
-                    <button
-                      onClick={() => saveContent(a.key)}
-                      disabled={saving === a.key || drafts[a.key] === a.content}
-                      className="rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
-                    >
-                      {saving === a.key ? "Enregistrement..." : "Enregistrer le texte"}
-                    </button>
-                    {success === a.key && <span className="text-sm text-emerald-400">Enregistré ✓</span>}
-                    {drafts[a.key] !== a.content && saving !== a.key && (
-                      <button
-                        onClick={() => setDrafts((prev) => ({ ...prev, [a.key]: a.content }))}
-                        className="text-sm text-slate-500 hover:text-slate-300"
-                      >
-                        Annuler
-                      </button>
+                {canWrite && (
+                  <div className="mt-5 border-t border-primary-800 pt-5">
+                    <label className="block text-sm font-medium text-slate-300">Texte de présentation</label>
+                    <textarea
+                      rows={5}
+                      value={drafts[a.key] ?? ""}
+                      onChange={(e) => setDrafts((prev) => ({ ...prev, [a.key]: e.target.value }))}
+                      className="mt-2 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                      placeholder="Décrivez cette activité..."
+                    />
+                    {contentError && saving === null && (
+                      <p className="mt-1 text-sm text-red-400">{contentError}</p>
                     )}
+                    <div className="mt-2 flex items-center gap-4">
+                      <button
+                        onClick={() => saveContent(a.key)}
+                        disabled={saving === a.key || drafts[a.key] === a.content}
+                        className="rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                      >
+                        {saving === a.key ? "Enregistrement..." : "Enregistrer le texte"}
+                      </button>
+                      {success === a.key && <span className="text-sm text-emerald-400">Enregistré ✓</span>}
+                      {drafts[a.key] !== a.content && saving !== a.key && (
+                        <button
+                          onClick={() => setDrafts((prev) => ({ ...prev, [a.key]: a.content }))}
+                          className="text-sm text-slate-500 hover:text-slate-300"
+                        >
+                          Annuler
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Documents PDF */}
                 <div className="mt-5 border-t border-primary-800 pt-5">
@@ -502,21 +511,25 @@ export default function AdminActivitiesPage() {
                           >
                             📄 {d.name}
                           </a>
-                          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-400">
-                            <input
-                              type="checkbox"
-                              checked={d.showInEvents}
-                              onChange={(e) => toggleDocEvent(d.id, e.target.checked)}
-                              className="h-3.5 w-3.5 rounded border-primary-600 bg-primary-950 accent-primary-400"
-                            />
-                            Dans les événements
-                          </label>
-                          <button
-                            onClick={() => deleteDoc(d.id)}
-                            className="shrink-0 text-xs text-red-400 hover:underline"
-                          >
-                            Supprimer
-                          </button>
+                          {canWrite && (
+                            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+                              <input
+                                type="checkbox"
+                                checked={d.showInEvents}
+                                onChange={(e) => toggleDocEvent(d.id, e.target.checked)}
+                                className="h-3.5 w-3.5 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                              />
+                              Dans les événements
+                            </label>
+                          )}
+                          {canWrite && (
+                            <button
+                              onClick={() => deleteDoc(d.id)}
+                              className="shrink-0 text-xs text-red-400 hover:underline"
+                            >
+                              Supprimer
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -524,34 +537,38 @@ export default function AdminActivitiesPage() {
                     <p className="mt-2 text-xs text-slate-500">Aucun document pour cette activité.</p>
                   )}
 
-                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <input
-                      type="text"
-                      placeholder="Nom du document (ex : Règlement)"
-                      value={docName[a.key] ?? ""}
-                      onChange={(e) => setDocName((p) => ({ ...p, [a.key]: e.target.value }))}
-                      className="rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
-                    />
-                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-300 hover:border-primary-500">
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        className="hidden"
-                        onChange={(e) => setDocFile((p) => ({ ...p, [a.key]: e.target.files?.[0] ?? null }))}
-                      />
-                      {docFile[a.key] ? docFile[a.key]!.name : "Choisir un PDF…"}
-                    </label>
-                  </div>
-                  {docError[a.key] && (
-                    <p className="mt-1 text-xs text-red-400">{docError[a.key]}</p>
+                  {canWrite && (
+                    <>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                          type="text"
+                          placeholder="Nom du document (ex : Règlement)"
+                          value={docName[a.key] ?? ""}
+                          onChange={(e) => setDocName((p) => ({ ...p, [a.key]: e.target.value }))}
+                          className="rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                        />
+                        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-1.5 text-sm text-slate-300 hover:border-primary-500">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={(e) => setDocFile((p) => ({ ...p, [a.key]: e.target.files?.[0] ?? null }))}
+                          />
+                          {docFile[a.key] ? docFile[a.key]!.name : "Choisir un PDF…"}
+                        </label>
+                      </div>
+                      {docError[a.key] && (
+                        <p className="mt-1 text-xs text-red-400">{docError[a.key]}</p>
+                      )}
+                      <button
+                        onClick={() => uploadDoc(a.key)}
+                        disabled={uploadingDoc === a.key}
+                        className="mt-2 rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                      >
+                        {uploadingDoc === a.key ? "Envoi…" : "Ajouter le document"}
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={() => uploadDoc(a.key)}
-                    disabled={uploadingDoc === a.key}
-                    className="mt-2 rounded-md bg-primary-400 px-4 py-1.5 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
-                  >
-                    {uploadingDoc === a.key ? "Envoi…" : "Ajouter le document"}
-                  </button>
                 </div>
               </div>
             );

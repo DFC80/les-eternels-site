@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection } from "@/lib/permissions";
+import { canAccessSection, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 import { formatCentsToEuros } from "@/lib/money";
 
@@ -78,6 +78,8 @@ const inputClass =
 export default function ComptabilitePage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "comptabilite");
   const [data, setData] = useState<Accounting | null>(null);
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
@@ -372,7 +374,7 @@ export default function ComptabilitePage() {
         Frais non liés à un événement précis (location de terrain annuelle, assurance, matériel...).
       </p>
 
-      <form
+      {canWrite && <form
         onSubmit={addGeneralExpense}
         className="mt-4 grid gap-3 rounded-xl border border-primary-800 bg-primary-900/40 p-4 sm:grid-cols-4"
       >
@@ -398,7 +400,7 @@ export default function ComptabilitePage() {
           Ajouter la dépense
         </button>
         {error && <p className="sm:col-span-4 text-sm text-red-400">{error}</p>}
-      </form>
+      </form>}
 
       <div className="mt-4 space-y-2">
         {data.generalExpenses.map((exp) => (
@@ -410,9 +412,9 @@ export default function ComptabilitePage() {
               {exp.label} — {exp.amount}€ —{" "}
               <span className="text-slate-400">{new Date(exp.date).toLocaleDateString("fr-FR")}</span>
             </span>
-            <button onClick={() => removeGeneralExpense(exp.id)} className="text-red-400 hover:underline">
+            {canWrite && <button onClick={() => removeGeneralExpense(exp.id)} className="text-red-400 hover:underline">
               Supprimer
-            </button>
+            </button>}
           </div>
         ))}
         {data.generalExpenses.length === 0 && (
@@ -425,7 +427,7 @@ export default function ComptabilitePage() {
         Recettes ponctuelles non liées à un événement (subvention, don, remboursement...).
       </p>
 
-      <form
+      {canWrite && <form
         onSubmit={addGeneralCredit}
         className="mt-4 grid gap-3 rounded-xl border border-primary-800 bg-primary-900/40 p-4 sm:grid-cols-4"
       >
@@ -451,7 +453,7 @@ export default function ComptabilitePage() {
           Ajouter le crédit
         </button>
         {creditError && <p className="sm:col-span-4 text-sm text-red-400">{creditError}</p>}
-      </form>
+      </form>}
 
       <div className="mt-4 space-y-2">
         {data.generalCredits.map((cr) => (
@@ -464,9 +466,9 @@ export default function ComptabilitePage() {
               <span className="text-emerald-400 font-semibold">+{cr.amount}€</span> —{" "}
               <span className="text-slate-400">{new Date(cr.date).toLocaleDateString("fr-FR")}</span>
             </span>
-            <button onClick={() => removeGeneralCredit(cr.id)} className="text-red-400 hover:underline">
+            {canWrite && <button onClick={() => removeGeneralCredit(cr.id)} className="text-red-400 hover:underline">
               Supprimer
-            </button>
+            </button>}
           </div>
         ))}
         {data.generalCredits.length === 0 && (

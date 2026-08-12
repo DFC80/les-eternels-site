@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { formatCentsToEuros } from "@/lib/money";
-import { isFullAdmin } from "@/lib/permissions";
+import { isFullAdmin, sessionHasWriteAccess } from "@/lib/permissions";
 
 type ProductActivity = { activityKey: string };
 
@@ -36,7 +36,9 @@ const CATEGORY_LABELS: Record<string, string> = { SNACK: "🍬 Friandises", DRIN
 
 export default function KiosquePage() {
   const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
   const canTopUp = isFullAdmin((session?.user as { role?: string } | undefined)?.role ?? "");
+  const canWrite = sessionHasWriteAccess(sessionUser, "kiosque");
   const [products, setProducts] = useState<Product[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
@@ -342,25 +344,27 @@ export default function KiosquePage() {
                             <span className="ml-1 text-amber-400">· {p.stock} restant{p.stock > 1 ? "s" : ""}</span>
                           )}
                         </p>
-                        <div className="mt-2 flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => addToCart(p.id, -1)}
-                            disabled={disabled || qty === 0}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
-                          >
-                            −
-                          </button>
-                          <span className="w-6 font-display text-lg text-silver-100">{qty}</span>
-                          <button
-                            type="button"
-                            onClick={() => addToCart(p.id, 1)}
-                            disabled={disabled || qty >= p.stock}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
-                          >
-                            +
-                          </button>
-                        </div>
+                        {canWrite && (
+                          <div className="mt-2 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => addToCart(p.id, -1)}
+                              disabled={disabled || qty === 0}
+                              className="flex h-9 w-9 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                            >
+                              −
+                            </button>
+                            <span className="w-6 font-display text-lg text-silver-100">{qty}</span>
+                            <button
+                              type="button"
+                              onClick={() => addToCart(p.id, 1)}
+                              disabled={disabled || qty >= p.stock}
+                              className="flex h-9 w-9 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -369,11 +373,11 @@ export default function KiosquePage() {
             );
           })}
 
-          {!selectedMemberId && (
+          {canWrite && !selectedMemberId && (
             <p className="text-sm text-amber-400">Sélectionnez une personne pour commencer une commande.</p>
           )}
 
-          {cartLines.length > 0 && (
+          {canWrite && cartLines.length > 0 && (
             <div className="rounded-2xl border-2 border-primary-400 bg-primary-800/40 p-4">
               <p className="font-display text-lg text-silver-100">Récapitulatif</p>
               <ul className="mt-2 space-y-1 text-sm text-slate-300">

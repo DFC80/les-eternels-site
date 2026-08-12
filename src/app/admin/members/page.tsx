@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection, isFullAdmin } from "@/lib/permissions";
+import { canAccessSection, isFullAdmin, sessionHasWriteAccess } from "@/lib/permissions";
 import { currentSeasonYear, nextSeasonYear } from "@/lib/membership";
 
 type ActivityDef = { key: string; label: string; emoji: string; isCore: boolean; isActive: boolean };
@@ -98,7 +98,8 @@ type BureauRole = { id: string; label: string; order: number };
 export default function AdminMembersPage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
-  const canEdit = canAccessSection(role, "members");
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canEdit = sessionHasWriteAccess(sessionUser, "members");
   const [members, setMembers] = useState<Member[]>([]);
   const [bureauRoles, setBureauRoles] = useState<BureauRole[]>([]);
   const [activities, setActivities] = useState<ActivityDef[]>([]);

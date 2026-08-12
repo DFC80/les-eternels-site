@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasAccess(session.user, "activites")) {
+  if (!session || !sessionHasWriteAccess(session.user, "activites")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
