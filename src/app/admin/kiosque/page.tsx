@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { formatCentsToEuros } from "@/lib/money";
+import { isFullAdmin } from "@/lib/permissions";
 
 type ProductActivity = { activityKey: string };
 
@@ -33,6 +35,8 @@ type Member = {
 const CATEGORY_LABELS: Record<string, string> = { SNACK: "🍬 Friandises", DRINK: "🥤 Boissons" };
 
 export default function KiosquePage() {
+  const { data: session } = useSession();
+  const canTopUp = isFullAdmin((session?.user as { role?: string } | undefined)?.role ?? "");
   const [products, setProducts] = useState<Product[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
@@ -211,7 +215,7 @@ export default function KiosquePage() {
             {filteredMembers.length === 0 && <p className="text-sm text-slate-500">Aucun membre trouvé.</p>}
           </div>
 
-          {selectedMember && (
+          {canTopUp && selectedMember && (
             <div className="mt-5 rounded-lg border border-primary-700 bg-primary-950/60 p-3">
               <p className="text-sm text-slate-300">
                 Solde de <span className="font-semibold text-silver-100">{selectedMember.firstName}</span> :{" "}
