@@ -194,7 +194,7 @@ export default async function HomePage() {
               const urgencyLabel =
                 idea.urgency === "HAUTE" ? "🔴 Haute" : idea.urgency === "MOYENNE" ? "🟡 Moyenne" : "🟢 Basse";
               return (
-                <div key={idea.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
+                <Link key={idea.id} href="/idees" className="rounded-xl border border-primary-800 bg-primary-900/40 p-4 transition hover:border-primary-600 hover:bg-primary-800/60">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${urgencyClass}`}>
                       {urgencyLabel}
@@ -205,7 +205,7 @@ export default async function HomePage() {
                   </div>
                   <h3 className="mt-2 font-display text-base text-silver-100">{idea.title}</h3>
                   <p className="mt-1 line-clamp-3 text-sm text-slate-400">{idea.description}</p>
-                </div>
+                </Link>
               );
             })}
           </div>
