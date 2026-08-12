@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 
 type NoteItem = { id: string; label: string; isChecked: boolean; position: number };
 
@@ -44,6 +44,7 @@ function newTempId() { return `tmp-${++tempIdCounter}`; }
 export default function AdminNotesPage() {
   const { data: session } = useSession();
   const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "notes");
 
   const [notes, setNotes] = useState<AdminNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,8 +191,8 @@ export default function AdminNotesPage() {
       <h1 className="font-display text-3xl text-silver-100">📝 Notes admin</h1>
       <p className="mt-2 text-slate-400">Espace de notes interne réservé aux administrateurs.</p>
 
-      {/* Formulaire */}
-      <form
+      {/* Formulaire — visible uniquement en écriture */}
+      {canWrite && <form
         onSubmit={handleSubmit}
         className="mt-8 rounded-xl border border-primary-800 bg-primary-900/40 p-6 space-y-4"
       >
@@ -323,7 +324,7 @@ export default function AdminNotesPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       {/* Liste des notes */}
       <div className="mt-8 space-y-4">
@@ -381,13 +382,14 @@ export default function AdminNotesPage() {
                           <li key={item.id} className="flex items-center gap-3">
                             <button
                               type="button"
-                              onClick={() => toggleItem(note.id, item)}
+                              onClick={() => canWrite && toggleItem(note.id, item)}
+                              disabled={!canWrite}
                               className={`h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition ${
                                 item.isChecked
                                   ? "border-emerald-500 bg-emerald-500"
                                   : "border-primary-600 bg-primary-950 hover:border-primary-400"
-                              }`}
-                              title={item.isChecked ? "Marquer non acheté" : "Marquer acheté"}
+                              } ${!canWrite ? "cursor-default opacity-70" : ""}`}
+                              title={canWrite ? (item.isChecked ? "Marquer non acheté" : "Marquer acheté") : undefined}
                             >
                               {item.isChecked && (
                                 <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
@@ -420,12 +422,14 @@ export default function AdminNotesPage() {
                   {/* Actions */}
                   <div className="flex shrink-0 flex-col gap-2 items-end">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => toggleActive(note)}
-                        className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-slate-400 hover:bg-primary-800/60"
-                      >
-                        {note.isActive ? "Désactiver" : "Activer"}
-                      </button>
+                      {canWrite && (
+                        <button
+                          onClick={() => toggleActive(note)}
+                          className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-slate-400 hover:bg-primary-800/60"
+                        >
+                          {note.isActive ? "Désactiver" : "Activer"}
+                        </button>
+                      )}
                       <a
                         href={`/admin/notes/${note.id}/print`}
                         target="_blank"
@@ -434,18 +438,22 @@ export default function AdminNotesPage() {
                       >
                         🖨️ Imprimer
                       </a>
-                      <button
-                        onClick={() => startEdit(note)}
-                        className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-primary-300 hover:bg-primary-800/60"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => deleteNote(note.id)}
-                        className="rounded px-2 py-1 text-xs font-medium border border-red-900 text-red-400 hover:bg-red-950/40"
-                      >
-                        Supprimer
-                      </button>
+                      {canWrite && (
+                        <button
+                          onClick={() => startEdit(note)}
+                          className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-primary-300 hover:bg-primary-800/60"
+                        >
+                          Modifier
+                        </button>
+                      )}
+                      {canWrite && (
+                        <button
+                          onClick={() => deleteNote(note.id)}
+                          className="rounded px-2 py-1 text-xs font-medium border border-red-900 text-red-400 hover:bg-red-950/40"
+                        >
+                          Supprimer
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
