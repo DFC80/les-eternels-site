@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin } from "@/lib/permissions";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function requireAdmin() {
@@ -11,7 +11,7 @@ function requireAdmin() {
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) return requireAdmin();
+  if (!session || !sessionHasWriteAccess(session.user, "notes")) return requireAdmin();
 
   const { title, description, isActive, type, items } = (await request.json()) as {
     title?: string;
@@ -52,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !isFullAdmin(session.user.role)) return requireAdmin();
+  if (!session || !sessionHasWriteAccess(session.user, "notes")) return requireAdmin();
 
   await prisma.adminNote.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

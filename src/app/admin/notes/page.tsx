@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { isFullAdmin } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 
 type NoteItem = { id: string; label: string; isChecked: boolean; position: number };
 
@@ -43,7 +43,7 @@ function newTempId() { return `tmp-${++tempIdCounter}`; }
 
 export default function AdminNotesPage() {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
 
   const [notes, setNotes] = useState<AdminNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +177,7 @@ export default function AdminNotesPage() {
     await loadNotes();
   }
 
-  if (!isFullAdmin(role)) {
+  if (!sessionHasAccess(sessionUser, "notes")) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-12">
         <p className="text-slate-400">Accès réservé aux administrateurs.</p>

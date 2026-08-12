@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
 import HomeMarketWidget from "@/components/HomeMarketWidget";
-import { canAccessAdmin, isFullAdmin } from "@/lib/permissions";
+import { canAccessAdmin, sessionHasAccess } from "@/lib/permissions";
 
 async function getLatestArticle() {
   return prisma.newsArticle.findFirst({
@@ -77,9 +77,9 @@ export default async function HomePage() {
     : false;
 
   const isBureau = session ? canAccessAdmin(session.user.role ?? "") : false;
-  const isAdmin = session ? isFullAdmin(session.user.role ?? "") : false;
+  const canSeeNotes = session ? sessionHasAccess(session.user, "notes") : false;
 
-  const adminNotes = isAdmin
+  const adminNotes = canSeeNotes
     ? await prisma.adminNote.findMany({
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
@@ -275,7 +275,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {isAdmin && adminNotes.length > 0 && (
+      {canSeeNotes && adminNotes.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-silver-100">📝 Notes admin</h2>

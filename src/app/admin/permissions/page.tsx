@@ -18,6 +18,7 @@ const ALL_SECTIONS = [
   { key: "sondages", label: "Sondages" },
   { key: "reunions", label: "Réunions & AG" },
   { key: "documents", label: "Documents" },
+  { key: "notes", label: "Notes admin" },
 ] as const;
 
 type Level = "none" | "read" | "write";
