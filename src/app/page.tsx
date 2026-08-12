@@ -97,21 +97,21 @@ export default async function HomePage() {
   return (
     <div>
       <section className="relative overflow-hidden bg-radial-glow">
-        <div className="mx-auto max-w-6xl px-4 py-20 text-center">
+        <div className="mx-auto max-w-6xl px-4 py-12 text-center">
           <Image
             src={logoSrc}
             unoptimized
             alt="Logo Les Éternels"
-            width={260}
-            height={165}
+            width={200}
+            height={127}
             className="mx-auto rounded-lg shadow-2xl shadow-black/50"
             priority
           />
-          <h1 className="mt-8 font-brand text-4xl text-silver-100 sm:text-5xl lg:text-6xl">Les Éternels</h1>
-          <p className="mx-auto mt-4 max-w-2xl font-display text-lg tracking-wide text-silver-300">
+          <h1 className="mt-5 font-brand text-4xl text-silver-100 sm:text-5xl lg:text-6xl">Les Éternels</h1>
+          <p className="mx-auto mt-3 max-w-2xl font-display text-lg tracking-wide text-silver-300">
             {description}
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <div className="mt-5 flex flex-wrap justify-center gap-4">
             {session ? (
               <Link
                 href="/mon-compte"
@@ -137,21 +137,21 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center font-display text-3xl text-silver-100">Nos activités</h2>
-        <div className={`mt-10 grid gap-6 ${activities.length <= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <h2 className="text-center font-display text-2xl text-silver-100">Nos activités</h2>
+        <div className={`mt-5 grid gap-4 ${activities.length <= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
           {activities.map((a) => (
             <Link
               key={a.key}
               href={`/activites?activite=${a.key}`}
-              className="rounded-xl border border-primary-800 bg-primary-900/60 p-4 shadow-lg shadow-black/30 transition hover:border-primary-600 hover:bg-primary-800/60 sm:p-6"
+              className="rounded-xl border border-primary-800 bg-primary-900/60 p-4 shadow-lg shadow-black/30 transition hover:border-primary-600 hover:bg-primary-800/60"
             >
-              <div className="text-4xl">{a.emoji}</div>
-              <h3 className="mt-4 font-display text-lg text-silver-100">{a.label}</h3>
+              <div className="text-3xl">{a.emoji}</div>
+              <h3 className="mt-2 font-display text-base text-silver-100">{a.label}</h3>
             </Link>
           ))}
         </div>
-        <div className="mt-10 text-center">
+        <div className="mt-5 text-center">
           <Link href="/activites" className="font-medium text-primary-300 hover:text-silver-200 hover:underline">
             En savoir plus sur nos activités →
           </Link>
@@ -159,7 +159,7 @@ export default async function HomePage() {
       </section>
 
       {upcomingEvents.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-10">
+        <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-silver-100">Prochains événements</h2>
             <Link href="/calendar" className="text-sm text-primary-300 hover:text-silver-200 hover:underline">
@@ -204,7 +204,7 @@ export default async function HomePage() {
       )}
 
       {homeIdeas.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-10">
+        <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-silver-100">💡 Idées des membres</h2>
             {session && (
@@ -245,7 +245,7 @@ export default async function HomePage() {
       {userHasMembership && <HomePollWidget />}
 
       {isBureau && bureauMeetings.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pb-8 pt-2">
+        <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-silver-100">🏢 Réunions de bureau</h2>
             <Link
@@ -299,76 +299,76 @@ export default async function HomePage() {
       {session && <HomeMarketWidget />}
       <HomeCarouselWidget />
 
-      {latestAG && (
-        <section className="mx-auto max-w-6xl px-4 pb-4 pt-2">
-          <h2 className="font-display text-2xl text-silver-100">
-            🏛️ Assemblée Générale {new Date(latestAG.date).getFullYear()}
-          </h2>
-          <div className="mt-4 rounded-xl border border-amber-800/50 bg-amber-950/20 p-5">
-            <p className="text-sm font-medium text-amber-300">
-              📅{" "}
-              {new Date(latestAG.date).toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              {latestAG.location && (
-                <span className="ml-4 text-amber-400/70">📍 {latestAG.location}</span>
-              )}
-            </p>
-            {latestAG.agenda && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre du jour</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300 leading-relaxed line-clamp-4">
-                  {latestAG.agenda}
+      {(latestAG || latestArticle) && (
+        <div className={`mx-auto max-w-6xl px-4 py-6 ${latestAG && latestArticle ? "grid gap-6 sm:grid-cols-2" : ""}`}>
+          {latestAG && (
+            <div>
+              <h2 className="font-display text-xl text-silver-100">
+                🏛️ AG {new Date(latestAG.date).getFullYear()}
+              </h2>
+              <div className="mt-3 rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
+                <p className="text-sm font-medium text-amber-300">
+                  📅{" "}
+                  {new Date(latestAG.date).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                  {latestAG.location && (
+                    <span className="ml-3 text-amber-400/70">📍 {latestAG.location}</span>
+                  )}
                 </p>
+                {latestAG.agenda && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordre du jour</p>
+                    <p className="mt-1 text-sm text-slate-300 leading-relaxed line-clamp-4">
+                      {latestAG.agenda}
+                    </p>
+                  </div>
+                )}
+                {latestAG.notes && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Compte-rendu</p>
+                    <p className="mt-1 text-sm text-slate-300 leading-relaxed line-clamp-4">
+                      {latestAG.notes}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {latestAG.notes && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Compte-rendu</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300 leading-relaxed line-clamp-4">
-                  {latestAG.notes}
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {latestArticle && (
-        <section className="mx-auto max-w-6xl px-4 pb-4 pt-2">
-          <h2 className="font-display text-2xl text-silver-100">Dernière actualité</h2>
-          <Link href={`/actualites/${latestArticle.id}`}
-            className="mt-4 flex flex-col gap-3 rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60 sm:flex-row sm:gap-5 sm:p-5">
-            {latestArticle.photos?.split("\n").find((u) => u.trim()) && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={latestArticle.photos.split("\n").find((u) => u.trim())!} alt=""
-                className="h-44 w-full rounded-lg object-cover sm:h-28 sm:w-28 sm:flex-shrink-0" />
-            )}
-            <div className="min-w-0">
-              <h3 className="font-display text-lg text-silver-100">{latestArticle.title}</h3>
-              <p className="mt-1 text-xs text-slate-400">
-                {new Date(latestArticle.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                {" · "}
-                {latestArticle._count.comments} commentaire{latestArticle._count.comments !== 1 ? "s" : ""}
-              </p>
-              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-                {latestArticle.content.length > 200 ? latestArticle.content.slice(0, 200) + "…" : latestArticle.content}
-              </p>
             </div>
-          </Link>
-          <div className="mt-3 text-right">
-            <Link href="/actualites" className="text-sm text-primary-300 hover:underline">Toutes les actualités →</Link>
-          </div>
-        </section>
+          )}
+
+          {latestArticle && (
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-xl text-silver-100">Dernière actualité</h2>
+                <Link href="/actualites" className="text-sm text-primary-300 hover:underline">Toutes →</Link>
+              </div>
+              <Link href={`/actualites/${latestArticle.id}`}
+                className="mt-3 flex gap-3 rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60">
+                {latestArticle.photos?.split("\n").find((u) => u.trim()) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={latestArticle.photos.split("\n").find((u) => u.trim())!} alt=""
+                    className="h-20 w-20 flex-shrink-0 rounded-lg object-cover" />
+                )}
+                <div className="min-w-0">
+                  <h3 className="font-display text-base text-silver-100 line-clamp-2">{latestArticle.title}</h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {new Date(latestArticle.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    {" · "}{latestArticle._count.comments} commentaire{latestArticle._count.comments !== 1 ? "s" : ""}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300 line-clamp-3">
+                    {latestArticle.content}
+                  </p>
+                </div>
+              </Link>
+            </div>
+          )}
+        </div>
       )}
 
       {!session && (
-        <section className="border-t border-primary-800 bg-primary-900/40 py-16">
+        <section className="border-t border-primary-800 bg-primary-900/40 py-10">
           <div className="mx-auto max-w-4xl px-4 text-center">
             <h2 className="font-display text-3xl text-silver-100">Envie de nous rejoindre ?</h2>
             <p className="mt-4 text-slate-400">
