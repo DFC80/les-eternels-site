@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
 import HomeMarketWidget from "@/components/HomeMarketWidget";
-import { canAccessAdmin } from "@/lib/permissions";
+import { canAccessAdmin, isFullAdmin } from "@/lib/permissions";
 
 async function getLatestArticle() {
   return prisma.newsArticle.findFirst({
@@ -77,6 +77,15 @@ export default async function HomePage() {
     : false;
 
   const isBureau = session ? canAccessAdmin(session.user.role ?? "") : false;
+  const isAdmin = session ? isFullAdmin(session.user.role ?? "") : false;
+
+  const adminNotes = isAdmin
+    ? await prisma.adminNote.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        include: { items: { orderBy: { position: "asc" } } },
+      })
+    : [];
 
   const bureauMeetings = isBureau
     ? await prisma.meeting.findMany({
@@ -258,6 +267,63 @@ export default async function HomePage() {
                     <p className="mt-2 line-clamp-3 text-xs text-slate-300 leading-relaxed">
                       {m.agenda}
                     </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {isAdmin && adminNotes.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">📝 Notes admin</h2>
+            <Link
+              href="/admin/notes"
+              className="rounded-md border border-primary-700 px-3 py-1.5 text-sm text-primary-300 hover:bg-primary-900"
+            >
+              Gérer les notes →
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {adminNotes.map((note) => {
+              const checkedCount = note.items.filter((i: { isChecked: boolean }) => i.isChecked).length;
+              return (
+                <div
+                  key={note.id}
+                  className="rounded-xl border border-primary-800 bg-primary-900/50 p-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">{note.type === "LIST" ? "🛒" : "📝"}</span>
+                    <p className="font-display text-sm text-silver-100">{note.title}</p>
+                    {note.type === "LIST" && note.items.length > 0 && (
+                      <span className="ml-auto rounded-full bg-primary-800/60 px-2 py-0.5 text-xs text-slate-400">
+                        {checkedCount}/{note.items.length}
+                      </span>
+                    )}
+                  </div>
+                  {note.type === "NOTE" && note.description && (
+                    <p className="mt-2 line-clamp-3 text-xs text-slate-400 leading-relaxed">
+                      {note.description}
+                    </p>
+                  )}
+                  {note.type === "LIST" && note.items.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {note.items.slice(0, 5).map((item: { id: string; label: string; isChecked: boolean }) => (
+                        <li key={item.id} className="flex items-center gap-2 text-xs">
+                          <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center text-[9px] ${item.isChecked ? "border-emerald-500 bg-emerald-500 text-white" : "border-primary-600"}`}>
+                            {item.isChecked ? "✓" : ""}
+                          </span>
+                          <span className={item.isChecked ? "text-slate-500 line-through" : "text-slate-300"}>
+                            {item.label}
+                          </span>
+                        </li>
+                      ))}
+                      {note.items.length > 5 && (
+                        <li className="text-xs text-slate-500">+{note.items.length - 5} autre(s)…</li>
+                      )}
+                    </ul>
                   )}
                 </div>
               );

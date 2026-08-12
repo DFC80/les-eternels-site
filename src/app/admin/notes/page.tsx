@@ -426,6 +426,14 @@ export default function AdminNotesPage() {
                       >
                         {note.isActive ? "Désactiver" : "Activer"}
                       </button>
+                      <a
+                        href={`/admin/notes/${note.id}/print`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-slate-400 hover:bg-primary-800/60"
+                      >
+                        🖨️ Imprimer
+                      </a>
                       <button
                         onClick={() => startEdit(note)}
                         className="rounded px-2 py-1 text-xs font-medium border border-primary-700 text-primary-300 hover:bg-primary-800/60"
