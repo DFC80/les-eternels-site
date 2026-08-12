@@ -1562,7 +1562,7 @@ export default function EventCalendar() {
             {selected.activityType === "AIRSOFT" && session && !isRegistered(selected) && !isRegistrationClosed(selected) && !profileHasEmergencyContact && (
               <p className="mt-4 rounded-lg border border-red-800/60 bg-red-950/30 px-4 py-3 text-sm text-red-400">
                 ⚠️ Votre <strong className="text-red-300">contact d&apos;urgence</strong> n&apos;est pas renseigné dans votre profil. Il est obligatoire pour vous inscrire à un événement airsoft.{" "}
-                <a href="/mon-compte" className="underline hover:text-red-200">Compléter mon profil →</a>
+                <a href="/profil" className="underline hover:text-red-200">Compléter mon profil →</a>
               </p>
             )}
 
