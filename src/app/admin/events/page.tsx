@@ -69,6 +69,7 @@ type EventRegistrationAdmin = {
   memberName: string;
   memberEmail: string;
   createdAt: string;
+  mealOrders: { menuLabel: string | null; quantity: number }[];
 };
 
 const EMPTY_FORM = {
@@ -660,7 +661,6 @@ export default function AdminEventsPage() {
                         </p>
                         <p className="text-xs text-slate-400">
                           {r.memberEmail}
-                          {r.wantsMeal && " · 🍽️ repas"}
                           {" · "}
                           <span
                             className={
@@ -682,6 +682,16 @@ export default function AdminEventsPage() {
                             {r.isPaid ? "💶 Payé" : "💶 Non payé"}
                           </span>
                         </p>
+                        {r.wantsMeal && (
+                          <p className="mt-1 text-xs text-slate-400">
+                            🍽️{" "}
+                            {r.mealOrders.length > 0
+                              ? r.mealOrders
+                                  .map((o) => `${o.quantity}× ${o.menuLabel ?? "Repas"}`)
+                                  .join(", ")
+                              : "Repas (sans détail)"}
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <button

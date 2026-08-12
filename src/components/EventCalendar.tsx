@@ -299,6 +299,22 @@ export default function EventCalendar() {
     }
   }, [session]);
 
+  // Sync meal state from registration when the edit form opens
+  useEffect(() => {
+    if (!editingMeal || !selected || !session) return;
+    const myReg = selected.registrations.find((r) => r.userId === session.user.id);
+    if (!myReg) return;
+    setWantsMeal(myReg.wantsMeal);
+    setMealNotes(myReg.mealNotes ?? "");
+    const q: Record<string, number> = {};
+    for (const order of myReg.mealOrders) {
+      const key = order.menuId ?? GENERIC_MEAL_KEY;
+      q[key] = (q[key] ?? 0) + order.quantity;
+    }
+    setQuantities(q);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMeal]);
+
   const cells = useMemo(() => buildMonthGrid(month), [month]);
 
   const eventsByDay = useMemo(() => {
