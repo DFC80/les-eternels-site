@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
-﻿﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 
-type MenuInput = { label: string; maxPerPerson?: number | string | null };
+type MenuInput = { id?: string; label: string; maxPerPerson?: number | string | null };
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -49,14 +49,33 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   const cleanedMenus = (menus ?? [])
     .map((m) => ({
+      id: m.id || undefined,
       label: m.label.trim(),
       maxPerPerson: m.maxPerPerson ? Number(m.maxPerPerson) : null,
     }))
     .filter((m) => m.label);
 
-  // Les menus sont remplacÃ©s Ã  chaque modification : les commandes existantes liÃ©es
-  // Ã  un menu perdent leur rÃ©fÃ©rence (menuId passe Ã  null via onDelete: SetNull).
-  await prisma.mealMenu.deleteMany({ where: { eventId: params.id } });
+  if (hasMeal) {
+    // Only delete menus that were removed; keep existing ones so MealOrderItem.menuId stays intact.
+    const keptIds = cleanedMenus.filter((m) => m.id).map((m) => m.id as string);
+    await prisma.mealMenu.deleteMany({
+      where: { eventId: params.id, id: { notIn: keptIds } },
+    });
+    for (const m of cleanedMenus) {
+      if (m.id) {
+        await prisma.mealMenu.update({
+          where: { id: m.id },
+          data: { label: m.label, maxPerPerson: m.maxPerPerson },
+        });
+      } else {
+        await prisma.mealMenu.create({
+          data: { eventId: params.id, label: m.label, maxPerPerson: m.maxPerPerson },
+        });
+      }
+    }
+  } else {
+    await prisma.mealMenu.deleteMany({ where: { eventId: params.id } });
+  }
 
   const event = await prisma.event.update({
     where: { id: params.id },
@@ -73,7 +92,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       mealExtras: hasMeal && Array.isArray(mealExtras) ? mealExtras.join(",") : "",
       mealPrice: mealPrice ? Number(mealPrice) : MEAL_PRICE,
       registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
-      menus: hasMeal && cleanedMenus.length > 0 ? { create: cleanedMenus } : undefined,
       boardGames: {
         set: activityType === "JEUX_DE_PLATEAU" && Array.isArray(boardGameIds) ? boardGameIds.map((id) => ({ id })) : [],
       },

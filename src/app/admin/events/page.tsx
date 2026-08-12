@@ -44,7 +44,7 @@ type MealReport = {
   diners: { name: string; items: { label: string; quantity: number }[]; notes: string | null }[];
 };
 
-type MenuFormItem = { label: string; maxPerPerson: string };
+type MenuFormItem = { id?: string; label: string; maxPerPerson: string };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -212,7 +212,7 @@ export default function AdminEventsPage() {
       mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
-      menus: ev.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
+      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
       boardGameIds: ev.boardGames.map((g) => g.id),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
