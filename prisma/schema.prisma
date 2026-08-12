@@ -549,10 +549,23 @@ model Idea {
 }
 
 model AdminNote {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
+  type        String          @default("NOTE") // NOTE | LIST
   title       String
-  description String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String          @default("")
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  items AdminNoteItem[]
+}
+
+model AdminNoteItem {
+  id        String   @id @default(cuid())
+  noteId    String
+  label     String
+  isChecked Boolean  @default(false)
+  position  Int      @default(0)
+
+  note AdminNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
 }

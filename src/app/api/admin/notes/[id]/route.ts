@@ -13,11 +13,28 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const session = await getServerSession(authOptions);
   if (!session || !isFullAdmin(session.user.role)) return requireAdmin();
 
-  const { title, description, isActive } = (await request.json()) as {
+  const { title, description, isActive, type, items } = (await request.json()) as {
     title?: string;
     description?: string;
     isActive?: boolean;
+    type?: string;
+    items?: { label: string; isChecked?: boolean }[];
   };
+
+  // Replace all items when items array is provided
+  if (items !== undefined) {
+    await prisma.adminNoteItem.deleteMany({ where: { noteId: params.id } });
+    if (items.length > 0) {
+      await prisma.adminNoteItem.createMany({
+        data: items.map((item, i) => ({
+          noteId: params.id,
+          label: item.label.trim(),
+          isChecked: item.isChecked ?? false,
+          position: i,
+        })),
+      });
+    }
+  }
 
   const note = await prisma.adminNote.update({
     where: { id: params.id },
@@ -25,7 +42,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       ...(title !== undefined && { title: title.trim() }),
       ...(description !== undefined && { description: description.trim() }),
       ...(isActive !== undefined && { isActive }),
+      ...(type !== undefined && { type }),
     },
+    include: { items: { orderBy: { position: "asc" } } },
   });
 
   return NextResponse.json(note);
