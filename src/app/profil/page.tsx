@@ -317,7 +317,7 @@ export default function ProfilePage() {
         <div className="rounded-lg border border-primary-700 bg-primary-950/60 p-4">
           <p className="text-sm font-medium text-slate-200">🚨 Personne à contacter en cas d'urgence</p>
           <p className="mt-1 text-xs text-slate-500">
-            Optionnel — non requis pour adhérer, mais recommandé en cas d'accident.
+            Requis pour adhérer à l'airsoft, et recommandé en cas d'accident.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
