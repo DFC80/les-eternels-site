@@ -292,7 +292,7 @@ export default async function HomePage() {
               return (
                 <Link
                   key={note.id}
-                  href={`/admin/notes/${note.id}/print`}
+                  href="/admin/notes"
                   className="block rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-900/80"
                 >
                   <div className="flex items-center gap-2">
