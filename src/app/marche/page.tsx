@@ -502,18 +502,37 @@ function ListingCard({
             >
               Modifier
             </button>
-            <button
-              onClick={() => updateStatus("VENDU")}
-              className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
-            >
-              Marquer vendu
-            </button>
-            <button
-              onClick={() => updateStatus("CLOS")}
-              className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
-            >
-              Clore
-            </button>
+            {listing.type === "VENTE" && (
+              <button
+                onClick={() => updateStatus("VENDU")}
+                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+              >
+                Vendu ✓
+              </button>
+            )}
+            {listing.type === "ECHANGE" && (
+              <button
+                onClick={() => updateStatus("VENDU")}
+                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+              >
+                Échangé ✓
+              </button>
+            )}
+            {listing.type === "RECHERCHE" ? (
+              <button
+                onClick={() => updateStatus("CLOS")}
+                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+              >
+                Article trouvé ✓
+              </button>
+            ) : (
+              <button
+                onClick={() => updateStatus("CLOS")}
+                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+              >
+                Clore
+              </button>
+            )}
             <button
               onClick={deleteListing}
               className="rounded border border-red-900 px-2 py-1 text-xs text-red-400 hover:bg-red-950"

@@ -84,6 +84,21 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   return NextResponse.json(event);
 }
 
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasWriteAccess(session.user, "events")) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+
+  const { showOnHome } = (await request.json()) as { showOnHome?: boolean };
+  const event = await prisma.event.update({
+    where: { id: params.id },
+    data: { showOnHome: !!showOnHome },
+  });
+
+  return NextResponse.json(event);
+}
+
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || !sessionHasWriteAccess(session.user, "events")) {

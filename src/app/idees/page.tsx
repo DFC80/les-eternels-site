@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { isFullAdmin } from "@/lib/permissions";
 
@@ -12,6 +12,7 @@ type Idea = {
   description: string;
   category: string;
   urgency: "HAUTE" | "MOYENNE" | "BASSE";
+  showOnHome: boolean;
   createdAt: string;
   userId: string;
   user: IdeaUser;
@@ -32,7 +33,8 @@ const URGENCY_CLASSES: Record<string, string> = {
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-const EMPTY_FORM = { title: "", description: "", category: "", urgency: "MOYENNE" as const };
+type IdeaForm = { title: string; description: string; category: string; urgency: "HAUTE" | "MOYENNE" | "BASSE" };
+const EMPTY_FORM: IdeaForm = { title: "", description: "", category: "", urgency: "MOYENNE" };
 
 export default function IdeesPage() {
   const { data: session } = useSession();
@@ -43,10 +45,12 @@ export default function IdeesPage() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterUrgency, setFilterUrgency] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function load() {
     const res = await fetch("/api/ideas");
@@ -59,13 +63,35 @@ export default function IdeesPage() {
 
   useEffect(() => { load(); }, []);
 
+  function startEdit(idea: Idea) {
+    setEditingId(idea.id);
+    setForm({ title: idea.title, description: idea.description, category: idea.category, urgency: idea.urgency });
+    setError(null);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError(null);
+  }
+
+  async function toggleShowOnHome(idea: Idea) {
+    const res = await fetch(`/api/ideas/${idea.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showOnHome: !idea.showOnHome }),
+    });
+    if (res.ok) await load();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
 
-    const res = await fetch("/api/ideas", {
-      method: "POST",
+    const res = await fetch(editingId ? `/api/ideas/${editingId}` : "/api/ideas", {
+      method: editingId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
@@ -78,6 +104,7 @@ export default function IdeesPage() {
       return;
     }
 
+    setEditingId(null);
     setForm(EMPTY_FORM);
     await load();
   }
@@ -103,10 +130,13 @@ export default function IdeesPage() {
 
       {/* Formulaire */}
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
         className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2"
       >
-        <h2 className="col-span-full font-display text-lg text-silver-100">Proposer une idée</h2>
+        <h2 className="col-span-full font-display text-lg text-silver-100">
+          {editingId ? "Modifier l'idée" : "Proposer une idée"}
+        </h2>
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">Titre</label>
@@ -165,14 +195,23 @@ export default function IdeesPage() {
 
         {error && <p className="col-span-full text-sm text-red-400">{error}</p>}
 
-        <div className="col-span-full">
+        <div className="col-span-full flex items-center gap-3">
           <button
             type="submit"
             disabled={saving}
             className="rounded-md bg-primary-400 px-6 py-2 font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
           >
-            {saving ? "Envoi…" : "Proposer l'idée"}
+            {saving ? "Envoi…" : editingId ? "Mettre à jour" : "Proposer l'idée"}
           </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="rounded-md border border-primary-700 px-4 py-2 text-sm text-slate-400 hover:border-primary-500 hover:text-slate-200"
+            >
+              Annuler
+            </button>
+          )}
         </div>
       </form>
 
@@ -243,15 +282,40 @@ export default function IdeesPage() {
                   {idea.category}
                 </span>
               </div>
-              {(idea.userId === userId || canDeleteAny) && (
-                <button
-                  type="button"
-                  onClick={() => deleteIdea(idea.id)}
-                  className="shrink-0 text-xs text-slate-500 hover:text-red-400"
-                >
-                  Supprimer
-                </button>
-              )}
+              <div className="flex shrink-0 items-center gap-3">
+                {canDeleteAny && (
+                  <button
+                    type="button"
+                    onClick={() => toggleShowOnHome(idea)}
+                    className={`text-xs transition ${
+                      idea.showOnHome
+                        ? "text-primary-400 hover:text-primary-300"
+                        : "text-slate-500 hover:text-primary-400"
+                    }`}
+                    title={idea.showOnHome ? "Retirer de l'accueil" : "Publier sur l'accueil"}
+                  >
+                    {idea.showOnHome ? "🏠 Accueil" : "Publier accueil"}
+                  </button>
+                )}
+                {idea.userId === userId && (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(idea)}
+                    className="text-xs text-slate-500 hover:text-primary-300"
+                  >
+                    Modifier
+                  </button>
+                )}
+                {(idea.userId === userId || canDeleteAny) && (
+                  <button
+                    type="button"
+                    onClick={() => deleteIdea(idea.id)}
+                    className="text-xs text-slate-500 hover:text-red-400"
+                  >
+                    Supprimer
+                  </button>
+                )}
+              </div>
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm text-slate-300">{idea.description}</p>
             <p className="mt-3 text-xs text-slate-500">
