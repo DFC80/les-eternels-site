@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection, sessionHasWriteAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 import { formatCentsToEuros } from "@/lib/money";
 
@@ -168,7 +168,7 @@ export default function ComptabilitePage() {
     );
   }
 
-  if (session && !canAccessSection(role, "comptabilite")) {
+  if (session && !sessionHasAccess(sessionUser, "comptabilite")) {
     return <div className="mx-auto max-w-4xl px-4 py-12 text-slate-400">Accès non autorisé.</div>;
   }
 

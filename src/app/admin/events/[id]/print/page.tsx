@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isFullAdmin, canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import PrintTrigger from "./PrintTrigger";
 import type { Metadata } from "next";
@@ -49,7 +49,7 @@ const RENTAL_STATUS_LABELS: Record<string, string> = {
 
 export default async function PrintEventPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || (!isFullAdmin(session.user.role) && !canAccessSection(session.user.role, "events"))) {
+  if (!session || !sessionHasAccess(session.user, "events")) {
     redirect("/login");
   }
 

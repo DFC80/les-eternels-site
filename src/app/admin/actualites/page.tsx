@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { canAccessSection } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 
 type NewsArticle = {
@@ -75,6 +75,8 @@ function PhotosUploadField({ value, onChange }: { value: string; onChange: (v: s
 export default function AdminActualitesPage() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role ?? "";
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "content");
 
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -89,7 +91,7 @@ export default function AdminActualitesPage() {
 
   useEffect(() => { load(); }, []);
 
-  if (!canAccessSection(role, "content")) {
+  if (session && !sessionHasAccess(sessionUser, "content")) {
     return <p className="p-8 text-slate-400">Accès non autorisé.</p>;
   }
 
@@ -170,7 +172,7 @@ export default function AdminActualitesPage() {
       <h1 className="font-display text-2xl text-silver-100">Gestion des actualités</h1>
 
       {/* Form */}
-      <div ref={formRef} className="rounded-xl border border-primary-700 bg-primary-900/60 p-6">
+      {canWrite && <div ref={formRef} className="rounded-xl border border-primary-700 bg-primary-900/60 p-6">
         <h2 className="mb-4 font-display text-lg text-silver-100">
           {isEditing ? "Modifier l'article" : "Nouvel article"}
         </h2>
@@ -214,7 +216,7 @@ export default function AdminActualitesPage() {
             )}
           </div>
         </form>
-      </div>
+      </div>}
 
       {/* Article list */}
       <div className="space-y-3">
@@ -244,20 +246,22 @@ export default function AdminActualitesPage() {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-primary-800 pt-3">
-                <button onClick={() => togglePublish(a)}
-                  className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800">
-                  {a.published ? "Dépublier" : "Publier"}
-                </button>
-                <button onClick={() => editArticle(a)}
-                  className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800">
-                  Modifier
-                </button>
-                <button onClick={() => deleteArticle(a.id)}
-                  className="rounded-md border border-red-800 px-3 py-1.5 text-xs text-red-400 hover:bg-red-950">
-                  Supprimer
-                </button>
-              </div>
+              {canWrite && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-primary-800 pt-3">
+                  <button onClick={() => togglePublish(a)}
+                    className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800">
+                    {a.published ? "Dépublier" : "Publier"}
+                  </button>
+                  <button onClick={() => editArticle(a)}
+                    className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800">
+                    Modifier
+                  </button>
+                  <button onClick={() => deleteArticle(a.id)}
+                    className="rounded-md border border-red-800 px-3 py-1.5 text-xs text-red-400 hover:bg-red-950">
+                    Supprimer
+                  </button>
+                </div>
+              )}
             </div>
 
           );
