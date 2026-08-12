@@ -36,3 +36,24 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ id: user.id, balance: user.balance });
 }
+
+export async function PUT(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasWriteAccess(session.user, "kiosque")) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const { userId } = body as { userId?: string };
+
+  if (!userId) {
+    return NextResponse.json({ error: "Membre requis." }, { status: 400 });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { balance: 0 },
+  });
+
+  return NextResponse.json({ id: user.id, balance: user.balance });
+}

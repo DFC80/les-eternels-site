@@ -178,6 +178,31 @@ export default function KiosquePage() {
     await loadMembers();
   }
 
+  async function resetBalance() {
+    if (!selectedMemberId) return;
+    if (!confirm("Remettre le solde de ce membre à zéro ?")) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+
+    const res = await fetch("/api/admin/kiosk/balance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: selectedMemberId }),
+    });
+
+    setBusy(false);
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Erreur lors de la remise à zéro.");
+      return;
+    }
+
+    setMessage("Solde remis à zéro.");
+    await loadMembers();
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-display text-3xl text-silver-100">🛒 Comptoir friandises & boissons</h1>
@@ -242,6 +267,16 @@ export default function KiosquePage() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-slate-500">Pour créditer le solde payé sur place par cette personne.</p>
+              {selectedMember.balance !== 0 && (
+                <button
+                  type="button"
+                  onClick={resetBalance}
+                  disabled={busy}
+                  className="mt-3 w-full rounded-md border border-red-800 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40 disabled:opacity-50"
+                >
+                  Remettre le solde à zéro
+                </button>
+              )}
             </div>
           )}
         </div>
