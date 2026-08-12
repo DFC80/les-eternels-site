@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatCentsToEuros } from "@/lib/money";
 import ImageUpload from "@/components/ImageUpload";
 
@@ -42,6 +42,8 @@ export default function AdminProduitsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({ SNACK: true, DRINK: true });
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function load() {
     const [prodRes, actRes] = await Promise.all([
@@ -71,6 +73,7 @@ export default function AdminProduitsPage() {
       weightG: item.weightG != null ? String(item.weightG) : "",
       activityKeys: item.activities.map((a) => a.activityKey),
     });
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   function toggleActivity(key: string) {
@@ -190,7 +193,7 @@ export default function AdminProduitsPage() {
         Gérez le stock et les prix des friandises et boissons proposées lors des soirées jeux.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
         <h2 className="col-span-full font-display text-lg text-silver-100">
           {form.id ? "Modifier le produit" : "Ajouter un produit"}
         </h2>
@@ -326,17 +329,31 @@ export default function AdminProduitsPage() {
         </div>
       </form>
 
-      <h2 className="mt-10 font-display text-xl text-silver-100">🍬 Friandises ({snacks.length})</h2>
-      <div className="mt-4 space-y-3">
-        {snacks.length === 0 && <p className="text-sm text-slate-400">Aucune friandise enregistrée.</p>}
-        {snacks.map(renderCard)}
-      </div>
-
-      <h2 className="mt-10 font-display text-xl text-silver-100">🥤 Boissons ({drinks.length})</h2>
-      <div className="mt-4 space-y-3">
-        {drinks.length === 0 && <p className="text-sm text-slate-400">Aucune boisson enregistrée.</p>}
-        {drinks.map(renderCard)}
-      </div>
+      {(
+        [
+          { key: "SNACK", label: "🍬 Friandises", list: snacks, empty: "Aucune friandise enregistrée." },
+          { key: "DRINK", label: "🥤 Boissons", list: drinks, empty: "Aucune boisson enregistrée." },
+        ] as const
+      ).map(({ key, label, list, empty }) => (
+        <div key={key} className="mt-10">
+          <button
+            type="button"
+            onClick={() => setOpenCategories((prev) => ({ ...prev, [key]: !prev[key] }))}
+            className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-left hover:bg-primary-900/30"
+          >
+            <h2 className="font-display text-xl text-silver-100">
+              {label} ({list.length})
+            </h2>
+            <span className="text-slate-400 text-lg">{openCategories[key] ? "▾" : "▸"}</span>
+          </button>
+          {openCategories[key] && (
+            <div className="mt-4 space-y-3">
+              {list.length === 0 && <p className="text-sm text-slate-400">{empty}</p>}
+              {list.map(renderCard)}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

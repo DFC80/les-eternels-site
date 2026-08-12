@@ -93,14 +93,13 @@ export default function KiosquePage() {
     return Array.from(keys).sort();
   }, [products]);
 
-  // Produits filtrés par activité sélectionnée
+  // Produits filtrés : stock disponible + activité sélectionnée
   const visibleProducts = useMemo(() => {
-    if (!activityFilter) return products;
-    return products.filter(
-      (p) =>
-        p.activities.length === 0 ||
-        p.activities.some((a) => a.activityKey === activityFilter)
-    );
+    return products.filter((p) => {
+      if (p.stock <= 0) return false;
+      if (!activityFilter) return true;
+      return p.activities.length === 0 || p.activities.some((a) => a.activityKey === activityFilter);
+    });
   }, [products, activityFilter]);
 
   const cartLines = Object.entries(cart)
@@ -281,7 +280,7 @@ export default function KiosquePage() {
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {catProducts.map((p) => {
                     const qty = cart[p.id] ?? 0;
-                    const disabled = p.stock <= 0 || !selectedMemberId;
+                    const disabled = !selectedMemberId;
                     return (
                       <div
                         key={p.id}
@@ -295,7 +294,10 @@ export default function KiosquePage() {
                         )}
                         <p className="mt-2 font-medium text-silver-100">{p.name}</p>
                         <p className="text-sm text-slate-400">
-                          {formatCentsToEuros(p.price)} · stock {p.stock}
+                          {formatCentsToEuros(p.price)}
+                          {p.stock <= 3 && (
+                            <span className="ml-1 text-amber-400">· {p.stock} restant{p.stock > 1 ? "s" : ""}</span>
+                          )}
                         </p>
                         <div className="mt-2 flex items-center justify-center gap-3">
                           <button
