@@ -12,6 +12,7 @@ type Idea = {
   description: string;
   category: string;
   urgency: "HAUTE" | "MOYENNE" | "BASSE";
+  showOnHome: boolean;
   createdAt: string;
   userId: string;
   user: IdeaUser;
@@ -32,7 +33,8 @@ const URGENCY_CLASSES: Record<string, string> = {
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-const EMPTY_FORM = { title: "", description: "", category: "", urgency: "MOYENNE" as const };
+type IdeaForm = { title: string; description: string; category: string; urgency: "HAUTE" | "MOYENNE" | "BASSE" };
+const EMPTY_FORM: IdeaForm = { title: "", description: "", category: "", urgency: "MOYENNE" };
 
 export default function IdeesPage() {
   const { data: session } = useSession();
@@ -72,6 +74,15 @@ export default function IdeesPage() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setError(null);
+  }
+
+  async function toggleShowOnHome(idea: Idea) {
+    const res = await fetch(`/api/ideas/${idea.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showOnHome: !idea.showOnHome }),
+    });
+    if (res.ok) await load();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -272,6 +283,20 @@ export default function IdeesPage() {
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-3">
+                {canDeleteAny && (
+                  <button
+                    type="button"
+                    onClick={() => toggleShowOnHome(idea)}
+                    className={`text-xs transition ${
+                      idea.showOnHome
+                        ? "text-primary-400 hover:text-primary-300"
+                        : "text-slate-500 hover:text-primary-400"
+                    }`}
+                    title={idea.showOnHome ? "Retirer de l'accueil" : "Publier sur l'accueil"}
+                  >
+                    {idea.showOnHome ? "🏠 Accueil" : "Publier accueil"}
+                  </button>
+                )}
                 {idea.userId === userId && (
                   <button
                     type="button"

@@ -120,6 +120,7 @@ model Event {
   mealExtras           String    @default("")
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
+  showOnHome           Boolean   @default(false)
 
   registrations   EventRegistration[]
   menus           MealMenu[]
@@ -541,6 +542,7 @@ model Idea {
   description String
   category    String
   urgency     String   // HAUTE | MOYENNE | BASSE
+  showOnHome  Boolean  @default(false)
   createdAt   DateTime @default(now())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

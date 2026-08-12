@@ -36,9 +36,8 @@ async function getLatestPublishedAG() {
 
 async function getUpcomingEvents() {
   return prisma.event.findMany({
-    where: { startsAt: { gt: new Date() }, bureauOnly: false },
+    where: { startsAt: { gt: new Date() }, bureauOnly: false, showOnHome: true },
     orderBy: { startsAt: "asc" },
-    take: 3,
     select: {
       id: true,
       title: true,
@@ -48,6 +47,14 @@ async function getUpcomingEvents() {
       capacity: true,
       _count: { select: { registrations: true } },
     },
+  });
+}
+
+async function getHomeIdeas() {
+  return prisma.idea.findMany({
+    where: { showOnHome: true },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, description: true, category: true, urgency: true },
   });
 }
 
@@ -63,13 +70,14 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, activities, { description, logoSrc }, latestArticle, latestAG, upcomingEvents] = await Promise.all([
+  const [session, activities, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas] = await Promise.all([
     getServerSession(authOptions),
     getActivities(),
     getSettings(),
     getLatestArticle(),
     getLatestPublishedAG(),
     getUpcomingEvents(),
+    getHomeIdeas(),
   ]);
 
   const userHasMembership = session
@@ -189,6 +197,45 @@ export default async function HomePage() {
                     </p>
                   )}
                 </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {homeIdeas.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">💡 Idées des membres</h2>
+            {session && (
+              <Link href="/idees" className="text-sm text-primary-300 hover:text-silver-200 hover:underline">
+                Voir toutes les idées →
+              </Link>
+            )}
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {homeIdeas.map((idea) => {
+              const urgencyClass =
+                idea.urgency === "HAUTE"
+                  ? "bg-red-950/60 text-red-300"
+                  : idea.urgency === "MOYENNE"
+                    ? "bg-amber-950/60 text-amber-300"
+                    : "bg-emerald-950/60 text-emerald-300";
+              const urgencyLabel =
+                idea.urgency === "HAUTE" ? "🔴 Haute" : idea.urgency === "MOYENNE" ? "🟡 Moyenne" : "🟢 Basse";
+              return (
+                <div key={idea.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${urgencyClass}`}>
+                      {urgencyLabel}
+                    </span>
+                    <span className="rounded bg-primary-800/60 px-2 py-0.5 text-xs text-slate-400">
+                      {idea.category}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 font-display text-base text-silver-100">{idea.title}</h3>
+                  <p className="mt-1 line-clamp-3 text-sm text-slate-400">{idea.description}</p>
+                </div>
               );
             })}
           </div>

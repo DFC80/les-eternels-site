@@ -21,6 +21,7 @@ type EventItem = {
   mealExtras: string;
   mealPrice: number;
   registrationDeadline: string | null;
+  showOnHome: boolean;
   menus: MenuItem[];
   boardGames: { id: string; name: string }[];
   registrations: {
@@ -266,6 +267,15 @@ export default function AdminEventsPage() {
   async function removeEvent(id: string) {
     if (!confirm("Supprimer cet événement ?")) return;
     const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
+    if (res.ok) await load();
+  }
+
+  async function toggleShowOnHome(id: string, value: boolean) {
+    const res = await fetch(`/api/events/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showOnHome: value }),
+    });
     if (res.ok) await load();
   }
 
@@ -606,6 +616,17 @@ export default function AdminEventsPage() {
           >
             🖨️ Imprimer
           </a>
+          <button
+            type="button"
+            onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
+            className={`rounded-md border px-3 py-1.5 transition ${
+              ev.showOnHome
+                ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
+                : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
+            }`}
+          >
+            {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
+          </button>
           <button
             onClick={() => removeEvent(ev.id)}
             className="rounded-md border border-red-900 px-3 py-1.5 text-red-400 hover:bg-red-950/40"

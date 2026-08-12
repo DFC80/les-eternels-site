@@ -42,6 +42,24 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   return NextResponse.json(updated);
 }
 
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
+
+  const role = (session.user as { role?: string }).role ?? "";
+  if (!isFullAdmin(role)) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+
+  const { showOnHome } = (await request.json()) as { showOnHome?: boolean };
+  const idea = await prisma.idea.update({
+    where: { id: params.id },
+    data: { showOnHome: !!showOnHome },
+  });
+
+  return NextResponse.json(idea);
+}
+
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
