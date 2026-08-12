@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
+import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_CATEGORIES = [
@@ -31,8 +31,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasWriteAccess(session.user, "equipements")) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
   const { label, emoji, order } = body as { label?: string; emoji?: string; order?: number };

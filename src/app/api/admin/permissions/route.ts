@@ -16,23 +16,23 @@ export async function GET() {
     prisma.rolePermission.findMany(),
   ]);
 
-  // Regrouper les permissions DB par rôle
-  const dbByRole = new Map<string, string[]>();
+  // Regrouper les permissions DB par rôle : { section → level }
+  const dbByRole = new Map<string, Record<string, string>>();
   for (const p of dbPerms) {
-    if (!dbByRole.has(p.roleLabel)) dbByRole.set(p.roleLabel, []);
-    dbByRole.get(p.roleLabel)!.push(p.section);
+    if (!dbByRole.has(p.roleLabel)) dbByRole.set(p.roleLabel, {});
+    dbByRole.get(p.roleLabel)![p.section] = p.level ?? "write";
   }
 
   // Exclure les rôles full admin (ils ont toujours accès à tout)
   const roles = bureauRoles
     .filter((r) => !FULL_ADMIN_ROLES.includes(r.label))
-    .map((r) => ({
-      label: r.label,
-      sections: dbByRole.has(r.label)
+    .map((r) => {
+      const fromDb = dbByRole.has(r.label);
+      const permissions: Record<string, string> = fromDb
         ? dbByRole.get(r.label)!
-        : (HARDCODED_SECTION_MAP[r.label] ?? []),
-      fromDb: dbByRole.has(r.label),
-    }));
+        : Object.fromEntries((HARDCODED_SECTION_MAP[r.label] ?? []).map((s) => [s, "write"]));
+      return { label: r.label, permissions, fromDb };
+    });
 
   return NextResponse.json({ roles });
 }
@@ -44,7 +44,7 @@ export async function PUT(request: Request) {
   }
 
   const { permissions } = (await request.json()) as {
-    permissions: Array<{ role: string; sections: string[] }>;
+    permissions: Array<{ role: string; entries: Array<{ section: string; level: string }> }>;
   };
 
   if (!Array.isArray(permissions)) {
@@ -57,8 +57,12 @@ export async function PUT(request: Request) {
       where: { roleLabel: { in: permissions.map((p) => p.role) } },
     }),
     prisma.rolePermission.createMany({
-      data: permissions.flatMap(({ role, sections }) =>
-        (sections as AdminSection[]).map((section) => ({ roleLabel: role, section }))
+      data: permissions.flatMap(({ role, entries }) =>
+        entries.map(({ section, level }) => ({
+          roleLabel: role,
+          section: section as AdminSection,
+          level: level === "read" ? "read" : "write",
+        }))
       ),
     }),
   ]);

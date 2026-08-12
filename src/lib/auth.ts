@@ -8,10 +8,11 @@ async function fetchAllowedSections(role: string): Promise<string[] | null | und
   if (FULL_ADMIN_ROLES.includes(role)) return null; // accès complet
   const perms = await prisma.rolePermission.findMany({
     where: { roleLabel: role },
-    select: { section: true },
+    select: { section: true, level: true },
   });
   if (perms.length === 0) return undefined; // pas encore configuré → fallback hardcodé
-  return perms.map((p) => p.section);
+  // "section" (bare) = write (backward compat), "section:read" = lecture seule
+  return perms.map((p) => (p.level === "read" ? `${p.section}:read` : p.section));
 }
 
 export const authOptions: NextAuthOptions = {
