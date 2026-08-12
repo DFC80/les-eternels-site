@@ -1110,7 +1110,19 @@ export default function EventCalendar() {
                         )}
                         {!isRegistrationClosed(selected) && (
                           <button
-                            onClick={() => setEditingMeal(true)}
+                            onClick={() => {
+                              if (myReg) {
+                                setWantsMeal(myReg.wantsMeal);
+                                setMealNotes(myReg.mealNotes ?? "");
+                                const q: Record<string, number> = {};
+                                for (const order of myReg.mealOrders) {
+                                  const key = order.menuId ?? GENERIC_MEAL_KEY;
+                                  q[key] = (q[key] ?? 0) + order.quantity;
+                                }
+                                setQuantities(q);
+                              }
+                              setEditingMeal(true);
+                            }}
                             className="mt-3 rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-800/60"
                           >
                             ✏️ Modifier mes choix repas
