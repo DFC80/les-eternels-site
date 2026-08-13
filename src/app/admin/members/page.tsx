@@ -27,6 +27,7 @@ type Member = {
   role: "ADMIN" | "MEMBER";
   isActive: boolean;
   isPending: boolean;
+  airsoftTrialDay: boolean;
   createdAt: string;
   _count: { registrations: number };
   membership: Membership;
@@ -248,6 +249,15 @@ export default function AdminMembersPage() {
     }
   }
 
+  async function toggleTrialDayInline(id: string, val: boolean) {
+    const res = await fetch(`/api/admin/members/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ airsoftTrialDay: val }),
+    });
+    if (res.ok) await load();
+  }
+
   function openEmail(m: Member) {
     setEmailFor({ id: m.id, firstName: m.firstName, name: m.name, email: m.email });
     setEmailSubject("");
@@ -379,6 +389,7 @@ export default function AdminMembersPage() {
               <th className="px-4 py-3">Bureau</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Cotisation</th>
+              <th className="px-4 py-3" title="Journée d'essai airsoft">🎯 Essai</th>
               {canEdit && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
@@ -533,6 +544,27 @@ export default function AdminMembersPage() {
                     </button>
                   ) : (
                     <span className="text-slate-500">Pas d'adhésion</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {canEdit ? (
+                    <button
+                      onClick={() => toggleTrialDayInline(m.id, !m.airsoftTrialDay)}
+                      title={m.airsoftTrialDay ? "Retirer la journée d'essai" : "Activer la journée d'essai airsoft"}
+                      className={`rounded px-2 py-1 text-xs font-medium transition ${
+                        m.airsoftTrialDay
+                          ? "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
+                          : "bg-primary-900/60 text-slate-500 hover:bg-primary-800 hover:text-slate-300"
+                      }`}
+                    >
+                      {m.airsoftTrialDay ? "Activée" : "—"}
+                    </button>
+                  ) : (
+                    <span className={`rounded px-2 py-1 text-xs font-medium ${
+                      m.airsoftTrialDay ? "bg-emerald-950 text-emerald-300" : "text-slate-600"
+                    }`}>
+                      {m.airsoftTrialDay ? "Activée" : "—"}
+                    </span>
                   )}
                 </td>
                 {canEdit && (
