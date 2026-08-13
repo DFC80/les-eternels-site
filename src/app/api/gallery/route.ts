@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   const photos = await prisma.galleryPhoto.findMany({
     where: activityType && activityType !== "ALL" ? { activityType } : undefined,
     orderBy: { date: sort },
+    include: { _count: { select: { comments: true } } },
   });
 
   return NextResponse.json(photos);
