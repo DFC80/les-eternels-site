@@ -21,6 +21,14 @@ type Listing = {
   status: "ACTIVE" | "VENDU" | "CLOS";
   createdAt: string;
   user: ListingUser;
+  _count?: { comments: number };
+};
+
+type MarketComment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: { id: string; firstName: string; name: string };
 };
 
 const TYPE_INFO: Record<string, { label: string; color: string; bg: string }> = {
@@ -313,6 +321,141 @@ function ListingForm({
   );
 }
 
+function CommentsSection({
+  listingId,
+  initialCount,
+  currentUserId,
+}: {
+  listingId: string;
+  initialCount: number;
+  currentUserId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [comments, setComments] = useState<MarketComment[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const [count, setCount] = useState(initialCount);
+
+  async function loadComments() {
+    setLoading(true);
+    const res = await fetch(`/api/marketplace/${listingId}/comments`);
+    if (res.ok) {
+      const data = (await res.json()) as MarketComment[];
+      setComments(data);
+      setCount(data.length);
+    }
+    setLoading(false);
+  }
+
+  function toggle() {
+    if (!open && comments === null) loadComments();
+    setOpen((o) => !o);
+  }
+
+  async function postComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setPosting(true);
+    setPostError(null);
+    try {
+      const res = await fetch(`/api/marketplace/${listingId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: text }),
+      });
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        setPostError(d.error ?? "Erreur.");
+      } else {
+        setText("");
+        await loadComments();
+      }
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    await fetch(`/api/marketplace/${listingId}/comments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commentId }),
+    });
+    await loadComments();
+  }
+
+  return (
+    <div className="mt-3 border-t border-primary-800 pt-3">
+      <button
+        type="button"
+        onClick={toggle}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
+      >
+        <span>💬</span>
+        <span>{count} commentaire{count !== 1 ? "s" : ""}</span>
+        <span className="text-slate-600">{open ? "▴" : "▾"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-3">
+          {loading && <p className="text-xs text-slate-500">Chargement…</p>}
+
+          {comments && comments.length === 0 && (
+            <p className="text-xs text-slate-500">Aucun commentaire. Soyez le premier !</p>
+          )}
+
+          {comments && comments.map((c) => (
+            <div key={c.id} className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-silver-200">
+                    {c.user.firstName} {c.user.name}
+                  </span>
+                  <span className="text-xs text-slate-600">
+                    {new Date(c.createdAt).toLocaleDateString("fr-FR", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
+                  </span>
+                </div>
+                {c.user.id === currentUserId && (
+                  <button
+                    type="button"
+                    onClick={() => deleteComment(c.id)}
+                    className="text-xs text-red-500 hover:text-red-400"
+                  >
+                    Supprimer
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{c.content}</p>
+            </div>
+          ))}
+
+          <form onSubmit={postComment} className="flex flex-col gap-2">
+            <textarea
+              rows={2}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Votre commentaire…"
+              className="w-full rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-primary-500 focus:outline-none"
+            />
+            {postError && <p className="text-xs text-red-400">{postError}</p>}
+            <button
+              type="submit"
+              disabled={posting || !text.trim()}
+              className="self-start rounded-md bg-primary-500 px-3 py-1.5 text-xs font-semibold text-primary-950 hover:bg-primary-400 disabled:opacity-50"
+            >
+              {posting ? "Envoi…" : "Publier"}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ListingCard({
   listing,
   currentUserId,
@@ -559,6 +702,12 @@ function ListingCard({
           </div>
         )}
       </div>
+
+      <CommentsSection
+        listingId={listing.id}
+        initialCount={listing._count?.comments ?? 0}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

@@ -67,6 +67,7 @@ model User {
   newsComments    NewsComment[]
   payments        Payment[]
   marketListings  MarketListing[]
+  marketComments  MarketComment[]
   ideas           Idea[]
 }
 
@@ -533,7 +534,19 @@ model MarketListing {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments MarketComment[]
+}
+
+model MarketComment {
+  id        String   @id @default(cuid())
+  listingId String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  listing MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Idea {
