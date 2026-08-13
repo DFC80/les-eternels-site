@@ -68,6 +68,7 @@ model User {
   payments        Payment[]
   marketListings  MarketListing[]
   marketComments  MarketComment[]
+  photoComments   GalleryPhotoComment[]
   ideas           Idea[]
 }
 
@@ -261,6 +262,19 @@ model GalleryPhoto {
   visibility   String   @default("PUBLIC") // PUBLIC | MEMBERS_ONLY
   isFavorite   Boolean  @default(false)
   createdAt    DateTime @default(now())
+
+  comments GalleryPhotoComment[]
+}
+
+model GalleryPhotoComment {
+  id        String   @id @default(cuid())
+  photoId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  photo GalleryPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Product {
