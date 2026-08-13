@@ -45,6 +45,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { id: true, firstName: true, name: true } },
+      _count: { select: { comments: true } },
     },
   });
 
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
     },
     include: {
       user: { select: { id: true, firstName: true, name: true } },
+      _count: { select: { comments: true } },
     },
   });
 
