@@ -177,6 +177,7 @@ model MealMenu {
   eventId       String
   label         String
   maxPerPerson  Int?
+  extraPrice    Int?   // centimes, supplément optionnel en plus du prix de base du repas
 
   event      Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   orderItems MealOrderItem[]

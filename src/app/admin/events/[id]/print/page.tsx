@@ -199,10 +199,11 @@ export default async function PrintEventPage({ params }: { params: { id: string 
         {/* Repas */}
         {event.hasMeal && (() => {
           const EXTRAS_LABELS: Record<string, string> = {
-            softs: "🥤 Boissons softs",
-            beer: "🍺 Bières (1€ / verre ou canette)",
-            cheese: "🧀 Fromage",
-            dessert: "🍮 Dessert",
+            softs:           "🥤 Boissons softs",
+            beer:            "🍺 Bières (1€ / verre ou canette)",
+            pain:            "🍞 Pain",
+            sauces:          "🫙 Sauces diverses",
+            assaisonnements: "🧂 Assaisonnements",
           };
           const extras = event.mealExtras ? event.mealExtras.split(",").filter(Boolean) : [];
           return extras.length > 0 ? (

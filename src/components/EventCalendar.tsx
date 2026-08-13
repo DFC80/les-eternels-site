@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-type MealMenu = { id: string; label: string; maxPerPerson: number | null };
+type MealMenu = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null };
 type MealOrder = { id: string; menuId: string | null; quantity: number };
 
 type Equipment = {
@@ -711,10 +711,11 @@ export default function EventCalendar() {
                 {selected.mealInfo && <p className="mt-1 text-sm text-slate-300">{selected.mealInfo}</p>}
                 {selected.mealExtras && (() => {
                   const EXTRAS_LABELS: Record<string, string> = {
-                    softs: "🥤 Boissons softs",
-                    beer: "🍺 Bières (1€ / verre ou canette)",
-                    cheese: "🧀 Fromage",
-                    dessert: "🍮 Dessert",
+                    softs:           "🥤 Boissons softs",
+                    beer:            "🍺 Bières (1€ / verre ou canette)",
+                    pain:            "🍞 Pain",
+                    sauces:          "🫙 Sauces diverses",
+                    assaisonnements: "🧂 Assaisonnements",
                   };
                   const extras = selected.mealExtras.split(",").filter(Boolean);
                   return extras.length > 0 ? (
@@ -748,8 +749,8 @@ export default function EventCalendar() {
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {(selected.menus.length > 0
-                        ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson }))
-                        : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null }]
+                        ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
+                        : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
                       ).map((item) => {
                         const qty = quantities[item.key] ?? 0;
                         const atMax = item.max != null && qty >= item.max;
@@ -763,6 +764,9 @@ export default function EventCalendar() {
                             }`}
                           >
                             <p className="font-medium text-silver-100">{item.label}</p>
+                            {item.extraPrice != null && item.extraPrice > 0 && (
+                              <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
+                            )}
                             {item.max != null && (
                               <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
                             )}
@@ -1040,8 +1044,8 @@ export default function EventCalendar() {
                       <>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           {(selected.menus.length > 0
-                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson }))
-                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null }]
+                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
+                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
                           ).map((item) => {
                             const qty = quantities[item.key] ?? 0;
                             const atMax = item.max != null && qty >= item.max;
@@ -1053,6 +1057,9 @@ export default function EventCalendar() {
                                 }`}
                               >
                                 <p className="font-medium text-silver-100">{item.label}</p>
+                                {item.extraPrice != null && item.extraPrice > 0 && (
+                                  <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
+                                )}
                                 {item.max != null && (
                                   <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
                                 )}
