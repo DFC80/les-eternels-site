@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
+import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const body = await request.json();
-  const data: { comment?: string | null; isFavorite?: boolean; activityType?: string } = {};
+  const data: { comment?: string | null; isFavorite?: boolean } = {};
 
   if ("comment" in body) {
     data.comment = body.comment ?? null;
@@ -33,17 +33,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     data.isFavorite = !!body.isFavorite;
   }
 
-  if ("activityType" in body && typeof body.activityType === "string") {
-    data.activityType = body.activityType;
+  if ("activityKeys" in body && Array.isArray(body.activityKeys)) {
+    const keys: string[] = body.activityKeys;
+    await prisma.galleryPhotoActivity.deleteMany({ where: { photoId: params.id } });
+    if (keys.length > 0) {
+      await prisma.galleryPhotoActivity.createMany({
+        data: keys.map((activityKey) => ({ photoId: params.id, activityKey })),
+      });
+    }
   }
 
-  if (Object.keys(data).length === 0) {
+  if (Object.keys(data).length === 0 && !("activityKeys" in body)) {
     return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
   }
 
   const photo = await prisma.galleryPhoto.update({
     where: { id: params.id },
     data,
+    include: { activities: true },
   });
 
   return NextResponse.json(photo);

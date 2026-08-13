@@ -254,16 +254,26 @@ model EquipmentAssociation {
 }
 
 model GalleryPhoto {
-  id           String   @id @default(cuid())
-  url          String
-  date         DateTime
-  comment      String?
-  activityType String   @default("AUTRE") // JEUX_DE_PLATEAU | JEUX_DE_ROLE | AIRSOFT | AUTRE
-  visibility   String   @default("PUBLIC") // PUBLIC | MEMBERS_ONLY
-  isFavorite   Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  url        String
+  date       DateTime
+  comment    String?
+  visibility String   @default("PUBLIC") // PUBLIC | MEMBERS_ONLY
+  isFavorite Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  comments GalleryPhotoComment[]
+  activities GalleryPhotoActivity[]
+  comments   GalleryPhotoComment[]
+}
+
+model GalleryPhotoActivity {
+  id          String @id @default(cuid())
+  photoId     String
+  activityKey String
+
+  photo GalleryPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, activityKey])
 }
 
 model GalleryPhotoComment {

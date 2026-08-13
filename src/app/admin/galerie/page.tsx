@@ -13,7 +13,7 @@ type Photo = {
   url: string;
   date: string;
   comment: string | null;
-  activityType: string;
+  activities: { activityKey: string }[];
   isFavorite: boolean;
 };
 
@@ -21,7 +21,7 @@ const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
 const today = new Date().toISOString().slice(0, 10);
-const EMPTY_FORM = { url: "", date: today, comment: "", activityType: "AUTRE" };
+const EMPTY_FORM = { url: "", date: today, comment: "", activityKeys: [] as string[] };
 
 export default function AdminGaleriePage() {
   const { data: session } = useSession();
@@ -37,7 +37,7 @@ export default function AdminGaleriePage() {
   const [saving, setSaving] = useState(false);
   const [editingComment, setEditingComment] = useState<{ id: string; value: string } | null>(null);
   const [savingComment, setSavingComment] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<{ id: string; value: string } | null>(null);
+  const [editingActivity, setEditingActivity] = useState<{ id: string; keys: string[] } | null>(null);
   const [savingActivity, setSavingActivity] = useState(false);
 
   async function load() {
@@ -54,6 +54,25 @@ export default function AdminGaleriePage() {
       );
   }, []);
 
+  function toggleFormActivity(key: string) {
+    setForm((f) => ({
+      ...f,
+      activityKeys: f.activityKeys.includes(key)
+        ? f.activityKeys.filter((k) => k !== key)
+        : [...f.activityKeys, key],
+    }));
+  }
+
+  function toggleEditActivity(key: string) {
+    if (!editingActivity) return;
+    setEditingActivity({
+      ...editingActivity,
+      keys: editingActivity.keys.includes(key)
+        ? editingActivity.keys.filter((k) => k !== key)
+        : [...editingActivity.keys, key],
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -62,7 +81,7 @@ export default function AdminGaleriePage() {
     const res = await fetch("/api/admin/gallery", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ url: form.url, date: form.date, comment: form.comment, activityKeys: form.activityKeys }),
     });
 
     setSaving(false);
@@ -97,12 +116,12 @@ export default function AdminGaleriePage() {
     }
   }
 
-  async function saveActivity(id: string, activityType: string) {
+  async function saveActivities(id: string, keys: string[]) {
     setSavingActivity(true);
     const res = await fetch(`/api/admin/gallery/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ activityType }),
+      body: JSON.stringify({ activityKeys: keys }),
     });
     setSavingActivity(false);
     if (res.ok) {
@@ -120,8 +139,16 @@ export default function AdminGaleriePage() {
     if (res.ok) await load();
   }
 
+  function resolveActivityLabels(keys: string[]): string {
+    if (keys.length === 0) return "Toutes activités";
+    return keys.map((k) => {
+      const a = activityOptions.find((o) => o.key === k);
+      return a ? `${a.emoji} ${a.label}` : k;
+    }).join(", ");
+  }
+
   const visiblePhotos = allowedTypes
-    ? photos.filter((p) => allowedTypes.includes(p.activityType))
+    ? photos.filter((p) => p.activities.length === 0 || p.activities.some((a) => allowedTypes.includes(a.activityKey)))
     : photos;
   const visibleActivityOptions = allowedTypes
     ? activityOptions.filter((a) => allowedTypes.includes(a.key))
@@ -137,7 +164,7 @@ export default function AdminGaleriePage() {
           <ImageUpload
             label="Photo"
             value={form.url}
-            onChange={(url) => setForm({ ...form, url: url })}
+            onChange={(url) => setForm({ ...form, url })}
           />
         </div>
 
@@ -152,16 +179,21 @@ export default function AdminGaleriePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Activité</label>
-          <select
-            value={form.activityType}
-            onChange={(e) => setForm({ ...form, activityType: e.target.value })}
-            className={inputClass}
-          >
+          <label className="block text-sm font-medium text-slate-300">Activités associées</label>
+          <p className="mt-1 text-xs text-slate-500">Si aucune activité n'est cochée, la photo est visible par tous les adhérents.</p>
+          <div className="mt-2 flex flex-wrap gap-3">
             {visibleActivityOptions.map((a) => (
-              <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
+              <label key={a.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-primary-700 bg-primary-950/60 px-3 py-2 text-sm text-slate-200 hover:border-primary-500">
+                <input
+                  type="checkbox"
+                  checked={form.activityKeys.includes(a.key)}
+                  onChange={() => toggleFormActivity(a.key)}
+                  className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                />
+                {a.emoji} {a.label}
+              </label>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="sm:col-span-2">
@@ -192,47 +224,53 @@ export default function AdminGaleriePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.comment ?? ""} className="h-40 w-full object-cover" />
             <div className="p-3">
-              <div className="flex items-center gap-2">
-                {canWrite && editingActivity?.id === p.id ? (
-                  <div className="flex flex-1 items-center gap-2">
-                    <select
-                      value={editingActivity.value}
-                      onChange={(e) => setEditingActivity({ id: p.id, value: e.target.value })}
-                      autoFocus
-                      className="flex-1 rounded border border-primary-600 bg-primary-950 px-2 py-1 text-xs text-slate-100 focus:outline-none"
-                    >
-                      {visibleActivityOptions.map((a) => (
-                        <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
-                      ))}
-                    </select>
+
+              {/* Activity badges / edit */}
+              {canWrite && editingActivity?.id === p.id ? (
+                <div className="mb-2">
+                  <p className="mb-1.5 text-xs text-slate-400">Activités associées :</p>
+                  <div className="flex flex-wrap gap-2">
+                    {visibleActivityOptions.map((a) => (
+                      <label key={a.key} className="flex cursor-pointer items-center gap-1.5 rounded border border-primary-700 bg-primary-950/60 px-2 py-1 text-xs text-slate-200 hover:border-primary-500">
+                        <input
+                          type="checkbox"
+                          checked={editingActivity.keys.includes(a.key)}
+                          onChange={() => toggleEditActivity(a.key)}
+                          className="h-3 w-3 rounded accent-primary-400"
+                        />
+                        {a.emoji} {a.label}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => saveActivity(p.id, editingActivity.value)}
+                      onClick={() => saveActivities(p.id, editingActivity.keys)}
                       disabled={savingActivity}
                       className="text-xs font-medium text-primary-400 hover:underline disabled:opacity-60"
                     >
-                      {savingActivity ? "…" : "OK"}
+                      {savingActivity ? "Enregistrement…" : "Enregistrer"}
                     </button>
-                    <button onClick={() => setEditingActivity(null)} className="text-xs text-slate-400 hover:underline">✕</button>
+                    <button onClick={() => setEditingActivity(null)} className="text-xs text-slate-400 hover:underline">Annuler</button>
                   </div>
-                ) : (
-                  <div className="flex flex-1 items-center gap-1">
-                    <p className="text-xs text-slate-400">
-                      {activityOptions.find((a) => a.key === p.activityType)
-                        ? `${activityOptions.find((a) => a.key === p.activityType)!.emoji} ${activityOptions.find((a) => a.key === p.activityType)!.label}`
-                        : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
-                    </p>
-                    {canWrite && (
-                      <button
-                        onClick={() => setEditingActivity({ id: p.id, value: p.activityType })}
-                        className="text-xs text-slate-600 hover:text-slate-300"
-                        title="Modifier l'activité"
-                      >
-                        ✏️
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="mb-2 flex items-start gap-1">
+                  <p className="flex-1 text-xs text-slate-400">
+                    {resolveActivityLabels(p.activities.map((a) => a.activityKey))} · {new Date(p.date).toLocaleDateString("fr-FR")}
+                  </p>
+                  {canWrite && (
+                    <button
+                      onClick={() => setEditingActivity({ id: p.id, keys: p.activities.map((a) => a.activityKey) })}
+                      className="shrink-0 text-xs text-slate-600 hover:text-slate-300"
+                      title="Modifier les activités"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Comment edit */}
               {canWrite && editingComment?.id === p.id ? (
                 <div className="mt-2">
                   <textarea
@@ -251,12 +289,7 @@ export default function AdminGaleriePage() {
                     >
                       {savingComment ? "Enregistrement…" : "Enregistrer"}
                     </button>
-                    <button
-                      onClick={() => setEditingComment(null)}
-                      className="text-xs text-slate-400 hover:underline"
-                    >
-                      Annuler
-                    </button>
+                    <button onClick={() => setEditingComment(null)} className="text-xs text-slate-400 hover:underline">Annuler</button>
                   </div>
                 </div>
               ) : (
@@ -273,6 +306,7 @@ export default function AdminGaleriePage() {
                   )}
                 </div>
               )}
+
               {canWrite && (
                 <div className="mt-2 flex items-center gap-3">
                   <button

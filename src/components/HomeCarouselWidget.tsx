@@ -7,7 +7,6 @@ type CarouselPhoto = {
   id: string;
   url: string;
   comment: string | null;
-  activityType: string;
   date: string;
 };
 

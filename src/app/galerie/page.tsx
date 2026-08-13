@@ -12,7 +12,7 @@ type Photo = {
   url: string;
   date: string;
   comment: string | null;
-  activityType: string;
+  activities: { activityKey: string }[];
   _count?: { comments: number };
 };
 
@@ -112,21 +112,13 @@ function CommentsSection({
             <div key={c.id} className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-silver-200">
-                    {c.user.firstName} {c.user.name}
-                  </span>
+                  <span className="text-xs font-medium text-silver-200">{c.user.firstName} {c.user.name}</span>
                   <span className="text-xs text-slate-600">
-                    {new Date(c.createdAt).toLocaleDateString("fr-FR", {
-                      day: "numeric", month: "short", year: "numeric",
-                    })}
+                    {new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 </div>
                 {c.user.id === currentUserId && (
-                  <button
-                    type="button"
-                    onClick={() => deleteComment(c.id)}
-                    className="text-xs text-red-500 hover:text-red-400"
-                  >
+                  <button type="button" onClick={() => deleteComment(c.id)} className="text-xs text-red-500 hover:text-red-400">
                     Supprimer
                   </button>
                 )}
@@ -189,10 +181,13 @@ function GalerieContent() {
       .then(setPhotos);
   }, [activityFilter, sort]);
 
-  function getBadge(activityType: string) {
-    const act = activityOptions.find((a) => a.key === activityType);
-    const c = getColors(act?.color ?? "slate");
-    return { badge: `${c.bg} ${c.text} ${c.border}`, label: act ? `${act.emoji} ${act.label}` : activityType };
+  function getActivityBadges(activityKeys: string[]) {
+    if (activityKeys.length === 0) return [];
+    return activityKeys.map((key) => {
+      const act = activityOptions.find((a) => a.key === key);
+      const c = getColors(act?.color ?? "slate");
+      return { badge: `${c.bg} ${c.text} ${c.border}`, label: act ? `${act.emoji} ${act.label}` : key };
+    });
   }
 
   return (
@@ -230,7 +225,7 @@ function GalerieContent() {
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {photos.map((p) => {
-            const { badge, label } = getBadge(p.activityType);
+            const badges = getActivityBadges(p.activities.map((a) => a.activityKey));
             return (
               <button
                 key={p.id}
@@ -240,7 +235,11 @@ function GalerieContent() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.url} alt={p.comment ?? "Photo de l'association"} className="h-48 w-full object-cover transition group-hover:scale-105" />
                 <div className="p-3">
-                  <span className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {badges.map(({ badge, label }) => (
+                      <span key={label} className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                    ))}
+                  </div>
                   <p className="mt-1 text-xs text-slate-400">{new Date(p.date).toLocaleDateString("fr-FR")}</p>
                   {p.comment && <p className="mt-1 truncate text-sm text-slate-300">{p.comment}</p>}
                   {(p._count?.comments ?? 0) > 0 && (
@@ -254,7 +253,7 @@ function GalerieContent() {
       )}
 
       {selected && (() => {
-        const { badge, label } = getBadge(selected.activityType);
+        const badges = getActivityBadges(selected.activities.map((a) => a.activityKey));
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -264,7 +263,11 @@ function GalerieContent() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={selected.url} alt={selected.comment ?? ""} className="max-h-[60vh] w-full rounded-lg object-contain" />
               <div className="mt-3">
-                <span className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                <div className="flex flex-wrap gap-1">
+                  {badges.map(({ badge, label }) => (
+                    <span key={label} className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                  ))}
+                </div>
                 <p className="mt-1 text-sm text-slate-400">{new Date(selected.date).toLocaleDateString("fr-FR")}</p>
                 {selected.comment && <p className="mt-1 text-sm text-slate-300">{selected.comment}</p>}
               </div>

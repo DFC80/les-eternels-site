@@ -6,7 +6,7 @@ export async function GET() {
   const photos = await prisma.galleryPhoto.findMany({
     where: { isFavorite: true, visibility: "PUBLIC" },
     orderBy: { date: "desc" },
-    select: { id: true, url: true, comment: true, activityType: true, date: true },
+    select: { id: true, url: true, comment: true, date: true },
   });
   return NextResponse.json(photos);
 }

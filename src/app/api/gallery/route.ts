@@ -15,14 +15,18 @@ export async function GET(request: Request) {
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
 
+  // Base filter by activity key from query param
   const activityWhere: Prisma.GalleryPhotoWhereInput =
-    activityType && activityType !== "ALL" ? { activityType } : {};
+    activityType && activityType !== "ALL"
+      ? { activities: { some: { activityKey: activityType } } }
+      : {};
 
-  // Non-featured photos require membership in the related activity.
-  // isFavorite photos are always visible (they appear on the public homepage).
+  // Visibility: isFavorite photos are always public.
+  // Non-featured photos require at least one matching membership activity.
+  // Photos with no activities tagged are visible to all members.
+  let seeAll = false;
   let visibilityWhere: Prisma.GalleryPhotoWhereInput | null = null;
 
-  let seeAll = false;
   if (userId) {
     if (isFullAdmin(role)) {
       seeAll = true;
@@ -38,11 +42,11 @@ export async function GET(request: Request) {
 
         const or: Prisma.GalleryPhotoWhereInput[] = [
           { isFavorite: true },
-          { isFavorite: false, activityType: "AUTRE" },
+          { isFavorite: false, activities: { none: {} } }, // no activities = visible to all members
         ];
-        if (membership?.wantsBoardGames) or.push({ isFavorite: false, activityType: "JEUX_DE_PLATEAU" });
-        if (membership?.wantsRolePlay) or.push({ isFavorite: false, activityType: "JEUX_DE_ROLE" });
-        if (membership?.wantsAirsoft) or.push({ isFavorite: false, activityType: "AIRSOFT" });
+        if (membership?.wantsBoardGames) or.push({ isFavorite: false, activities: { some: { activityKey: "JEUX_DE_PLATEAU" } } });
+        if (membership?.wantsRolePlay) or.push({ isFavorite: false, activities: { some: { activityKey: "JEUX_DE_ROLE" } } });
+        if (membership?.wantsAirsoft) or.push({ isFavorite: false, activities: { some: { activityKey: "AIRSOFT" } } });
         visibilityWhere = { OR: or };
       }
     }
@@ -58,7 +62,7 @@ export async function GET(request: Request) {
   const photos = await prisma.galleryPhoto.findMany({
     where,
     orderBy: { date: sort },
-    include: { _count: { select: { comments: true } } },
+    include: { activities: true, _count: { select: { comments: true } } },
   });
 
   return NextResponse.json(photos);
