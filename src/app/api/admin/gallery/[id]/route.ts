@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const body = await request.json();
-  const data: { comment?: string | null; isFavorite?: boolean } = {};
+  const data: { comment?: string | null; isFavorite?: boolean; activityType?: string } = {};
 
   if ("comment" in body) {
     data.comment = body.comment ?? null;
@@ -31,6 +31,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if ("isFavorite" in body) {
     data.isFavorite = !!body.isFavorite;
+  }
+
+  if ("activityType" in body && typeof body.activityType === "string") {
+    data.activityType = body.activityType;
   }
 
   if (Object.keys(data).length === 0) {
