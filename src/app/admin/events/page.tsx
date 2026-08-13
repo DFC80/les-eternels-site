@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { getAllowedActivityTypes, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 
-type MenuItem = { id: string; label: string; maxPerPerson: number | null };
+type MenuItem = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null };
 
 type EventItem = {
   id: string;
@@ -44,7 +44,7 @@ type MealReport = {
   diners: { name: string; items: { label: string; quantity: number }[]; notes: string | null }[];
 };
 
-type MenuFormItem = { id?: string; label: string; maxPerPerson: string };
+type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -97,10 +97,11 @@ type KioskProduct = { id: string; category: string; name: string; price: number;
 type KioskData = { members: KioskMember[]; products: KioskProduct[] };
 
 const MEAL_EXTRAS = [
-  { key: "softs", label: "Boissons softs" },
-  { key: "beer", label: "Bières (1€ / verre ou canette)" },
-  { key: "cheese", label: "Fromage" },
-  { key: "dessert", label: "Dessert" },
+  { key: "softs",            label: "Boissons softs" },
+  { key: "beer",             label: "Bières (1€ / verre ou canette)" },
+  { key: "pain",             label: "Pain" },
+  { key: "sauces",           label: "Sauces diverses" },
+  { key: "assaisonnements",  label: "Assaisonnements" },
 ] as const;
 
 const inputClass =
@@ -212,7 +213,7 @@ export default function AdminEventsPage() {
       mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
-      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "" })),
+      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "" })),
       boardGameIds: ev.boardGames.map((g) => g.id),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -245,7 +246,7 @@ export default function AdminEventsPage() {
       mealExtras: form.mealExtras,
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
-      menus: form.menus.map((m) => ({ label: m.label, maxPerPerson: m.maxPerPerson || null })),
+      menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null })),
       boardGameIds: form.activityType === "JEUX_DE_PLATEAU" ? form.boardGameIds : [],
     };
 
@@ -1439,7 +1440,7 @@ export default function AdminEventsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300">
-                  Menus au choix (optionnel) — avec quantité maximale par personne
+                  Menus au choix (optionnel)
                 </label>
                 <div className="mt-2 space-y-2">
                   {form.menus.map((menu, i) => (
@@ -1456,6 +1457,17 @@ export default function AdminEventsPage() {
                         value={menu.maxPerPerson}
                         onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
                         placeholder="Max/pers."
+                        title="Quantité maximale par personne"
+                        className={`${inputClass} sm:w-28`}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={menu.extraPrice}
+                        onChange={(e) => updateMenu(i, "extraPrice", e.target.value)}
+                        placeholder="Supplément €"
+                        title="Supplément payant en euros (laisser vide si aucun)"
                         className={`${inputClass} sm:w-32`}
                       />
                       <button
@@ -1470,11 +1482,12 @@ export default function AdminEventsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "" }] })}
+                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "", extraPrice: "" }] })}
                   className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
                 >
                   + Ajouter un menu
                 </button>
+                <p className="mt-1 text-xs text-slate-500">Le supplément s&apos;ajoute au prix de base du repas et est réglé sur place.</p>
               </div>
             </div>
           )}

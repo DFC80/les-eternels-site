@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 import { sendNewEventNotification } from "@/lib/mail";
 
-type MenuInput = { label: string; maxPerPerson?: number | string | null };
+type MenuInput = { label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null };
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
     .map((m) => ({
       label: m.label.trim(),
       maxPerPerson: m.maxPerPerson ? Number(m.maxPerPerson) : null,
+      extraPrice: m.extraPrice != null && m.extraPrice !== "" ? Math.round(Number(m.extraPrice)) : null,
     }))
     .filter((m) => m.label);
 
