@@ -26,6 +26,7 @@ export async function GET() {
       role: true,
       isActive: true,
       isPending: true,
+      airsoftTrialDay: true,
       createdAt: true,
       bureauRoles: { select: { bureauRole: { select: { id: true, label: true, order: true } } } },
       _count: { select: { registrations: true } },
