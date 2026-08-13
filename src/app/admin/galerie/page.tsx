@@ -37,6 +37,8 @@ export default function AdminGaleriePage() {
   const [saving, setSaving] = useState(false);
   const [editingComment, setEditingComment] = useState<{ id: string; value: string } | null>(null);
   const [savingComment, setSavingComment] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<{ id: string; value: string } | null>(null);
+  const [savingActivity, setSavingActivity] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin/gallery");
@@ -91,6 +93,20 @@ export default function AdminGaleriePage() {
     setSavingComment(false);
     if (res.ok) {
       setEditingComment(null);
+      await load();
+    }
+  }
+
+  async function saveActivity(id: string, activityType: string) {
+    setSavingActivity(true);
+    const res = await fetch(`/api/admin/gallery/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activityType }),
+    });
+    setSavingActivity(false);
+    if (res.ok) {
+      setEditingActivity(null);
       await load();
     }
   }
@@ -176,12 +192,46 @@ export default function AdminGaleriePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.comment ?? ""} className="h-40 w-full object-cover" />
             <div className="p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-slate-400">
-                  {activityOptions.find((a) => a.key === p.activityType)
-                    ? `${activityOptions.find((a) => a.key === p.activityType)!.emoji} ${activityOptions.find((a) => a.key === p.activityType)!.label}`
-                    : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
-                </p>
+              <div className="flex items-center gap-2">
+                {canWrite && editingActivity?.id === p.id ? (
+                  <div className="flex flex-1 items-center gap-2">
+                    <select
+                      value={editingActivity.value}
+                      onChange={(e) => setEditingActivity({ id: p.id, value: e.target.value })}
+                      autoFocus
+                      className="flex-1 rounded border border-primary-600 bg-primary-950 px-2 py-1 text-xs text-slate-100 focus:outline-none"
+                    >
+                      {visibleActivityOptions.map((a) => (
+                        <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => saveActivity(p.id, editingActivity.value)}
+                      disabled={savingActivity}
+                      className="text-xs font-medium text-primary-400 hover:underline disabled:opacity-60"
+                    >
+                      {savingActivity ? "…" : "OK"}
+                    </button>
+                    <button onClick={() => setEditingActivity(null)} className="text-xs text-slate-400 hover:underline">✕</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-1 items-center gap-1">
+                    <p className="text-xs text-slate-400">
+                      {activityOptions.find((a) => a.key === p.activityType)
+                        ? `${activityOptions.find((a) => a.key === p.activityType)!.emoji} ${activityOptions.find((a) => a.key === p.activityType)!.label}`
+                        : p.activityType} · {new Date(p.date).toLocaleDateString("fr-FR")}
+                    </p>
+                    {canWrite && (
+                      <button
+                        onClick={() => setEditingActivity({ id: p.id, value: p.activityType })}
+                        className="text-xs text-slate-600 hover:text-slate-300"
+                        title="Modifier l'activité"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {canWrite && editingComment?.id === p.id ? (
                 <div className="mt-2">
