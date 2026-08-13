@@ -60,23 +60,24 @@ export default function HomeCarouselWidget() {
           className={`grid gap-3 ${count === 1 ? "grid-cols-1" : count === 2 ? "grid-cols-2" : "grid-cols-3"}`}
         >
           {visiblePhotos.map(({ photo, slot }) => (
-            <div
+            <Link
               key={`${photo.id}-${slot}`}
-              className="relative overflow-hidden rounded-xl border border-primary-800"
+              href="/galerie"
+              className="relative block overflow-hidden rounded-xl border border-primary-800 transition hover:border-primary-500"
               style={{ aspectRatio: "4/3" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
                 alt={photo.comment ?? "Photo de la galerie"}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition group-hover:scale-105"
               />
               {photo.comment && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
                   <p className="line-clamp-2 text-xs text-slate-200">{photo.comment}</p>
                 </div>
               )}
-            </div>
+            </Link>
           ))}
         </div>
 
