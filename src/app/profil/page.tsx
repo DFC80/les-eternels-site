@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import BalanceTopUpCard from "@/components/BalanceTopUpCard";
 import DateInput from "@/components/DateInput";
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
+const inputErrorClass =
+  "mt-1 w-full rounded-md border border-red-500 bg-red-950/20 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-red-400 focus:outline-none ring-1 ring-red-500/40";
 
 function computeAge(dateOfBirth: string): number | null {
   if (!dateOfBirth) return null;
@@ -22,6 +25,7 @@ function computeAge(dateOfBirth: string): number | null {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,6 +43,10 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [incompleteWarning, setIncompleteWarning] = useState(false);
+  const [redirectAfterSave, setRedirectAfterSave] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({
+    firstName: false, name: false, addressStreet: false, addressPostalCode: false, addressCity: false, gender: false,
+  });
 
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -48,7 +56,10 @@ export default function ProfilePage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("incomplete") === "1") setIncompleteWarning(true);
+      if (params.get("incomplete") === "1") {
+        setIncompleteWarning(true);
+        setRedirectAfterSave(true);
+      }
     }
   }, []);
 
@@ -109,15 +120,17 @@ export default function ProfilePage() {
     setError(null);
     setSuccess(false);
 
-    const missing =
-      !firstName.trim() ||
-      !name.trim() ||
-      !addressStreet.trim() ||
-      !addressPostalCode.trim() ||
-      !addressCity.trim() ||
-      !gender;
+    const errors = {
+      firstName: !firstName.trim(),
+      name: !name.trim(),
+      addressStreet: !addressStreet.trim(),
+      addressPostalCode: !addressPostalCode.trim(),
+      addressCity: !addressCity.trim(),
+      gender: !gender,
+    };
 
-    if (missing) {
+    if (Object.values(errors).some(Boolean)) {
+      setFieldErrors(errors);
       setIncompleteWarning(true);
       return;
     }
@@ -152,7 +165,13 @@ export default function ProfilePage() {
     }
 
     setIncompleteWarning(false);
-    setSuccess(true);
+    setFieldErrors({ firstName: false, name: false, addressStreet: false, addressPostalCode: false, addressCity: false, gender: false });
+
+    if (redirectAfterSave) {
+      router.push("/");
+    } else {
+      setSuccess(true);
+    }
   }
 
   return (
@@ -242,8 +261,8 @@ export default function ProfilePage() {
             </label>
             <input
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className={inputClass}
+              onChange={(e) => { setFirstName(e.target.value); setFieldErrors((f) => ({ ...f, firstName: false })); }}
+              className={fieldErrors.firstName ? inputErrorClass : inputClass}
             />
           </div>
           <div>
@@ -252,8 +271,8 @@ export default function ProfilePage() {
             </label>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={inputClass}
+              onChange={(e) => { setName(e.target.value); setFieldErrors((f) => ({ ...f, name: false })); }}
+              className={fieldErrors.name ? inputErrorClass : inputClass}
             />
           </div>
         </div>
@@ -302,9 +321,9 @@ export default function ProfilePage() {
           </label>
           <input
             value={addressStreet}
-            onChange={(e) => setAddressStreet(e.target.value)}
+            onChange={(e) => { setAddressStreet(e.target.value); setFieldErrors((f) => ({ ...f, addressStreet: false })); }}
             placeholder="12 rue des Éternels"
-            className={inputClass}
+            className={fieldErrors.addressStreet ? inputErrorClass : inputClass}
           />
         </div>
 
@@ -315,9 +334,9 @@ export default function ProfilePage() {
             </label>
             <input
               value={addressPostalCode}
-              onChange={(e) => setAddressPostalCode(e.target.value)}
+              onChange={(e) => { setAddressPostalCode(e.target.value); setFieldErrors((f) => ({ ...f, addressPostalCode: false })); }}
               placeholder="75000"
-              className={inputClass}
+              className={fieldErrors.addressPostalCode ? inputErrorClass : inputClass}
             />
           </div>
           <div className="sm:col-span-2">
@@ -326,9 +345,9 @@ export default function ProfilePage() {
             </label>
             <input
               value={addressCity}
-              onChange={(e) => setAddressCity(e.target.value)}
+              onChange={(e) => { setAddressCity(e.target.value); setFieldErrors((f) => ({ ...f, addressCity: false })); }}
               placeholder="Paris"
-              className={inputClass}
+              className={fieldErrors.addressCity ? inputErrorClass : inputClass}
             />
           </div>
         </div>
@@ -337,7 +356,11 @@ export default function ProfilePage() {
           <label className="block text-sm font-medium text-slate-300">
             Genre <span className="text-red-400">*</span>
           </label>
-          <select value={gender} onChange={(e) => setGender(e.target.value)} className={inputClass}>
+          <select
+            value={gender}
+            onChange={(e) => { setGender(e.target.value); setFieldErrors((f) => ({ ...f, gender: false })); }}
+            className={fieldErrors.gender ? inputErrorClass : inputClass}
+          >
             <option value="">Sélectionner...</option>
             <option value="HOMME">Homme</option>
             <option value="FEMME">Femme</option>
