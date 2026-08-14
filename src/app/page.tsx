@@ -182,7 +182,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {homeIdeas.length > 0 && (
+      {session && homeIdeas.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-silver-100">💡 Idées des membres</h2>
