@@ -38,11 +38,19 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [incompleteWarning, setIncompleteWarning] = useState(false);
 
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("incomplete") === "1") setIncompleteWarning(true);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -100,6 +108,20 @@ export default function ProfilePage() {
     e.preventDefault();
     setError(null);
     setSuccess(false);
+
+    const missing =
+      !firstName.trim() ||
+      !name.trim() ||
+      !addressStreet.trim() ||
+      !addressPostalCode.trim() ||
+      !addressCity.trim() ||
+      !gender;
+
+    if (missing) {
+      setIncompleteWarning(true);
+      return;
+    }
+
     setSaving(true);
 
     const res = await fetch("/api/profile", {
@@ -129,6 +151,7 @@ export default function ProfilePage() {
       return;
     }
 
+    setIncompleteWarning(false);
     setSuccess(true);
   }
 
@@ -152,8 +175,18 @@ export default function ProfilePage() {
         Les champs marqués <span className="text-red-400 font-semibold">*</span> sont obligatoires pour adhérer à l'association.
       </p>
 
+      {incompleteWarning && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-600 bg-amber-950/60 px-4 py-3">
+          <span className="text-lg leading-none">⚠️</span>
+          <p className="text-sm font-semibold text-amber-300">
+            Merci de compléter votre profil avec les informations obligatoires pour continuer.
+          </p>
+        </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="mt-6 space-y-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6"
       >
         {/* Avatar */}
@@ -208,7 +241,6 @@ export default function ProfilePage() {
               Prénom <span className="text-red-400">*</span>
             </label>
             <input
-              required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               className={inputClass}
@@ -219,7 +251,6 @@ export default function ProfilePage() {
               Nom <span className="text-red-400">*</span>
             </label>
             <input
-              required
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={inputClass}
