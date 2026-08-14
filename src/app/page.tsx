@@ -10,6 +10,7 @@ import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
 import HomeMarketWidget from "@/components/HomeMarketWidget";
 import { canAccessAdmin, sessionHasAccess } from "@/lib/permissions";
+import { formatCentsToEuros } from "@/lib/money";
 
 async function getLatestArticle() {
   return prisma.newsArticle.findFirst({
@@ -51,6 +52,15 @@ async function getHomeIdeas() {
   });
 }
 
+async function getHomeShopItems() {
+  return prisma.shopItem.findMany({
+    where: { showOnHome: true, isPublished: true },
+    orderBy: { createdAt: "desc" },
+    take: 4,
+    select: { id: true, title: true, price: true, stock: true, photos: true },
+  });
+}
+
 async function getSettings() {
   const rows = await prisma.siteSetting.findMany({
     where: { key: { in: ["description", "logoVersion"] } },
@@ -63,13 +73,14 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas] = await Promise.all([
+  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas, homeShopItems] = await Promise.all([
     getServerSession(authOptions),
     getSettings(),
     getLatestArticle(),
     getLatestPublishedAG(),
     getUpcomingEvents(),
     getHomeIdeas(),
+    getHomeShopItems(),
   ]);
 
   const userHasMembership = session
@@ -214,6 +225,41 @@ export default async function HomePage() {
                   </div>
                   <h3 className="mt-2 font-display text-base text-silver-100">{idea.title}</h3>
                   <p className="mt-1 line-clamp-3 text-sm text-slate-400">{idea.description}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {session && homeShopItems.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">🛍️ Boutique</h2>
+            <Link href="/boutique" className="text-sm text-primary-300 hover:text-silver-200 hover:underline">
+              Voir tous les produits →
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {homeShopItems.map((item) => {
+              const firstPhoto = item.photos?.split("\n").find(Boolean);
+              return (
+                <Link
+                  key={item.id}
+                  href="/boutique"
+                  className="rounded-xl border border-primary-800 bg-primary-900/50 p-3 transition hover:border-primary-600 hover:bg-primary-800/60"
+                >
+                  {firstPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={firstPhoto} alt={item.title} className="h-32 w-full rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-32 items-center justify-center rounded-lg bg-primary-800 text-3xl">🛍️</div>
+                  )}
+                  <h3 className="mt-2 font-display text-sm text-silver-100 line-clamp-2">{item.title}</h3>
+                  <p className="mt-1 text-base font-bold text-primary-300">{formatCentsToEuros(item.price)}</p>
+                  {item.stock <= 0 && (
+                    <p className="mt-0.5 text-xs text-red-400">Épuisé</p>
+                  )}
                 </Link>
               );
             })}
