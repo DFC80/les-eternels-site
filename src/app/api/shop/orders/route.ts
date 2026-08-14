@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendShopOrderNotificationToAdmin } from "@/lib/mail";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -73,6 +74,25 @@ export async function POST(request: Request) {
       data: { stock: { decrement: item.quantity } },
     });
   }
+
+  // Notify admin
+  const member = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { firstName: true, name: true, email: true },
+  });
+  const total = order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+  sendShopOrderNotificationToAdmin({
+    memberName: `${member?.firstName ?? ""} ${member?.name ?? ""}`.trim(),
+    memberEmail: member?.email ?? session.user.email ?? "",
+    items: order.items.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      customText: i.customText,
+    })),
+    total,
+    notes: order.notes,
+  }).catch(() => {});
 
   return NextResponse.json(order, { status: 201 });
 }

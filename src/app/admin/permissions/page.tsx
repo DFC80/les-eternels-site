@@ -19,6 +19,7 @@ const ALL_SECTIONS = [
   { key: "reunions", label: "Réunions & AG" },
   { key: "documents", label: "Documents" },
   { key: "notes", label: "Notes admin" },
+  { key: "boutique", label: "Boutique" },
 ] as const;
 
 type Level = "none" | "read" | "write";

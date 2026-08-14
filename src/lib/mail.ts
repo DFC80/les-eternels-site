@@ -774,6 +774,66 @@ export async function sendBureauMeetingNotification(params: {
   );
 }
 
+export async function sendShopOrderNotificationToAdmin(params: {
+  memberName: string;
+  memberEmail: string;
+  items: Array<{ name: string; quantity: number; unitPrice: number; customText?: string | null }>;
+  total: number;
+  notes?: string | null;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
+  if (!adminEmail) return;
+
+  const { memberName, memberEmail, items, total, notes } = params;
+
+  const rowsHtml = items.map((item, i) => {
+    const euros = ((item.unitPrice * item.quantity) / 100).toFixed(2).replace(".", ",");
+    const custom = item.customText ? `<br/><span style="font-size:12px;color:#6366f1;">✏️ Personnalisation : ${item.customText}</span>` : "";
+    return `<tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+      <td style="padding:6px 12px;">${item.name} × ${item.quantity}${custom}</td>
+      <td style="padding:6px 12px;text-align:right;">${euros} €</td>
+    </tr>`;
+  }).join("");
+
+  const totalEuros = (total / 100).toFixed(2).replace(".", ",");
+  const notesHtml = notes
+    ? `<p style="margin-top:12px;font-size:13px;color:#555;">📝 Note : <em>${notes}</em></p>`
+    : "";
+
+  const html = wrapHtml(
+    "🛍️ Nouvelle commande boutique",
+    `
+      <p>Un membre vient de passer une commande dans la boutique.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Membre</td>
+          <td style="padding:6px 12px;">${memberName} (<a href="mailto:${memberEmail}">${memberEmail}</a>)</td>
+        </tr>
+      </table>
+      <p style="margin-top:16px;font-weight:bold;color:#555;">Articles commandés :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <thead>
+          <tr style="background:#f1f5f9;color:#555;">
+            <th style="padding:6px 12px;text-align:left;">Article</th>
+            <th style="padding:6px 12px;text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #ddd;">
+            <td style="padding:8px 12px;font-weight:bold;color:#555;">Total</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:bold;">${totalEuros} €</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${notesHtml}
+      <p style="margin-top:20px;">Rendez-vous dans le panneau d'administration › Boutique pour traiter cette commande.</p>
+    `
+  );
+
+  await sendMail(adminEmail, `Nouvelle commande boutique — ${memberName}`, html);
+}
+
 export async function sendPasswordResetEmail(params: { to: string; firstName: string; resetLink: string }) {
   const { to, firstName, resetLink } = params;
   const html = wrapHtml(
