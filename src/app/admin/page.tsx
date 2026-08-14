@@ -30,6 +30,7 @@ const CARDS: Card[] = [
   { href: "/admin/parametres",   icon: "⚙️", title: "Paramètres",             section: "parametres",   description: "Modifier le descriptif de l'association affiché sur la page d'accueil." },
   { href: "/admin/permissions",  icon: "🔐", title: "Permissions",            section: "parametres",   description: "Configurer les sections admin accessibles pour chaque rôle de bureau.", fullAdminOnly: true },
   { href: "/admin/notes",        icon: "📝", title: "Notes admin",            section: "notes",        description: "Espace de notes interne réservé aux administrateurs." },
+  { href: "/admin/boutique",     icon: "🛍️", title: "Boutique",               section: "boutique",     description: "Gérer les produits de la boutique de l'association et les commandes membres." },
 ];
 
 export default async function AdminHome() {

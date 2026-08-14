@@ -70,6 +70,7 @@ model User {
   marketComments  MarketComment[]
   photoComments   GalleryPhotoComment[]
   ideas           Idea[]
+  shopOrders      ShopOrder[]
 }
 
 model AssocDocument {
@@ -606,4 +607,44 @@ model AdminNoteItem {
   position  Int      @default(0)
 
   note AdminNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+}
+
+model ShopItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Int      // centimes
+  stock       Int      @default(0)
+  isPublished Boolean  @default(false)
+  showOnHome  Boolean  @default(false)
+  photos      String   @default("") // URLs séparées par des retours à la ligne
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders ShopOrderItem[]
+}
+
+model ShopOrder {
+  id        String   @id @default(cuid())
+  userId    String
+  status    String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | DELIVERED
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ShopOrderItem[]
+}
+
+model ShopOrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  shopItemId String?
+  name       String
+  unitPrice  Int
+  quantity   Int     @default(1)
+  customText String?
+
+  order    ShopOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shopItem ShopItem? @relation(fields: [shopItemId], references: [id], onDelete: SetNull)
 }
