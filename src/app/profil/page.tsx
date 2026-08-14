@@ -166,12 +166,7 @@ export default function ProfilePage() {
 
     setIncompleteWarning(false);
     setFieldErrors({ firstName: false, name: false, addressStreet: false, addressPostalCode: false, addressCity: false, gender: false });
-
-    if (redirectAfterSave) {
-      router.push("/");
-    } else {
-      setSuccess(true);
-    }
+    router.push("/");
   }
 
   return (
