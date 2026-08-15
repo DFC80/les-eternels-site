@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [emergencyContactLastName, setEmergencyContactLastName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
   const [airsoftHasOwnEquipment, setAirsoftHasOwnEquipment] = useState(false);
+  const [airsoftPseudo, setAirsoftPseudo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,7 @@ export default function ProfilePage() {
         setEmergencyContactLastName(data.emergencyContactLastName ?? "");
         setEmergencyContactPhone(data.emergencyContactPhone ?? "");
         setAirsoftHasOwnEquipment(!!data.airsoftHasOwnEquipment);
+        setAirsoftPseudo(data.airsoftPseudo ?? "");
       });
 
     fetch("/api/avatar")
@@ -153,6 +155,7 @@ export default function ProfilePage() {
         emergencyContactLastName,
         emergencyContactPhone,
         airsoftHasOwnEquipment,
+        airsoftPseudo,
       }),
     });
 
@@ -403,6 +406,19 @@ export default function ProfilePage() {
           <p className="mt-1 text-xs text-slate-500">
             Ces informations peuvent être utilisées par les organisateurs d'événements airsoft.
           </p>
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-slate-300">
+              Pseudo airsoft{" "}
+              <span className="text-xs font-normal text-slate-500">(optionnel)</span>
+            </label>
+            <input
+              type="text"
+              value={airsoftPseudo}
+              onChange={(e) => setAirsoftPseudo(e.target.value)}
+              placeholder="Ex : Ghost42"
+              className={inputClass}
+            />
+          </div>
           <label className="mt-3 flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
