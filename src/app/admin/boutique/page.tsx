@@ -55,6 +55,7 @@ const STATUS_LABELS: Record<string, string> = {
   CONFIRMED: "Confirmée",
   CANCELLED: "Annulée",
   DELIVERED: "Livrée",
+  PAID: "Payée",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -62,6 +63,7 @@ const STATUS_COLORS: Record<string, string> = {
   CONFIRMED: "bg-emerald-900/60 text-emerald-300",
   CANCELLED: "bg-red-900/60 text-red-300",
   DELIVERED: "bg-sky-900/60 text-sky-300",
+  PAID: "bg-violet-900/60 text-violet-300",
 };
 
 export default function AdminBoutiquePage() {
@@ -429,7 +431,10 @@ export default function AdminBoutiquePage() {
             <p className="mt-4 text-sm text-slate-400">Aucune commande encore.</p>
           ) : (
             <div className="mt-4 space-y-4">
-              {orders.map((order) => (
+              {orders.map((order) => {
+                const isCancelled = order.status === "CANCELLED";
+                const orderTotal = isCancelled ? 0 : order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+                return (
                 <div key={order.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -479,7 +484,7 @@ export default function AdminBoutiquePage() {
                           )}
                         </div>
                         <p className="shrink-0 text-sm font-semibold text-silver-100">
-                          {formatCentsToEuros(item.unitPrice * item.quantity)}
+                          {isCancelled ? "0,00 €" : formatCentsToEuros(item.unitPrice * item.quantity)}
                         </p>
                       </li>
                     ))}
@@ -490,11 +495,11 @@ export default function AdminBoutiquePage() {
                   )}
 
                   <p className="mt-2 text-right text-sm font-semibold text-primary-300">
-                    Total :{" "}
-                    {formatCentsToEuros(order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}
+                    Total : {formatCentsToEuros(orderTotal)}
                   </p>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
