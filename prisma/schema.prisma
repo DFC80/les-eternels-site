@@ -36,6 +36,7 @@ model User {
   isPending         Boolean   @default(false)
   airsoftTrialDay        Boolean   @default(false)
   airsoftHasOwnEquipment Boolean   @default(false)
+  airsoftPseudo          String?
   verificationToken        String?
   passwordResetToken       String?
   passwordResetTokenExpiry DateTime?
