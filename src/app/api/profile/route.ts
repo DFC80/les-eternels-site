@@ -119,6 +119,10 @@ export async function PATCH(request: Request) {
     data.airsoftHasOwnEquipment = body.airsoftHasOwnEquipment;
   }
 
+  if (typeof body.airsoftPseudo === "string") {
+    data.airsoftPseudo = body.airsoftPseudo.trim() || null;
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
   }

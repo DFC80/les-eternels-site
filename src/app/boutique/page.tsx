@@ -157,6 +157,22 @@ export default function BoutiquePage() {
     }
 
     setOrderSuccess(true);
+
+    // If the member typed a pseudo airsoft inline (they had none in their profile), save it
+    if (!profile?.airsoftPseudo) {
+      const typedPseudo = cart.find((c) => c.customMode === "pseudo" && c.customText.trim())?.customText.trim();
+      if (typedPseudo) {
+        fetch("/api/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ airsoftPseudo: typedPseudo }),
+        })
+          .then((r) => r.ok ? r.json() : null)
+          .then((updated) => { if (updated) setProfile((p) => p ? { ...p, airsoftPseudo: updated.airsoftPseudo } : p); })
+          .catch(() => {});
+      }
+    }
+
     setCart([]);
     setOrderNotes("");
     const [updatedOrders, updatedItems] = await Promise.all([
