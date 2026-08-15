@@ -834,6 +834,132 @@ export async function sendShopOrderNotificationToAdmin(params: {
   await sendMail(adminEmail, `Nouvelle commande boutique — ${memberName}`, html);
 }
 
+const SHOP_STATUS_LABELS: Record<string, string> = {
+  PENDING: "En attente",
+  CONFIRMED: "Confirmée",
+  CANCELLED: "Annulée",
+  DELIVERED: "Livrée",
+  PAID: "Payée",
+};
+
+type ShopOrderEmailItem = { name: string; quantity: number; unitPrice: number; customText?: string | null };
+
+function buildShopOrderRowsHtml(items: ShopOrderEmailItem[], cancelled: boolean): string {
+  return items.map((item, i) => {
+    const euros = cancelled ? "0,00" : ((item.unitPrice * item.quantity) / 100).toFixed(2).replace(".", ",");
+    const custom = item.customText
+      ? `<br/><span style="font-size:12px;color:#6366f1;">✏️ ${item.customText}</span>`
+      : "";
+    return `<tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+      <td style="padding:6px 12px;">${item.name} × ${item.quantity}${custom}</td>
+      <td style="padding:6px 12px;text-align:right;">${euros} €</td>
+    </tr>`;
+  }).join("");
+}
+
+export async function sendShopOrderStatusChangeToMember(params: {
+  to: string;
+  firstName: string;
+  orderId: string;
+  newStatus: string;
+  items: ShopOrderEmailItem[];
+  total: number;
+  notes?: string | null;
+}) {
+  const { to, firstName, newStatus, items, total, notes } = params;
+  const statusLabel = SHOP_STATUS_LABELS[newStatus] ?? newStatus;
+  const isCancelled = newStatus === "CANCELLED";
+  const displayTotal = isCancelled ? 0 : total;
+  const totalEuros = (displayTotal / 100).toFixed(2).replace(".", ",");
+  const rowsHtml = buildShopOrderRowsHtml(items, isCancelled);
+  const notesHtml = notes ? `<p style="margin-top:12px;font-size:13px;color:#555;">📝 Note : <em>${notes}</em></p>` : "";
+  const cancelledMsg = isCancelled ? `<p style="color:#dc2626;margin-top:8px;">Votre commande a été annulée. Le stock des articles a été remis à disposition.</p>` : "";
+
+  const html = wrapHtml(
+    `Votre commande boutique — ${statusLabel}`,
+    `
+      <p>Bonjour ${firstName},</p>
+      <p>Le statut de votre commande a été mis à jour : <strong>${statusLabel}</strong>.</p>
+      ${cancelledMsg}
+      <p style="margin-top:16px;font-weight:bold;color:#555;">Récapitulatif de la commande :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <thead>
+          <tr style="background:#f1f5f9;color:#555;">
+            <th style="padding:6px 12px;text-align:left;">Article</th>
+            <th style="padding:6px 12px;text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #ddd;">
+            <td style="padding:8px 12px;font-weight:bold;color:#555;">Total</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:bold;">${totalEuros} €</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${notesHtml}
+      <p style="margin-top:20px;">Pour toute question, n'hésitez pas à contacter l'association.</p>
+    `
+  );
+  await sendMail(to, `Commande boutique — ${statusLabel}`, html);
+}
+
+export async function sendShopOrderStatusChangeToAdmin(params: {
+  memberName: string;
+  memberEmail: string;
+  orderId: string;
+  newStatus: string;
+  items: ShopOrderEmailItem[];
+  total: number;
+  notes?: string | null;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
+  if (!adminEmail) return;
+
+  const { memberName, memberEmail, newStatus, items, total, notes } = params;
+  const statusLabel = SHOP_STATUS_LABELS[newStatus] ?? newStatus;
+  const isCancelled = newStatus === "CANCELLED";
+  const displayTotal = isCancelled ? 0 : total;
+  const totalEuros = (displayTotal / 100).toFixed(2).replace(".", ",");
+  const rowsHtml = buildShopOrderRowsHtml(items, isCancelled);
+  const notesHtml = notes ? `<p style="margin-top:12px;font-size:13px;color:#555;">📝 Note : <em>${notes}</em></p>` : "";
+
+  const html = wrapHtml(
+    `🛍️ Mise à jour commande boutique — ${statusLabel}`,
+    `
+      <p>Le statut d'une commande boutique a été mis à jour.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Membre</td>
+          <td style="padding:6px 12px;">${memberName} (<a href="mailto:${memberEmail}">${memberEmail}</a>)</td>
+        </tr>
+        <tr style="background:#f9f9f9">
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Nouveau statut</td>
+          <td style="padding:6px 12px;font-weight:bold;">${statusLabel}</td>
+        </tr>
+      </table>
+      <p style="margin-top:16px;font-weight:bold;color:#555;">Articles :</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:8px;">
+        <thead>
+          <tr style="background:#f1f5f9;color:#555;">
+            <th style="padding:6px 12px;text-align:left;">Article</th>
+            <th style="padding:6px 12px;text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #ddd;">
+            <td style="padding:8px 12px;font-weight:bold;color:#555;">Total</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:bold;">${totalEuros} €</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${notesHtml}
+    `
+  );
+  await sendMail(adminEmail, `Commande boutique — ${memberName} — ${statusLabel}`, html);
+}
+
 export async function sendPasswordResetEmail(params: { to: string; firstName: string; resetLink: string }) {
   const { to, firstName, resetLink } = params;
   const html = wrapHtml(
