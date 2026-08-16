@@ -16,6 +16,7 @@ export async function GET() {
     include: {
       user: { select: { firstName: true, name: true } },
       ratings: { select: { userId: true, rating: true } },
+      _count: { select: { comments: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -29,13 +30,13 @@ export async function GET() {
 
   const categories = [...new Set(ideas.map((i) => i.category).filter(Boolean))].sort();
 
-  const enriched = sorted.map(({ ratings, ...rest }) => {
+  const enriched = sorted.map(({ ratings, _count, ...rest }) => {
     const ratingCount = ratings.length;
     const avgRating = ratingCount > 0
       ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
       : null;
     const myRating = ratings.find((r) => r.userId === userId)?.rating ?? null;
-    return { ...rest, ratingCount, avgRating, myRating };
+    return { ...rest, ratingCount, avgRating, myRating, commentCount: _count.comments };
   });
 
   return NextResponse.json({ ideas: enriched, categories });
