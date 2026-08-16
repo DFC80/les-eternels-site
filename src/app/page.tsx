@@ -45,11 +45,25 @@ async function getUpcomingEvents() {
 }
 
 async function getHomeIdeas() {
-  return prisma.idea.findMany({
+  const ideas = await prisma.idea.findMany({
     where: { showOnHome: true },
     orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, description: true, category: true, urgency: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      category: true,
+      urgency: true,
+      ratings: { select: { rating: true } },
+    },
   });
+  return ideas.map(({ ratings, ...rest }) => ({
+    ...rest,
+    ratingCount: ratings.length,
+    avgRating: ratings.length > 0
+      ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
+      : null,
+  }));
 }
 
 async function getHomeShopItems() {
@@ -240,6 +254,18 @@ export default async function HomePage() {
                   </div>
                   <h3 className="mt-2 font-display text-base text-silver-100">{idea.title}</h3>
                   <p className="mt-1 line-clamp-3 text-sm text-slate-400">{idea.description}</p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span className="flex">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span key={s} className={`text-base leading-none ${idea.avgRating && s <= Math.round(idea.avgRating) ? "text-amber-400" : "text-primary-700"}`}>★</span>
+                      ))}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {idea.ratingCount > 0
+                        ? `${idea.avgRating!.toFixed(1)} (${idea.ratingCount} vote${idea.ratingCount > 1 ? "s" : ""})`
+                        : "Non noté"}
+                    </span>
+                  </div>
                 </Link>
               );
             })}
