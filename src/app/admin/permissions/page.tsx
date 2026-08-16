@@ -20,6 +20,7 @@ const ALL_SECTIONS = [
   { key: "documents", label: "Documents" },
   { key: "notes", label: "Notes admin" },
   { key: "boutique", label: "Boutique" },
+  { key: "lieux", label: "Lieux de jeu" },
 ] as const;
 
 type Level = "none" | "read" | "write";

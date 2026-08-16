@@ -364,6 +364,7 @@ model Activity {
   isActive           Boolean  @default(true)    // visible sur le site si true
   price              Int      @default(0)       // tarif d'adhésion pour cette activité (€)
   createdAt          DateTime @default(now())
+  gameLocations      GameLocation[]
 }
 
 model MembershipHistory {
@@ -648,4 +649,19 @@ model ShopOrderItem {
 
   order    ShopOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   shopItem ShopItem? @relation(fields: [shopItemId], references: [id], onDelete: SetNull)
+}
+
+model GameLocation {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  activityId  String?
+  photos      String   @default("")
+  isPublic    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  showOnHome  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
 }
