@@ -35,6 +35,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
   const [hasMembership, setHasMembership] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!session) { setBalance(null); setHasMembership(false); setAvatarSrc(null); return; }
@@ -53,6 +54,9 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     function onClickOutside(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
+      }
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -131,7 +135,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
         </button>
 
         {/* Desktop nav */}
-        <div className="hidden items-center gap-1 lg:flex">
+        <div ref={navRef} className="hidden items-center gap-1 lg:flex">
 
           {/* Actualités */}
           <Link href="/actualites" className={navBtnClass}>
@@ -139,18 +143,22 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
           </Link>
 
           {/* Association dropdown */}
-          <div
-            className="relative"
-            onMouseEnter={() => setOpenDropdown("association")}
-            onMouseLeave={() => setOpenDropdown(null)}
-          >
-            <button className={`${navBtnClass} ${openDropdown === "association" ? "bg-primary-900 text-white" : ""}`}>
+          <div className="relative">
+            <button
+              onClick={() => setOpenDropdown((o) => o === "association" ? null : "association")}
+              className={`${navBtnClass} ${openDropdown === "association" ? "bg-primary-900 text-white" : ""}`}
+            >
               Association <ChevronDown open={openDropdown === "association"} />
             </button>
             {openDropdown === "association" && (
               <div className={dropdownClass}>
                 {associationItems.map((item) => (
-                  <Link key={item.href} href={item.href} className={dropdownItemClass}>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpenDropdown(null)}
+                    className={dropdownItemClass}
+                  >
                     <span>{item.icon}</span> {item.label}
                   </Link>
                 ))}
@@ -160,18 +168,22 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
 
           {/* Espace membres dropdown */}
           {session && (
-            <div
-              className="relative"
-              onMouseEnter={() => setOpenDropdown("membres")}
-              onMouseLeave={() => setOpenDropdown(null)}
-            >
-              <button className={`${navBtnClass} ${openDropdown === "membres" ? "bg-primary-900 text-white" : ""}`}>
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown((o) => o === "membres" ? null : "membres")}
+                className={`${navBtnClass} ${openDropdown === "membres" ? "bg-primary-900 text-white" : ""}`}
+              >
                 Espace membres <ChevronDown open={openDropdown === "membres"} />
               </button>
               {openDropdown === "membres" && (
                 <div className={dropdownClass}>
                   {membreItems.map((item) => (
-                    <Link key={item.href} href={item.href} className={dropdownItemClass}>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpenDropdown(null)}
+                      className={dropdownItemClass}
+                    >
                       <span>{item.icon}</span> {item.label}
                     </Link>
                   ))}
