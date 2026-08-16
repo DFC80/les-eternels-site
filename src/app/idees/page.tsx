@@ -4,6 +4,48 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { isFullAdmin } from "@/lib/permissions";
 
+function StarRating({
+  ideaId,
+  myRating,
+  avgRating,
+  ratingCount,
+  onRate,
+}: {
+  ideaId: string;
+  myRating: number | null;
+  avgRating: number | null;
+  ratingCount: number;
+  onRate: (ideaId: string, star: number) => void;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const active = hover ?? myRating ?? 0;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onMouseEnter={() => setHover(star)}
+            onMouseLeave={() => setHover(null)}
+            onClick={() => onRate(ideaId, star)}
+            className="px-0.5 text-xl leading-none transition-transform hover:scale-125 focus:outline-none"
+            title={`${star} étoile${star > 1 ? "s" : ""}`}
+          >
+            <span className={star <= active ? "text-amber-400" : "text-primary-700"}>★</span>
+          </button>
+        ))}
+      </div>
+      <span className="text-xs text-slate-400">
+        {ratingCount > 0
+          ? `${avgRating!.toFixed(1)} (${ratingCount} vote${ratingCount > 1 ? "s" : ""})`
+          : "Pas encore noté"}
+      </span>
+    </div>
+  );
+}
+
 type IdeaUser = { firstName: string; name: string };
 
 type Idea = {
@@ -16,6 +58,9 @@ type Idea = {
   createdAt: string;
   userId: string;
   user: IdeaUser;
+  ratingCount: number;
+  avgRating: number | null;
+  myRating: number | null;
 };
 
 const URGENCY_LABELS: Record<string, string> = {
@@ -113,6 +158,21 @@ export default function IdeesPage() {
     if (!confirm("Supprimer cette idée ?")) return;
     const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
     if (res.ok) await load();
+  }
+
+  async function rateIdea(ideaId: string, star: number) {
+    const idea = ideas.find((i) => i.id === ideaId);
+    if (!idea) return;
+    if (idea.myRating === star) {
+      await fetch(`/api/ideas/${ideaId}/rating`, { method: "DELETE" });
+    } else {
+      await fetch(`/api/ideas/${ideaId}/rating`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: star }),
+      });
+    }
+    await load();
   }
 
   const visibleIdeas = ideas.filter((i) => {
@@ -318,7 +378,16 @@ export default function IdeesPage() {
               </div>
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm text-slate-300">{idea.description}</p>
-            <p className="mt-3 text-xs text-slate-500">
+            <div className="mt-3">
+              <StarRating
+                ideaId={idea.id}
+                myRating={idea.myRating}
+                avgRating={idea.avgRating}
+                ratingCount={idea.ratingCount}
+                onRate={rateIdea}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
               Proposée par{" "}
               <span className="text-slate-400">
                 {idea.user.firstName} {idea.user.name}

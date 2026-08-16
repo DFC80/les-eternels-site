@@ -71,6 +71,7 @@ model User {
   marketComments  MarketComment[]
   photoComments   GalleryPhotoComment[]
   ideas           Idea[]
+  ideaRatings     IdeaRating[]
   shopOrders      ShopOrder[]
 }
 
@@ -578,15 +579,29 @@ model MarketComment {
 }
 
 model Idea {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String
   category    String
-  urgency     String   // HAUTE | MOYENNE | BASSE
-  showOnHome  Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  urgency     String       // HAUTE | MOYENNE | BASSE
+  showOnHome  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ratings     IdeaRating[]
+}
+
+model IdeaRating {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  rating    Int
+  createdAt DateTime @default(now())
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
 }
 
 model AdminNote {

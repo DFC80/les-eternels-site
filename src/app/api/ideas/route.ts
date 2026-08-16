@@ -10,8 +10,13 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
 
+  const userId = (session.user as { id: string }).id;
+
   const ideas = await prisma.idea.findMany({
-    include: { user: { select: { firstName: true, name: true } } },
+    include: {
+      user: { select: { firstName: true, name: true } },
+      ratings: { select: { userId: true, rating: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -22,10 +27,18 @@ export async function GET() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // Derive unique categories for the datalist
   const categories = [...new Set(ideas.map((i) => i.category).filter(Boolean))].sort();
 
-  return NextResponse.json({ ideas: sorted, categories });
+  const enriched = sorted.map(({ ratings, ...rest }) => {
+    const ratingCount = ratings.length;
+    const avgRating = ratingCount > 0
+      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
+      : null;
+    const myRating = ratings.find((r) => r.userId === userId)?.rating ?? null;
+    return { ...rest, ratingCount, avgRating, myRating };
+  });
+
+  return NextResponse.json({ ideas: enriched, categories });
 }
 
 export async function POST(request: Request) {
