@@ -12,10 +12,25 @@ interface NavbarProps {
   logoSrc?: string;
 }
 
+function ChevronDown({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.5}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
 export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/logo.jpg" }: NavbarProps) {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [hasMembership, setHasMembership] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
@@ -34,7 +49,6 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     return () => clearInterval(id);
   }, [session]);
 
-  // Close user dropdown on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -45,22 +59,6 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const links = [
-    { href: "/actualites", label: "Actualités" },
-    ...(session && hasMembership
-      ? [
-          { href: "/sondages", label: "Sondages" },
-          { href: "/marche", label: "Brocante" },
-        ]
-      : []),
-    ...(session ? [{ href: "/documents", label: "Documents" }, { href: "/idees", label: "Idées" }, { href: "/boutique", label: "Boutique" }] : []),
-    { href: "/activites", label: "Activités" },
-    { href: "/lieux-de-jeu", label: "Lieux de jeu" },
-    { href: "/calendar", label: "Événements" },
-    { href: "/galerie", label: "Galerie" },
-    { href: "/contact", label: "Contact" },
-  ];
-
   const isAdmin = session?.user?.role && canAccessAdmin(session.user.role);
 
   function initials(fullName?: string | null) {
@@ -68,6 +66,50 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     const parts = fullName.trim().split(/\s+/);
     return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
   }
+
+  const associationItems = [
+    { href: "/activites", label: "Activités", icon: "🎲" },
+    { href: "/lieux-de-jeu", label: "Lieux de jeu", icon: "📍" },
+    { href: "/galerie", label: "Galerie", icon: "🖼️" },
+    { href: "/calendar", label: "Événements", icon: "📅" },
+  ];
+
+  const membreItems = session
+    ? [
+        { href: "/documents", label: "Documents", icon: "📁" },
+        { href: "/idees", label: "Idées", icon: "💡" },
+        { href: "/boutique", label: "Boutique", icon: "🛍️" },
+        ...(hasMembership
+          ? [
+              { href: "/sondages", label: "Sondages", icon: "📊" },
+              { href: "/marche", label: "Brocante", icon: "🏪" },
+            ]
+          : []),
+      ]
+    : [];
+
+  // Flat list for mobile (identical to before)
+  const mobileLinks = [
+    { href: "/actualites", label: "Actualités" },
+    ...(session && hasMembership
+      ? [{ href: "/sondages", label: "Sondages" }, { href: "/marche", label: "Brocante" }]
+      : []),
+    ...(session
+      ? [{ href: "/documents", label: "Documents" }, { href: "/idees", label: "Idées" }, { href: "/boutique", label: "Boutique" }]
+      : []),
+    { href: "/activites", label: "Activités" },
+    { href: "/lieux-de-jeu", label: "Lieux de jeu" },
+    { href: "/calendar", label: "Événements" },
+    { href: "/galerie", label: "Galerie" },
+    { href: "/contact", label: "Contact" },
+  ];
+
+  const dropdownClass =
+    "absolute left-0 top-full mt-1 w-48 rounded-xl border border-primary-700 bg-primary-950 py-1 shadow-xl z-50";
+  const dropdownItemClass =
+    "flex items-center gap-2.5 px-4 py-2 text-sm text-slate-300 hover:bg-primary-900 hover:text-white";
+  const navBtnClass =
+    "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-primary-900 hover:text-white";
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary-800 bg-primary-950/95 backdrop-blur">
@@ -90,16 +132,60 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-1 lg:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-primary-900 hover:text-white"
-            >
-              {l.label}
-            </Link>
-          ))}
 
+          {/* Actualités */}
+          <Link href="/actualites" className={navBtnClass}>
+            Actualités
+          </Link>
+
+          {/* Association dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenDropdown("association")}
+            onMouseLeave={() => setOpenDropdown(null)}
+          >
+            <button className={`${navBtnClass} ${openDropdown === "association" ? "bg-primary-900 text-white" : ""}`}>
+              Association <ChevronDown open={openDropdown === "association"} />
+            </button>
+            {openDropdown === "association" && (
+              <div className={dropdownClass}>
+                {associationItems.map((item) => (
+                  <Link key={item.href} href={item.href} className={dropdownItemClass}>
+                    <span>{item.icon}</span> {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Espace membres dropdown */}
+          {session && (
+            <div
+              className="relative"
+              onMouseEnter={() => setOpenDropdown("membres")}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
+              <button className={`${navBtnClass} ${openDropdown === "membres" ? "bg-primary-900 text-white" : ""}`}>
+                Espace membres <ChevronDown open={openDropdown === "membres"} />
+              </button>
+              {openDropdown === "membres" && (
+                <div className={dropdownClass}>
+                  {membreItems.map((item) => (
+                    <Link key={item.href} href={item.href} className={dropdownItemClass}>
+                      <span>{item.icon}</span> {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact */}
+          <Link href="/contact" className={navBtnClass}>
+            Contact
+          </Link>
+
+          {/* User section */}
           <div className="ml-2 flex items-center gap-2 border-l border-primary-800 pl-3">
             {session ? (
               <div className="relative" ref={userMenuRef}>
@@ -114,15 +200,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
                       : initials(session.user?.name)}
                   </span>
                   <span className="hidden xl:inline">{session.user?.name?.split(" ")[0]}</span>
-                  <svg
-                    className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown open={userMenuOpen} />
                 </button>
 
                 {userMenuOpen && (
@@ -193,13 +271,13 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
         </div>
       </nav>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — flat list */}
       {mobileOpen && (
         <div className="flex flex-col border-t border-primary-800 bg-primary-950 px-4 py-2 lg:hidden">
           <Link href="/" onClick={() => setMobileOpen(false)} className="block py-2.5 text-sm text-slate-200">
             Accueil
           </Link>
-          {links.map((l) => (
+          {mobileLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
