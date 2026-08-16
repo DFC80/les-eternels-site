@@ -61,6 +61,20 @@ async function getHomeShopItems() {
   });
 }
 
+async function getHomeGameLocations() {
+  return prisma.gameLocation.findMany({
+    where: { showOnHome: true, isActive: true },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      photos: true,
+      activity: { select: { label: true, emoji: true } },
+    },
+  });
+}
+
 async function getSettings() {
   const rows = await prisma.siteSetting.findMany({
     where: { key: { in: ["description", "logoVersion"] } },
@@ -73,7 +87,7 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas, homeShopItems] = await Promise.all([
+  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas, homeShopItems, homeGameLocations] = await Promise.all([
     getServerSession(authOptions),
     getSettings(),
     getLatestArticle(),
@@ -81,6 +95,7 @@ export default async function HomePage() {
     getUpcomingEvents(),
     getHomeIdeas(),
     getHomeShopItems(),
+    getHomeGameLocations(),
   ]);
 
   const userHasMembership = session
@@ -260,6 +275,43 @@ export default async function HomePage() {
                   {item.stock <= 0 && (
                     <p className="mt-0.5 text-xs text-red-400">Épuisé</p>
                   )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {homeGameLocations.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-silver-100">📍 Lieux de jeu</h2>
+            <Link href="/lieux-de-jeu" className="text-sm text-primary-300 hover:text-silver-200 hover:underline">
+              Voir tous les lieux →
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {homeGameLocations.map((loc) => {
+              const firstPhoto = loc.photos?.split("\n").find(Boolean);
+              return (
+                <Link
+                  key={loc.id}
+                  href="/lieux-de-jeu"
+                  className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50 transition hover:border-primary-600 hover:bg-primary-800/60"
+                >
+                  {firstPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={firstPhoto} alt={loc.title} className="h-36 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-36 items-center justify-center bg-primary-800 text-4xl">📍</div>
+                  )}
+                  <div className="p-4">
+                    {loc.activity && (
+                      <p className="text-xs text-primary-300">{loc.activity.emoji} {loc.activity.label}</p>
+                    )}
+                    <h3 className="mt-1 font-display text-sm text-silver-100 line-clamp-2">{loc.title}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-400">{loc.description}</p>
+                  </div>
                 </Link>
               );
             })}
