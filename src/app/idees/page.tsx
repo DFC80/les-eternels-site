@@ -61,6 +61,15 @@ type Idea = {
   ratingCount: number;
   avgRating: number | null;
   myRating: number | null;
+  commentCount: number;
+};
+
+type IdeaComment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  userId: string;
+  user: IdeaUser;
 };
 
 const URGENCY_LABELS: Record<string, string> = {
@@ -96,6 +105,12 @@ export default function IdeesPage() {
   const [filterUrgency, setFilterUrgency] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Comments state
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [commentsCache, setCommentsCache] = useState<Record<string, IdeaComment[]>>({});
+  const [commentText, setCommentText] = useState<Record<string, string>>({});
+  const [postingComment, setPostingComment] = useState<Record<string, boolean>>({});
 
   async function load() {
     const res = await fetch("/api/ideas");
@@ -158,6 +173,50 @@ export default function IdeesPage() {
     if (!confirm("Supprimer cette idée ?")) return;
     const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
     if (res.ok) await load();
+  }
+
+  async function toggleComments(ideaId: string) {
+    const isOpen = openComments[ideaId];
+    setOpenComments((prev) => ({ ...prev, [ideaId]: !isOpen }));
+    if (!isOpen && !commentsCache[ideaId]) {
+      const res = await fetch(`/api/ideas/${ideaId}/comments`);
+      if (res.ok) {
+        const data: IdeaComment[] = await res.json();
+        setCommentsCache((prev) => ({ ...prev, [ideaId]: data }));
+      }
+    }
+  }
+
+  async function postComment(ideaId: string) {
+    const text = commentText[ideaId]?.trim();
+    if (!text) return;
+    setPostingComment((prev) => ({ ...prev, [ideaId]: true }));
+    const res = await fetch(`/api/ideas/${ideaId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: text }),
+    });
+    setPostingComment((prev) => ({ ...prev, [ideaId]: false }));
+    if (res.ok) {
+      const newComment: IdeaComment = await res.json();
+      setCommentsCache((prev) => ({ ...prev, [ideaId]: [...(prev[ideaId] ?? []), newComment] }));
+      setCommentText((prev) => ({ ...prev, [ideaId]: "" }));
+      // Update comment count in ideas list
+      setIdeas((prev) => prev.map((i) => i.id === ideaId ? { ...i, commentCount: i.commentCount + 1 } : i));
+    }
+  }
+
+  async function deleteComment(ideaId: string, commentId: string) {
+    if (!confirm("Supprimer ce commentaire ?")) return;
+    const res = await fetch(`/api/ideas/${ideaId}/comments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commentId }),
+    });
+    if (res.ok) {
+      setCommentsCache((prev) => ({ ...prev, [ideaId]: (prev[ideaId] ?? []).filter((c) => c.id !== commentId) }));
+      setIdeas((prev) => prev.map((i) => i.id === ideaId ? { ...i, commentCount: Math.max(0, i.commentCount - 1) } : i));
+    }
   }
 
   async function rateIdea(ideaId: string, star: number) {
@@ -394,6 +453,74 @@ export default function IdeesPage() {
               </span>{" "}
               · {new Date(idea.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
             </p>
+
+            {/* Comments toggle */}
+            <div className="mt-3 border-t border-primary-800 pt-3">
+              <button
+                type="button"
+                onClick={() => toggleComments(idea.id)}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary-300 transition"
+              >
+                <span>{openComments[idea.id] ? "▾" : "▸"}</span>
+                <span>
+                  {idea.commentCount > 0
+                    ? `${idea.commentCount} commentaire${idea.commentCount > 1 ? "s" : ""}`
+                    : "Ajouter un commentaire"}
+                </span>
+              </button>
+
+              {openComments[idea.id] && (
+                <div className="mt-3 space-y-3">
+                  {/* Existing comments */}
+                  {(commentsCache[idea.id] ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500">Aucun commentaire pour l'instant.</p>
+                  ) : (
+                    (commentsCache[idea.id] ?? []).map((c) => (
+                      <div key={c.id} className="rounded-lg border border-primary-800 bg-primary-950/60 px-3 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-medium text-slate-300">
+                            {c.user.firstName} {c.user.name}
+                            <span className="ml-2 font-normal text-slate-500">
+                              · {new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          </p>
+                          {(c.userId === userId || canDeleteAny) && (
+                            <button
+                              type="button"
+                              onClick={() => deleteComment(idea.id, c.id)}
+                              className="shrink-0 text-xs text-slate-600 hover:text-red-400 transition"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{c.content}</p>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Add comment form */}
+                  <div className="flex gap-2">
+                    <textarea
+                      rows={2}
+                      value={commentText[idea.id] ?? ""}
+                      onChange={(e) => setCommentText((prev) => ({ ...prev, [idea.id]: e.target.value }))}
+                      placeholder="Votre commentaire…"
+                      maxLength={1000}
+                      className="flex-1 resize-none rounded-lg border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={!commentText[idea.id]?.trim() || postingComment[idea.id]}
+                      onClick={() => postComment(idea.id)}
+                      className="self-end rounded-md bg-primary-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-primary-600 disabled:opacity-40 transition"
+                    >
+                      {postingComment[idea.id] ? "…" : "Envoyer"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -72,6 +72,7 @@ model User {
   photoComments   GalleryPhotoComment[]
   ideas           Idea[]
   ideaRatings     IdeaRating[]
+  ideaComments    IdeaComment[]
   shopOrders      ShopOrder[]
 }
 
@@ -579,16 +580,28 @@ model MarketComment {
 }
 
 model Idea {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   title       String
   description String
   category    String
-  urgency     String       // HAUTE | MOYENNE | BASSE
-  showOnHome  Boolean      @default(false)
-  createdAt   DateTime     @default(now())
+  urgency     String        // HAUTE | MOYENNE | BASSE
+  showOnHome  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
   userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   ratings     IdeaRating[]
+  comments    IdeaComment[]
+}
+
+model IdeaComment {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model IdeaRating {
