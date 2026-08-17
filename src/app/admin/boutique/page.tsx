@@ -194,13 +194,17 @@ export default function AdminBoutiquePage() {
     setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== idx) }));
   }
 
+  const activeOrders = orders.filter((o) => o.status === "PENDING" || o.status === "CONFIRMED");
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="font-display text-3xl text-silver-100">🛍️ Boutique</h1>
-      <p className="mt-1 text-slate-400">Gérez les produits de la boutique et les commandes des membres.</p>
+      <div className="print:hidden">
+        <h1 className="font-display text-3xl text-silver-100">🛍️ Boutique</h1>
+        <p className="mt-1 text-slate-400">Gérez les produits de la boutique et les commandes des membres.</p>
+      </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex gap-2 border-b border-primary-800">
+      <div className="mt-6 flex gap-2 border-b border-primary-800 print:hidden">
         {(["products", "orders"] as const).map((t) => (
           <button
             key={t}
@@ -425,84 +429,163 @@ export default function AdminBoutiquePage() {
 
       {/* Orders tab */}
       {tab === "orders" && (
-        <div className="mt-6">
-          <h2 className="font-display text-lg text-silver-100">Commandes</h2>
-          {orders.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-400">Aucune commande encore.</p>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {orders.map((order) => {
-                const isCancelled = order.status === "CANCELLED";
-                const orderTotal = isCancelled ? 0 : order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-                return (
-                <div key={order.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-silver-100">
-                        {order.user.firstName} {order.user.name}
-                      </p>
-                      <p className="text-xs text-slate-400">{order.user.email}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {new Date(order.createdAt).toLocaleDateString("fr-FR", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[order.status] ?? "bg-slate-800 text-slate-400"}`}>
-                        {STATUS_LABELS[order.status] ?? order.status}
-                      </span>
-                      {canWrite && (
-                        <select
-                          value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                          className="rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs text-slate-200"
-                        >
-                          {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-
-                  <ul className="mt-3 space-y-1.5">
-                    {order.items.map((item) => (
-                      <li key={item.id} className="flex items-start justify-between gap-2 rounded-lg bg-primary-950/50 px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-sm text-slate-200">
-                            {item.name} × {item.quantity}
-                          </p>
-                          {item.customText && (
-                            <p className="mt-0.5 text-xs text-primary-300">
-                              ✏️ {item.customText}
-                            </p>
-                          )}
-                        </div>
-                        <p className="shrink-0 text-sm font-semibold text-silver-100">
-                          {isCancelled ? "0,00 €" : formatCentsToEuros(item.unitPrice * item.quantity)}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {order.notes && (
-                    <p className="mt-2 text-xs text-slate-400 italic">📝 {order.notes}</p>
-                  )}
-
-                  <p className="mt-2 text-right text-sm font-semibold text-primary-300">
-                    Total : {formatCentsToEuros(orderTotal)}
-                  </p>
-                </div>
-                );
-              })}
+        <>
+          <div className="mt-6 print:hidden">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg text-silver-100">Commandes</h2>
+              <button
+                onClick={() => window.print()}
+                className="rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
+              >
+                🖨️ Imprimer les commandes en cours
+              </button>
             </div>
-          )}
-        </div>
+            {orders.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-400">Aucune commande encore.</p>
+            ) : (
+              <div className="mt-4 space-y-4">
+                {orders.map((order) => {
+                  const isCancelled = order.status === "CANCELLED";
+                  const orderTotal = isCancelled ? 0 : order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+                  return (
+                  <div key={order.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-silver-100">
+                          {order.user.firstName} {order.user.name}
+                        </p>
+                        <p className="text-xs text-slate-400">{order.user.email}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {new Date(order.createdAt).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[order.status] ?? "bg-slate-800 text-slate-400"}`}>
+                          {STATUS_LABELS[order.status] ?? order.status}
+                        </span>
+                        {canWrite && (
+                          <select
+                            value={order.status}
+                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                            className="rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs text-slate-200"
+                          >
+                            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                              <option key={k} value={k}>{v}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    <ul className="mt-3 space-y-1.5">
+                      {order.items.map((item) => (
+                        <li key={item.id} className="flex items-start justify-between gap-2 rounded-lg bg-primary-950/50 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm text-slate-200">
+                              {item.name} × {item.quantity}
+                            </p>
+                            {item.customText && (
+                              <p className="mt-0.5 text-xs text-primary-300">
+                                ✏️ {item.customText}
+                              </p>
+                            )}
+                          </div>
+                          <p className="shrink-0 text-sm font-semibold text-silver-100">
+                            {isCancelled ? "0,00 €" : formatCentsToEuros(item.unitPrice * item.quantity)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {order.notes && (
+                      <p className="mt-2 text-xs text-slate-400 italic">📝 {order.notes}</p>
+                    )}
+
+                    <p className="mt-2 text-right text-sm font-semibold text-primary-300">
+                      Total : {formatCentsToEuros(orderTotal)}
+                    </p>
+                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Print section — commandes en cours uniquement */}
+          <section className="hidden print:block" style={{ fontFamily: "Arial, sans-serif", color: "#000" }}>
+            <div style={{ borderBottom: "2px solid #000", paddingBottom: "8px", marginBottom: "12px" }}>
+              <h1 style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>Commandes en cours — Les Éternels</h1>
+              <p style={{ fontSize: "12px", color: "#555", margin: "4px 0 0" }}>
+                Imprimé le {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                {" · "}{activeOrders.length} commande{activeOrders.length !== 1 ? "s" : ""} en attente / confirmée{activeOrders.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            {activeOrders.length === 0 ? (
+              <p style={{ color: "#555" }}>Aucune commande en cours.</p>
+            ) : (
+              activeOrders.map((order) => {
+                const orderTotal = order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+                return (
+                  <div key={order.id} style={{ marginBottom: "20px", borderBottom: "1px solid #ccc", paddingBottom: "14px", pageBreakInside: "avoid" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+                      <div>
+                        <strong style={{ fontSize: "14px" }}>{order.user.firstName} {order.user.name}</strong>
+                        <span style={{ fontSize: "12px", color: "#555", marginLeft: "8px" }}>{order.user.email}</span>
+                      </div>
+                      <div style={{ fontSize: "12px", textAlign: "right" }}>
+                        <strong>[{STATUS_LABELS[order.status] ?? order.status}]</strong>
+                        {" · "}
+                        {new Date(order.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </div>
+                    </div>
+
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                      <thead>
+                        <tr style={{ background: "#e8e8e8" }}>
+                          <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #ccc" }}>Produit</th>
+                          <th style={{ padding: "4px 8px", textAlign: "center", border: "1px solid #ccc" }}>Qté</th>
+                          <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #ccc" }}>Personnalisation</th>
+                          <th style={{ padding: "4px 8px", textAlign: "right", border: "1px solid #ccc" }}>Prix</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.items.map((item, i) => (
+                          <tr key={item.id} style={i % 2 === 1 ? { background: "#f9f9f9" } : {}}>
+                            <td style={{ padding: "4px 8px", border: "1px solid #ddd" }}>{item.name}</td>
+                            <td style={{ padding: "4px 8px", textAlign: "center", border: "1px solid #ddd" }}>{item.quantity}</td>
+                            <td style={{ padding: "4px 8px", border: "1px solid #ddd", color: item.customText ? "#333" : "#999" }}>
+                              {item.customText ?? "—"}
+                            </td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", border: "1px solid #ddd" }}>
+                              {formatCentsToEuros(item.unitPrice * item.quantity)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {order.notes && (
+                      <p style={{ marginTop: "6px", fontSize: "12px", color: "#555", fontStyle: "italic" }}>
+                        Note : {order.notes}
+                      </p>
+                    )}
+
+                    <p style={{ marginTop: "6px", textAlign: "right", fontWeight: "bold", fontSize: "13px" }}>
+                      Total : {formatCentsToEuros(orderTotal)}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </section>
+        </>
       )}
     </div>
   );
