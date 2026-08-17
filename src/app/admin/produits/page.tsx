@@ -193,14 +193,79 @@ export default function AdminProduitsPage() {
   const snacks = items.filter((i) => i.category === "SNACK");
   const drinks = items.filter((i) => i.category === "DRINK");
 
+  const printDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-display text-3xl text-silver-100">Friandises & boissons</h1>
-      <p className="mt-2 text-slate-400">
-        Gérez le stock et les prix des friandises et boissons proposées lors des soirées jeux.
-      </p>
+      {/* En-tête — caché à l'impression */}
+      <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+        <div>
+          <h1 className="font-display text-3xl text-silver-100">Friandises & boissons</h1>
+          <p className="mt-2 text-slate-400">
+            Gérez le stock et les prix des friandises et boissons proposées lors des soirées jeux.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 rounded-md border border-primary-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-primary-800 hover:text-white transition"
+        >
+          🖨️ Imprimer la liste
+        </button>
+      </div>
 
-      {canWrite && <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2">
+      {/* Vue impression */}
+      <section className="hidden print:block">
+        <h1 className="text-2xl font-bold">Liste de stock — Friandises &amp; Boissons</h1>
+        <p className="mt-1 text-sm text-gray-500">Imprimée le {printDate}</p>
+
+        {[
+          { label: "🍬 Friandises", list: snacks, sizeLabel: "Poids", sizeKey: "weightG" as const, sizeUnit: "g" },
+          { label: "🥤 Boissons",   list: drinks, sizeLabel: "Contenance", sizeKey: "volumeCl" as const, sizeUnit: "cl" },
+        ].map(({ label, list, sizeLabel, sizeKey, sizeUnit }) => (
+          <div key={label} className="mt-6">
+            <h2 className="text-lg font-semibold border-b border-gray-300 pb-1">{label}</h2>
+            {list.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-400 italic">Aucun article.</p>
+            ) : (
+              <table className="mt-2 w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-400 text-left">
+                    <th className="py-1 pr-4 font-semibold">Produit</th>
+                    <th className="py-1 pr-4 font-semibold">{sizeLabel}</th>
+                    <th className="py-1 pr-4 font-semibold">Prix unitaire</th>
+                    <th className="py-1 pr-4 font-semibold text-center">Stock actuel</th>
+                    <th className="py-1 font-semibold text-center">Qté à acheter</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((item, i) => (
+                    <tr key={item.id} style={{ backgroundColor: i % 2 === 1 ? "#f5f5f5" : "transparent" }}>
+                      <td className="py-1 pr-4">{item.name}</td>
+                      <td className="py-1 pr-4 text-gray-600">
+                        {item[sizeKey] != null ? `${item[sizeKey]} ${sizeUnit}` : "—"}
+                      </td>
+                      <td className="py-1 pr-4">{formatCentsToEuros(item.price)}</td>
+                      <td className="py-1 pr-4 text-center font-medium">
+                        <span style={{ color: item.stock <= 0 ? "#dc2626" : item.stock <= 5 ? "#d97706" : "#16a34a" }}>
+                          {item.stock}
+                        </span>
+                      </td>
+                      <td className="py-1 text-center" style={{ borderBottom: "1px solid #aaa", minWidth: 80 }}></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+
+        <p className="mt-8 text-xs text-gray-400">
+          Association Les Éternels — document interne, non contractuel.
+        </p>
+      </section>
+
+      {canWrite && <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-4 rounded-xl border border-primary-800 bg-primary-900/40 p-6 sm:grid-cols-2 print:hidden">
         <h2 className="col-span-full font-display text-lg text-silver-100">
           {form.id ? "Modifier le produit" : "Ajouter un produit"}
         </h2>
@@ -342,7 +407,7 @@ export default function AdminProduitsPage() {
           { key: "DRINK", label: "🥤 Boissons", list: drinks, empty: "Aucune boisson enregistrée." },
         ] as const
       ).map(({ key, label, list, empty }) => (
-        <div key={key} className="mt-10">
+        <div key={key} className="mt-10 print:hidden">
           <button
             type="button"
             onClick={() => setOpenCategories((prev) => ({ ...prev, [key]: !prev[key] }))}
