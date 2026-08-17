@@ -23,11 +23,13 @@ type Transaction = {
   items?: TxItem[];
 };
 
-const TYPE_META: Record<Transaction["type"], { icon: string; color: string; bg: string }> = {
-  cotisation: { icon: "📋", color: "text-violet-300", bg: "bg-violet-900/30 border-violet-700/50" },
-  recharge:   { icon: "💳", color: "text-emerald-300", bg: "bg-emerald-900/30 border-emerald-700/50" },
-  comptoir:   { icon: "🍬", color: "text-amber-300",   bg: "bg-amber-900/30 border-amber-700/50" },
-  boutique:   { icon: "🛍️", color: "text-sky-300",     bg: "bg-sky-900/30 border-sky-700/50" },
+const ALL_TYPES = ["cotisation", "recharge", "comptoir", "boutique"] as const;
+
+const TYPE_META: Record<Transaction["type"], { icon: string; label: string; color: string; bg: string; activeBorder: string }> = {
+  cotisation: { icon: "📋", label: "Cotisations",      color: "text-violet-300", bg: "bg-violet-900/30 border-violet-700/50",  activeBorder: "border-violet-500" },
+  recharge:   { icon: "💳", label: "Recharges solde",  color: "text-emerald-300", bg: "bg-emerald-900/30 border-emerald-700/50", activeBorder: "border-emerald-500" },
+  comptoir:   { icon: "🍬", label: "Achat comptoir",   color: "text-amber-300",   bg: "bg-amber-900/30 border-amber-700/50",    activeBorder: "border-amber-500" },
+  boutique:   { icon: "🛍️", label: "Boutique",         color: "text-sky-300",     bg: "bg-sky-900/30 border-sky-700/50",        activeBorder: "border-sky-500" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -42,6 +44,7 @@ export default function MesTransactionsPage() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [activeTypes, setActiveTypes] = useState<Set<Transaction["type"]>>(new Set(ALL_TYPES));
 
   useEffect(() => {
     fetch("/api/transactions")
@@ -57,12 +60,38 @@ export default function MesTransactionsPage() {
     });
   }
 
-  const typeLabels: Record<Transaction["type"], string> = {
-    cotisation: "Cotisation",
-    recharge: "Recharge solde",
-    comptoir: "Comptoir",
-    boutique: "Boutique",
-  };
+  function toggleType(t: Transaction["type"]) {
+    setActiveTypes((prev) => {
+      if (prev.size === ALL_TYPES.length) {
+        // All shown → switch to only this type
+        return new Set([t]);
+      }
+      const next = new Set(prev);
+      if (next.has(t)) {
+        if (next.size === 1) return new Set(ALL_TYPES); // last active → reset to all
+        next.delete(t);
+      } else {
+        next.add(t);
+      }
+      return next;
+    });
+  }
+
+  function resetFilter() {
+    setActiveTypes(new Set(ALL_TYPES));
+  }
+
+  const isAll = activeTypes.size === ALL_TYPES.length;
+  const filtered = txns.filter((tx) => activeTypes.has(tx.type));
+  const filteredTotal = filtered
+    .filter((tx) => tx.status !== "CANCELLED")
+    .reduce((s, tx) => s + tx.amountCents, 0);
+
+  // Count per type for badges
+  const countByType = ALL_TYPES.reduce<Record<string, number>>((acc, t) => {
+    acc[t] = txns.filter((tx) => tx.type === t).length;
+    return acc;
+  }, {});
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -74,16 +103,53 @@ export default function MesTransactionsPage() {
       <h1 className="font-display text-3xl text-silver-100">Mes transactions</h1>
       <p className="mt-1 text-slate-400">Historique de vos cotisations, recharges et achats.</p>
 
-      {/* Légende */}
-      <div className="mt-5 flex flex-wrap gap-2">
-        {(["cotisation", "recharge", "comptoir", "boutique"] as const).map((t) => {
-          const m = TYPE_META[t];
-          return (
-            <span key={t} className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium ${m.bg} ${m.color}`}>
-              {m.icon} {typeLabels[t]}
-            </span>
-          );
-        })}
+      {/* Filtres */}
+      <div className="mt-5">
+        <div className="flex flex-wrap items-center gap-2">
+          {ALL_TYPES.map((t) => {
+            const m = TYPE_META[t];
+            const isActive = activeTypes.has(t);
+            const count = countByType[t] ?? 0;
+            return (
+              <button
+                key={t}
+                onClick={() => toggleType(t)}
+                disabled={loading}
+                className={[
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
+                  isActive
+                    ? `${m.bg} ${m.color} ${m.activeBorder}`
+                    : "border-primary-700 bg-primary-900/20 text-slate-500 hover:border-primary-600 hover:text-slate-400",
+                ].join(" ")}
+              >
+                <span>{m.icon}</span>
+                <span>{m.label}</span>
+                {count > 0 && (
+                  <span className={`rounded-full px-1.5 py-px text-[10px] font-bold ${isActive ? "bg-white/15" : "bg-primary-800 text-slate-500"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {!isAll && (
+            <button
+              onClick={resetFilter}
+              className="rounded-full border border-primary-700 px-3 py-1 text-xs text-slate-400 transition hover:border-primary-500 hover:text-slate-200"
+            >
+              Tout afficher
+            </button>
+          )}
+        </div>
+        {!loading && txns.length > 0 && (
+          <p className="mt-2 text-xs text-slate-500">
+            {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
+            {!isAll ? " filtrée" + (filtered.length !== 1 ? "s" : "") : ""}
+            {filtered.length > 0 && (
+              <> · Total : <span className="font-medium text-slate-400">{formatCentsToEuros(filteredTotal)}</span></>
+            )}
+          </p>
+        )}
       </div>
 
       {loading && (
@@ -94,9 +160,13 @@ export default function MesTransactionsPage() {
         <p className="mt-8 text-slate-400">Aucune transaction enregistrée.</p>
       )}
 
-      {!loading && txns.length > 0 && (
+      {!loading && txns.length > 0 && filtered.length === 0 && (
+        <p className="mt-8 text-slate-400">Aucune transaction dans cette catégorie.</p>
+      )}
+
+      {!loading && filtered.length > 0 && (
         <div className="mt-6 space-y-3">
-          {txns.map((tx) => {
+          {filtered.map((tx) => {
             const meta = TYPE_META[tx.type];
             const hasItems = (tx.items?.length ?? 0) > 0;
             const isOpen = expanded.has(tx.id);
