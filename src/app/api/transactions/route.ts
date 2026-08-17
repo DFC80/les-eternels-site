@@ -20,7 +20,7 @@ export async function GET() {
 
   const userId = session.user.id as string;
 
-  const [membership, history, topUps, snackOrders, shopOrders] = await Promise.all([
+  const [membership, history, topUps, snackOrders, shopOrders, eventRegs] = await Promise.all([
     prisma.membership.findUnique({
       where: { userId },
       select: { year: true, amount: true, isPaid: true, paidAt: true, paidAmount: true },
@@ -55,12 +55,31 @@ export async function GET() {
         items: { select: { id: true, name: true, unitPrice: true, quantity: true, customText: true } },
       },
     }),
+    prisma.eventRegistration.findMany({
+      where: { userId, status: { not: "REJECTED" } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        participationFee: true,
+        wantsMeal: true,
+        status: true,
+        createdAt: true,
+        event: { select: { title: true, startsAt: true, mealPrice: true } },
+        rentals: {
+          select: {
+            quantity: true,
+            isFree: true,
+            equipment: { select: { name: true, rentalCost: true } },
+          },
+        },
+      },
+    }),
   ]);
 
   type TxItem = { id: string; name: string; unitPrice: number; quantity: number; customText?: string | null };
   type Transaction = {
     id: string;
-    type: "cotisation" | "recharge" | "comptoir" | "boutique";
+    type: "cotisation" | "recharge" | "comptoir" | "boutique" | "inscription";
     date: string;
     label: string;
     amountCents: number;
@@ -123,6 +142,46 @@ export async function GET() {
       status: o.status,
       statusLabel: SHOP_STATUS_LABELS[o.status] ?? o.status,
       items: o.items,
+    });
+  }
+
+  for (const r of eventRegs) {
+    const mealCents = r.wantsMeal ? r.event.mealPrice * 100 : 0;
+    const rentalCents = r.rentals.reduce(
+      (s, rental) => s + (!rental.isFree ? rental.equipment.rentalCost * 100 * rental.quantity : 0),
+      0,
+    );
+    const totalCents = r.participationFee + mealCents + rentalCents;
+
+    const items: TxItem[] = [];
+    if (r.participationFee > 0) {
+      items.push({ id: `${r.id}-fee`, name: "Participation invité", unitPrice: r.participationFee, quantity: 1 });
+    }
+    if (r.wantsMeal) {
+      items.push({ id: `${r.id}-meal`, name: "Repas", unitPrice: r.event.mealPrice * 100, quantity: 1 });
+    }
+    for (const rental of r.rentals) {
+      if (!rental.isFree) {
+        items.push({
+          id: `${r.id}-rental-${rental.equipment.name}`,
+          name: rental.equipment.name,
+          unitPrice: rental.equipment.rentalCost * 100,
+          quantity: rental.quantity,
+        });
+      }
+    }
+
+    const regStatusLabels: Record<string, string> = { APPROVED: "Confirmée", PENDING: "En attente" };
+
+    txns.push({
+      id: `event-${r.id}`,
+      type: "inscription",
+      date: r.createdAt.toISOString(),
+      label: r.event.title,
+      amountCents: totalCents,
+      status: r.status,
+      statusLabel: regStatusLabels[r.status] ?? r.status,
+      items: items.length > 0 ? items : undefined,
     });
   }
 
