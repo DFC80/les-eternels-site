@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { sessionHasWriteAccess } from "@/lib/permissions";
 import { formatCentsToEuros } from "@/lib/money";
 import ImageUpload from "@/components/ImageUpload";
@@ -70,8 +71,11 @@ export default function AdminBoutiquePage() {
   const { data: session } = useSession();
   const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
   const canWrite = sessionHasWriteAccess(sessionUser, "boutique");
+  const searchParams = useSearchParams();
 
-  const [tab, setTab] = useState<"products" | "orders">("products");
+  const [tab, setTab] = useState<"products" | "orders">(
+    searchParams.get("tab") === "orders" ? "orders" : "products"
+  );
   const [items, setItems] = useState<ShopItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
