@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { isFullAdmin } from "@/lib/permissions";
+import { sendMemberActionToAdmin } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 
 /** Retourne les clés d'activités actives pour un userId (cotisation payée) */
@@ -100,6 +102,23 @@ export async function POST(request: Request) {
       _count: { select: { comments: true } },
     },
   });
+
+  const role = (session.user as { role?: string }).role ?? "";
+  if (!isFullAdmin(role)) {
+    const typeLabels: Record<string, string> = { VENTE: "Vente", ECHANGE: "Échange", RECHERCHE: "Recherche" };
+    const details: { label: string; value: string }[] = [
+      { label: "Type", value: typeLabels[type] ?? type },
+      { label: "Titre", value: title.trim() },
+    ];
+    if (category) details.push({ label: "Catégorie", value: category });
+    if (type === "VENTE" && price != null) details.push({ label: "Prix", value: `${price} €` });
+    sendMemberActionToAdmin({
+      memberName: (session.user as { name?: string | null }).name ?? "Membre",
+      memberEmail: (session.user as { email?: string | null }).email ?? "",
+      action: "Nouvelle annonce brocante",
+      details,
+    }).catch(() => {});
+  }
 
   return NextResponse.json(listing, { status: 201 });
 }

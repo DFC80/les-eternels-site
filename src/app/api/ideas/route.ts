@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { isFullAdmin } from "@/lib/permissions";
+import { sendMemberActionToAdmin } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 
 const URGENCY_ORDER: Record<string, number> = { HAUTE: 0, MOYENNE: 1, BASSE: 2 };
@@ -72,6 +74,21 @@ export async function POST(request: Request) {
     },
     include: { user: { select: { firstName: true, name: true } } },
   });
+
+  const role = (session.user as { role?: string }).role ?? "";
+  if (!isFullAdmin(role)) {
+    const urgencyLabels: Record<string, string> = { HAUTE: "Haute", MOYENNE: "Moyenne", BASSE: "Basse" };
+    sendMemberActionToAdmin({
+      memberName: (session.user as { name?: string | null }).name ?? "Membre",
+      memberEmail: (session.user as { email?: string | null }).email ?? "",
+      action: "Nouvelle idée",
+      details: [
+        { label: "Titre", value: title.trim() },
+        { label: "Catégorie", value: category.trim() },
+        { label: "Urgence", value: urgencyLabels[urgency!] ?? urgency! },
+      ],
+    }).catch(() => {});
+  }
 
   return NextResponse.json(idea, { status: 201 });
 }
