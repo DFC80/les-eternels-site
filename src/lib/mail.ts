@@ -960,6 +960,45 @@ export async function sendShopOrderStatusChangeToAdmin(params: {
   await sendMail(adminEmail, `Commande boutique — ${memberName} — ${statusLabel}`, html);
 }
 
+export async function sendMemberActionToAdmin(params: {
+  memberName: string;
+  memberEmail: string;
+  action: string;
+  details: { label: string; value: string }[];
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
+  if (!adminEmail) return;
+
+  const { memberName, memberEmail, action, details } = params;
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const rows = details.map((d, i) => `
+    <tr${i % 2 === 1 ? ' style="background:#f9f9f9"' : ""}>
+      <td style="padding:6px 12px;font-weight:bold;color:#555;">${esc(d.label)}</td>
+      <td style="padding:6px 12px;">${esc(d.value)}</td>
+    </tr>`).join("");
+
+  const html = wrapHtml(
+    `📬 Action membre — ${esc(action)}`,
+    `
+      <p>Un membre vient d'effectuer une action sur le site.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+        <tr>
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Membre</td>
+          <td style="padding:6px 12px;">${esc(memberName)} (<a href="mailto:${esc(memberEmail)}">${esc(memberEmail)}</a>)</td>
+        </tr>
+        <tr style="background:#f9f9f9">
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Action</td>
+          <td style="padding:6px 12px;font-weight:bold;">${esc(action)}</td>
+        </tr>
+        ${rows}
+      </table>
+    `
+  );
+
+  await sendMail(adminEmail, `Action membre — ${memberName} — ${action}`, html);
+}
+
 export async function sendPasswordResetEmail(params: { to: string; firstName: string; resetLink: string }) {
   const { to, firstName, resetLink } = params;
   const html = wrapHtml(

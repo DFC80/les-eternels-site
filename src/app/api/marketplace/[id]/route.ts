@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isFullAdmin } from "@/lib/permissions";
+import { sendMemberActionToAdmin } from "@/lib/mail";
 
 type SessionUser = { id: string; role?: string };
 
@@ -56,6 +57,22 @@ export async function PUT(
     },
     include: { user: { select: { id: true, firstName: true, name: true } } },
   });
+
+  if (!isFullAdmin(role ?? "")) {
+    const details: { label: string; value: string }[] = [
+      { label: "Titre", value: updated.title },
+    ];
+    if (status) {
+      const statusLabels: Record<string, string> = { ACTIVE: "Active", VENDU: "Vendu", CLOS: "Clôturée" };
+      details.push({ label: "Statut", value: statusLabels[status] ?? status });
+    }
+    sendMemberActionToAdmin({
+      memberName: (session.user as { name?: string | null }).name ?? "Membre",
+      memberEmail: (session.user as { email?: string | null }).email ?? "",
+      action: "Annonce brocante modifiée",
+      details,
+    }).catch(() => {});
+  }
 
   return NextResponse.json(updated);
 }

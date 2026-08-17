@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isFullAdmin } from "@/lib/permissions";
+import { sendMemberActionToAdmin } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
@@ -38,6 +39,19 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     data: { title: title.trim(), description: description.trim(), category: category.trim(), urgency: urgency! },
     include: { user: { select: { firstName: true, name: true } } },
   });
+
+  const role = (session.user as { role?: string }).role ?? "";
+  if (!isFullAdmin(role)) {
+    sendMemberActionToAdmin({
+      memberName: (session.user as { name?: string | null }).name ?? "Membre",
+      memberEmail: (session.user as { email?: string | null }).email ?? "",
+      action: "Idée modifiée",
+      details: [
+        { label: "Titre", value: title.trim() },
+        { label: "Catégorie", value: category.trim() },
+      ],
+    }).catch(() => {});
+  }
 
   return NextResponse.json(updated);
 }

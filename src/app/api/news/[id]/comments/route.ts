@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { isFullAdmin } from "@/lib/permissions";
+import { sendMemberActionToAdmin } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -20,6 +22,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
     data: { articleId: params.id, userId: session.user.id, content },
     include: { user: { select: { firstName: true, name: true } } },
   });
+
+  const role = (session.user as { role?: string }).role ?? "";
+  if (!isFullAdmin(role)) {
+    const preview = content.length > 150 ? content.slice(0, 150) + "…" : content;
+    sendMemberActionToAdmin({
+      memberName: (session.user as { name?: string | null }).name ?? "Membre",
+      memberEmail: (session.user as { email?: string | null }).email ?? "",
+      action: "Commentaire sur une actualité",
+      details: [
+        { label: "Article", value: article.title },
+        { label: "Commentaire", value: preview },
+      ],
+    }).catch(() => {});
+  }
 
   return NextResponse.json(comment, { status: 201 });
 }
