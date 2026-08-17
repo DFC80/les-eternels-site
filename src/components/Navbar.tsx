@@ -78,6 +78,13 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     { href: "/calendar", label: "Événements", icon: "📅" },
   ];
 
+  const printItems = [
+    { href: "/admin/produits",          label: "Friandises & boissons",   icon: "🍬" },
+    { href: "/admin/boutique?tab=orders", label: "Commandes boutique",    icon: "🛍️" },
+    { href: "/admin/events",            label: "Fiche d'un événement",    icon: "📅" },
+    { href: "/admin/notes",             label: "Impression d'une note",   icon: "📝" },
+  ];
+
   const membreItems = session
     ? [
         { href: "/documents", label: "Documents", icon: "📁" },
@@ -107,6 +114,9 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     { href: "/galerie", label: "Galerie" },
     { href: "/contact", label: "Contact" },
   ];
+
+  // Flat print links for mobile admin menu
+  const mobilePrintLinks = printItems.map((p) => ({ ...p, label: `🖨️ ${p.label}` }));
 
   const dropdownClass =
     "absolute left-0 top-full mt-1 w-48 rounded-xl border border-primary-700 bg-primary-950 py-1 shadow-xl z-50";
@@ -197,6 +207,35 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
             Contact
           </Link>
 
+          {/* Admin print dropdown */}
+          {isAdmin && (
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown((o) => o === "print" ? null : "print")}
+                className={`${navBtnClass} ${openDropdown === "print" ? "bg-primary-900 text-white" : ""}`}
+              >
+                🖨️ <ChevronDown open={openDropdown === "print"} />
+              </button>
+              {openDropdown === "print" && (
+                <div className={dropdownClass}>
+                  <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Impressions
+                  </p>
+                  {printItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpenDropdown(null)}
+                      className={dropdownItemClass}
+                    >
+                      <span>{item.icon}</span> {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* User section */}
           <div className="ml-2 flex items-center gap-2 border-l border-primary-800 pl-3">
             {session ? (
@@ -242,6 +281,13 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
                       className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-primary-900 hover:text-white"
                     >
                       <span>📋</span> Mon adhésion
+                    </Link>
+                    <Link
+                      href="/mes-transactions"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-primary-900 hover:text-white"
+                    >
+                      <span>📊</span> Mes transactions
                     </Link>
                     {isAdmin && (
                       <Link
@@ -321,10 +367,23 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
               <Link href="/mon-compte" onClick={() => setMobileOpen(false)} className="block py-2.5 text-sm text-slate-200">
                 Mon adhésion
               </Link>
+              <Link href="/mes-transactions" onClick={() => setMobileOpen(false)} className="block py-2.5 text-sm text-slate-200">
+                📊 Mes transactions
+              </Link>
               {isAdmin && (
                 <Link href="/admin" onClick={() => setMobileOpen(false)} className="block py-2.5 text-sm text-slate-200">
                   Administration
                 </Link>
+              )}
+              {isAdmin && (
+                <>
+                  <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Impressions</p>
+                  {mobilePrintLinks.map((l) => (
+                    <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="block py-2 text-sm text-slate-300">
+                      {l.label}
+                    </Link>
+                  ))}
+                </>
               )}
               {balance !== null && (
                 <Link href="/profil" onClick={() => setMobileOpen(false)} className="py-2.5 text-sm font-medium text-primary-300">
