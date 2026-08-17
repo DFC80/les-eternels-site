@@ -36,7 +36,10 @@ export default async function MentionsLegalesPage() {
         <h2 className="font-display text-lg text-silver-200">Hébergement</h2>
         <p className="text-slate-400">
           Ce site est hébergé par :<br />
-          À compléter (nom, adresse, site de l'hébergeur).
+          OVH SAS 2 rue Kellermann - 59100 Roubaix - France —{" "}
+          <a href="https://www.ovhcloud.com/fr/" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline">
+            https://www.ovhcloud.com/fr/
+          </a>
         </p>
       </section>
 
