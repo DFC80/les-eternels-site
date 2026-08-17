@@ -28,6 +28,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       isActive: true,
       airsoftTrialDay: true,
       airsoftHasOwnEquipment: true,
+      airsoftPseudo: true,
+      balance: true,
       createdAt: true,
       dateOfBirth: true,
       phone: true,

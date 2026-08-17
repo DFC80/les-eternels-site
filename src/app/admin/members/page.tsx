@@ -42,6 +42,8 @@ type MemberDetail = {
   isActive: boolean;
   airsoftTrialDay: boolean;
   airsoftHasOwnEquipment: boolean;
+  airsoftPseudo: string | null;
+  balance: number;
   createdAt: string;
   dateOfBirth: string | null;
   phone: string | null;
@@ -915,6 +917,22 @@ export default function AdminMembersPage() {
                     <span className="text-slate-400">Membre depuis :</span>{" "}
                     {new Date(detail.createdAt).toLocaleDateString("fr-FR")}
                   </p>
+                  {(() => {
+                    const memberInList = members.find((m) => m.id === detailMemberId);
+                    const count = memberInList?._count?.registrations;
+                    return count !== undefined ? (
+                      <p>
+                        <span className="text-slate-400">Inscriptions événements :</span>{" "}
+                        {count}
+                      </p>
+                    ) : null;
+                  })()}
+                  <p>
+                    <span className="text-slate-400">Solde comptoir :</span>{" "}
+                    <span className={detail.balance > 0 ? "font-semibold text-primary-300" : ""}>
+                      {(detail.balance / 100).toFixed(2).replace(".", ",")} €
+                    </span>
+                  </p>
                   <p>
                     <span className="text-slate-400">Date de naissance :</span>{" "}
                     {detail.dateOfBirth
@@ -985,6 +1003,12 @@ export default function AdminMembersPage() {
 
                 <div className="mt-4 rounded-lg border border-primary-700 bg-primary-900/40 p-3 space-y-3">
                   <p className="text-sm font-medium text-silver-100">🎯 Airsoft</p>
+                  {detail.airsoftPseudo && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Pseudo :</span>
+                      <span className="text-slate-200">{detail.airsoftPseudo}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-400">Matériel propre :</span>
                     <span className={detail.airsoftHasOwnEquipment ? "text-emerald-400" : "text-slate-400"}>
