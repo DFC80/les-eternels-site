@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
-import { canAccessAdmin } from "@/lib/permissions";
+import { canAccessAdmin, isFullAdmin } from "@/lib/permissions";
 import { formatCentsToEuros } from "@/lib/money";
 
 interface NavbarProps {
@@ -64,6 +64,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
   }, []);
 
   const isAdmin = session?.user?.role && canAccessAdmin(session.user.role);
+  const isPrintAdmin = session?.user?.role && isFullAdmin(session.user.role);
 
   function initials(fullName?: string | null) {
     if (!fullName) return "?";
@@ -207,8 +208,8 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
             Contact
           </Link>
 
-          {/* Admin print dropdown */}
-          {isAdmin && (
+          {/* Admin print dropdown — full admins only */}
+          {isPrintAdmin && (
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown((o) => o === "print" ? null : "print")}
@@ -375,7 +376,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
                   Administration
                 </Link>
               )}
-              {isAdmin && (
+              {isPrintAdmin && (
                 <>
                   <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Impressions</p>
                   {mobilePrintLinks.map((l) => (

@@ -14,7 +14,7 @@ type TxItem = {
 
 type Transaction = {
   id: string;
-  type: "cotisation" | "recharge" | "comptoir" | "boutique";
+  type: "cotisation" | "recharge" | "comptoir" | "boutique" | "inscription";
   date: string;
   label: string;
   amountCents: number;
@@ -23,13 +23,14 @@ type Transaction = {
   items?: TxItem[];
 };
 
-const ALL_TYPES = ["cotisation", "recharge", "comptoir", "boutique"] as const;
+const ALL_TYPES = ["cotisation", "recharge", "comptoir", "boutique", "inscription"] as const;
 
 const TYPE_META: Record<Transaction["type"], { icon: string; label: string; color: string; bg: string; activeBorder: string }> = {
-  cotisation: { icon: "📋", label: "Cotisations",      color: "text-violet-300", bg: "bg-violet-900/30 border-violet-700/50",  activeBorder: "border-violet-500" },
-  recharge:   { icon: "💳", label: "Recharges solde",  color: "text-emerald-300", bg: "bg-emerald-900/30 border-emerald-700/50", activeBorder: "border-emerald-500" },
-  comptoir:   { icon: "🍬", label: "Achat comptoir",   color: "text-amber-300",   bg: "bg-amber-900/30 border-amber-700/50",    activeBorder: "border-amber-500" },
-  boutique:   { icon: "🛍️", label: "Boutique",         color: "text-sky-300",     bg: "bg-sky-900/30 border-sky-700/50",        activeBorder: "border-sky-500" },
+  cotisation:  { icon: "📋", label: "Cotisations",      color: "text-violet-300",  bg: "bg-violet-900/30 border-violet-700/50",  activeBorder: "border-violet-500" },
+  recharge:    { icon: "💳", label: "Recharges solde",  color: "text-emerald-300", bg: "bg-emerald-900/30 border-emerald-700/50", activeBorder: "border-emerald-500" },
+  comptoir:    { icon: "🍬", label: "Achat comptoir",   color: "text-amber-300",   bg: "bg-amber-900/30 border-amber-700/50",    activeBorder: "border-amber-500" },
+  boutique:    { icon: "🛍️", label: "Boutique",         color: "text-sky-300",     bg: "bg-sky-900/30 border-sky-700/50",        activeBorder: "border-sky-500" },
+  inscription: { icon: "📅", label: "Événements",       color: "text-orange-300",  bg: "bg-orange-900/30 border-orange-700/50",  activeBorder: "border-orange-500" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
