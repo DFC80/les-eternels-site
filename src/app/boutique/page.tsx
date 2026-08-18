@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { formatCentsToEuros } from "@/lib/money";
@@ -77,6 +77,26 @@ export default function BoutiquePage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number; title: string } | null>(null);
+
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+  const navLightbox = useCallback((dir: 1 | -1) => {
+    setLightbox((prev) => {
+      if (!prev) return null;
+      return { ...prev, index: (prev.index + dir + prev.photos.length) % prev.photos.length };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowRight") navLightbox(1);
+      if (e.key === "ArrowLeft") navLightbox(-1);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, closeLightbox, navLightbox]);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -495,8 +515,19 @@ export default function BoutiquePage() {
 
                 {photos.length > 0 && (
                   <div className="mt-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photos[photoIndex]} alt={selectedItem.title} className="h-56 w-full rounded-xl object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setLightbox({ photos, index: photoIndex, title: selectedItem.title })}
+                      className="block w-full"
+                      title="Agrandir la photo"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photos[photoIndex]}
+                        alt={selectedItem.title}
+                        className="h-56 w-full rounded-xl object-cover transition hover:brightness-90"
+                      />
+                    </button>
                     {photos.length > 1 && (
                       <div className="mt-2 flex gap-2 overflow-x-auto">
                         {photos.map((p, i) => (
@@ -505,8 +536,8 @@ export default function BoutiquePage() {
                             key={i}
                             src={p}
                             alt=""
-                            onClick={() => setPhotoIndex(i)}
-                            className={`h-12 w-12 flex-shrink-0 cursor-pointer rounded-lg object-cover border-2 transition ${i === photoIndex ? "border-primary-400" : "border-transparent"}`}
+                            onClick={() => { setPhotoIndex(i); setLightbox({ photos, index: i, title: selectedItem.title }); }}
+                            className={`h-12 w-12 flex-shrink-0 cursor-pointer rounded-lg object-cover border-2 transition hover:brightness-90 ${i === photoIndex ? "border-primary-400" : "border-transparent"}`}
                           />
                         ))}
                       </div>
@@ -568,6 +599,81 @@ export default function BoutiquePage() {
             </div>
           );
         })()}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4"
+          onClick={closeLightbox}
+        >
+          {/* Toolbar */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <span className="text-sm text-slate-300 font-medium">{lightbox.title}</span>
+            <div className="flex items-center gap-3">
+              {lightbox.photos.length > 1 && (
+                <span className="text-xs text-slate-500">
+                  {lightbox.index + 1} / {lightbox.photos.length}
+                </span>
+              )}
+              <button
+                onClick={closeLightbox}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                aria-label="Fermer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Image */}
+          <div className="relative flex max-h-[80vh] max-w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox.photos[lightbox.index]}
+              alt={`${lightbox.title} – photo ${lightbox.index + 1}`}
+              className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            />
+          </div>
+
+          {/* Nav arrows */}
+          {lightbox.photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(-1); }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 text-lg"
+                aria-label="Photo précédente"
+              >
+                ‹
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(1); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 text-lg"
+                aria-label="Photo suivante"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* Thumbnail strip */}
+          {lightbox.photos.length > 1 && (
+            <div className="absolute bottom-4 flex gap-2 overflow-x-auto max-w-[90vw] px-2" onClick={(e) => e.stopPropagation()}>
+              {lightbox.photos.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => setLightbox((prev) => prev ? { ...prev, index: i } : null)}
+                  className={`flex-shrink-0 h-12 w-12 rounded overflow-hidden border-2 transition ${
+                    i === lightbox.index ? "border-primary-400" : "border-transparent opacity-60 hover:opacity-90"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
