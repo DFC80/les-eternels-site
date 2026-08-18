@@ -125,6 +125,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
           h2 { page-break-before: auto; }
           .section { page-break-inside: avoid; }
           .presence-sheet { page-break-after: always; }
+          .shopping-list { page-break-before: always; }
         }
         body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: white; }
         h1 { font-size: 20px; margin: 0 0 4px; }
@@ -405,6 +406,127 @@ export default async function PrintEventPage({ params }: { params: { id: string 
             <p style={{ fontSize: 12 }}>{event.boardGames.map((g) => g.name).join(", ")}</p>
           </>
         )}
+
+        {/* Liste de courses */}
+        {event.hasMeal && (() => {
+          const EXTRAS_LABELS: Record<string, string> = {
+            softs:           "Boissons softs",
+            beer:            "Bières",
+            pain:            "Pain",
+            sauces:          "Sauces diverses",
+            assaisonnements: "Assaisonnements / sel & poivre",
+          };
+          const extras = event.mealExtras ? event.mealExtras.split(",").filter(Boolean) : [];
+          const dinerCount = diners.length;
+          const allergyRegs = approved.filter((r) => r.wantsMeal && r.mealNotes?.trim());
+
+          return (
+            <div className="shopping-list">
+              <div className="header-bar" style={{ marginTop: 24 }}>
+                <div>
+                  <div className="meta">Les Éternels — Liste de courses</div>
+                  <h1>{event.title}</h1>
+                  <div className="meta">📅 {fmt(event.startsAt)}</div>
+                </div>
+                <div className="header-meta">
+                  <div>Imprimé le {fmtDate(new Date())}</div>
+                  <div style={{ fontWeight: "bold", fontSize: 14, color: "#1a1a1a", marginTop: 4 }}>
+                    {dinerCount} convive{dinerCount !== 1 ? "s" : ""} × {event.mealPrice}€
+                  </div>
+                </div>
+              </div>
+
+              {event.mealInfo && (
+                <p style={{ margin: "12px 0 0", fontSize: 12, color: "#333", fontStyle: "italic" }}>
+                  {event.mealInfo}
+                </p>
+              )}
+
+              {event.menus.length > 0 && (
+                <>
+                  <h2>Menus à préparer</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Menu</th>
+                        <th style={{ width: 80, textAlign: "center" }}>Quantité</th>
+                        <th style={{ width: 120 }}>Supplément</th>
+                        <th style={{ width: 120, textAlign: "center" }}>À acheter □</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byMenu.filter((m) => m.count > 0).map((m) => (
+                        <tr key={m.label}>
+                          <td>{m.label}</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold" }}>{m.count}</td>
+                          <td style={{ fontSize: 11, color: "#666" }}>
+                            {event.menus.find((menu) => menu.label === m.label)?.extraPrice
+                              ? `+${(event.menus.find((menu) => menu.label === m.label)!.extraPrice! / 100).toFixed(2)}€/pers.`
+                              : "—"}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
+                          </td>
+                        </tr>
+                      ))}
+                      {withoutMenuCount > 0 && (
+                        <tr>
+                          <td style={{ color: "#888", fontStyle: "italic" }}>Sans menu précisé</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold" }}>{withoutMenuCount}</td>
+                          <td>—</td>
+                          <td />
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
+
+              {extras.length > 0 && (
+                <>
+                  <h2>Fournitures</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Article</th>
+                        <th style={{ width: 120, textAlign: "center" }}>Acheté □</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {extras.map((key) => (
+                        <tr key={key}>
+                          <td>{EXTRAS_LABELS[key] ?? key}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+
+              {allergyRegs.length > 0 && (
+                <>
+                  <h2>Intolérances & régimes alimentaires ({allergyRegs.length})</h2>
+                  <table>
+                    <thead>
+                      <tr><th>Convive</th><th>Note</th></tr>
+                    </thead>
+                    <tbody>
+                      {allergyRegs.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ whiteSpace: "nowrap" }}>{r.user.firstName} {r.user.name}</td>
+                          <td style={{ color: "#b45309" }}>{r.mealNotes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </>
   );

@@ -701,6 +701,15 @@ function ListingCard({
           </div>
         )}
 
+        {isAdmin && !isOwner && (
+          <button
+            onClick={deleteListing}
+            className="rounded border border-red-900 px-2 py-1 text-xs text-red-400 hover:bg-red-950"
+          >
+            Supprimer (admin)
+          </button>
+        )}
+
         {isOwner && listing.status !== "ACTIVE" && (
           <div className="flex gap-2">
             <button
