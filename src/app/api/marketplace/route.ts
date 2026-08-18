@@ -31,7 +31,10 @@ export async function GET() {
   const userId = (session.user as { id: string }).id;
   const userActivityKeys = await getUserActivityKeys(userId);
 
-  const listings = await prisma.marketListing.findMany({
+  const role = (session.user as { role?: string }).role ?? "";
+  const adminView = isFullAdmin(role);
+
+  const rawListings = await prisma.marketListing.findMany({
     where: {
       OR: [
         // Toujours voir ses propres annonces
@@ -46,10 +49,14 @@ export async function GET() {
     },
     orderBy: { createdAt: "desc" },
     include: {
-      user: { select: { id: true, firstName: true, name: true } },
+      user: { select: { id: true, firstName: true, name: true, email: true } },
       _count: { select: { comments: true } },
     },
   });
+
+  const listings = adminView
+    ? rawListings
+    : rawListings.map((l) => ({ ...l, user: { id: l.user.id, firstName: l.user.firstName, name: l.user.name } }));
 
   return NextResponse.json(listings);
 }

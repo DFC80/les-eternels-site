@@ -5,8 +5,9 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { formatCentsToEuros } from "@/lib/money";
+import { isFullAdmin } from "@/lib/permissions";
 
-type ListingUser = { id: string; firstName: string; name: string };
+type ListingUser = { id: string; firstName: string; name: string; email?: string | null };
 
 type Listing = {
   id: string;
@@ -459,11 +460,15 @@ function CommentsSection({
 function ListingCard({
   listing,
   currentUserId,
+  isAdmin,
   onChanged,
+  onEmail,
 }: {
   listing: Listing;
   currentUserId?: string;
+  isAdmin?: boolean;
   onChanged: () => void;
+  onEmail?: (user: ListingUser) => void;
 }) {
   const isOwner = currentUserId === listing.user.id;
   const [editing, setEditing] = useState(false);
@@ -629,7 +634,18 @@ function ListingCard({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-slate-500">
-          {listing.user.firstName} {listing.user.name} &middot;{" "}
+          {isAdmin && !isOwner && onEmail ? (
+            <button
+              type="button"
+              onClick={() => onEmail(listing.user)}
+              className="font-medium text-primary-300 hover:underline"
+            >
+              {listing.user.firstName} {listing.user.name}
+            </button>
+          ) : (
+            <>{listing.user.firstName} {listing.user.name}</>
+          )}
+          {" "}&middot;{" "}
           {new Date(listing.createdAt).toLocaleDateString("fr-FR", {
             day: "numeric",
             month: "long",
@@ -722,6 +738,12 @@ export default function MarchePage() {
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [emailFor, setEmailFor] = useState<ListingUser | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/marketplace");
@@ -737,6 +759,36 @@ export default function MarchePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status]);
+
+  const role = (session?.user as { role?: string })?.role ?? "";
+  const isAdmin = isFullAdmin(role);
+
+  function openEmail(user: ListingUser) {
+    setEmailFor(user);
+    setEmailSubject("");
+    setEmailBody("");
+    setEmailSuccess(false);
+    setEmailError(null);
+  }
+
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emailFor) return;
+    setEmailSending(true);
+    setEmailError(null);
+    const res = await fetch(`/api/admin/members/${emailFor.id}/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject: emailSubject, message: emailBody }),
+    });
+    setEmailSending(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      setEmailError(body.error ?? "Erreur lors de l'envoi.");
+      return;
+    }
+    setEmailSuccess(true);
+  }
 
   async function submit() {
     setSubmitting(true);
@@ -847,7 +899,9 @@ export default function MarchePage() {
                 key={l.id}
                 listing={l}
                 currentUserId={userId}
+                isAdmin={isAdmin}
                 onChanged={load}
+                onEmail={openEmail}
               />
             ))}
           </div>
@@ -894,7 +948,9 @@ export default function MarchePage() {
                 key={l.id}
                 listing={l}
                 currentUserId={userId}
+                isAdmin={isAdmin}
                 onChanged={load}
+                onEmail={openEmail}
               />
             ))}
           </div>
@@ -930,11 +986,85 @@ export default function MarchePage() {
                   key={l.id}
                   listing={l}
                   currentUserId={userId}
+                  isAdmin={isAdmin}
                   onChanged={load}
+                  onEmail={openEmail}
                 />
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {emailFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setEmailFor(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-primary-700 bg-primary-950 p-6 shadow-2xl shadow-black/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-xl text-silver-100">
+              ✉️ Message à {emailFor.firstName} {emailFor.name}
+            </h3>
+            {emailFor.email && (
+              <p className="mt-1 text-sm text-slate-400">{emailFor.email}</p>
+            )}
+
+            {emailSuccess ? (
+              <div className="mt-6 text-center">
+                <p className="font-medium text-emerald-400">Email envoyé avec succès !</p>
+                <button
+                  onClick={() => setEmailFor(null)}
+                  className="mt-4 rounded-md px-4 py-2 text-sm font-medium text-slate-300 hover:bg-primary-900"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={sendEmail} className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300">Sujet</label>
+                  <input
+                    required
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="Ex: Information importante"
+                    className="mt-1 w-full rounded-md border border-primary-700 bg-primary-900 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300">Message</label>
+                  <textarea
+                    required
+                    rows={6}
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    placeholder="Votre message…"
+                    className="mt-1 w-full rounded-md border border-primary-700 bg-primary-900 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                  />
+                </div>
+                {emailError && <p className="text-sm text-red-400">{emailError}</p>}
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEmailFor(null)}
+                    className="rounded-md px-4 py-2 text-sm font-medium text-slate-300 hover:bg-primary-900"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={emailSending}
+                    className="rounded-md bg-primary-400 px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
+                  >
+                    {emailSending ? "Envoi…" : "Envoyer"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>

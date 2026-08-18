@@ -124,6 +124,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
           tr { page-break-inside: avoid; }
           h2 { page-break-before: auto; }
           .section { page-break-inside: avoid; }
+          .presence-sheet { page-break-after: always; }
         }
         body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: white; }
         h1 { font-size: 20px; margin: 0 0 4px; }
@@ -144,7 +145,73 @@ export default async function PrintEventPage({ params }: { params: { id: string 
       `}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px" }}>
-        {/* Header */}
+        {/* Fiche de présence */}
+        <div className="presence-sheet">
+          <div className="header-bar">
+            <div>
+              <div className="meta">Les Éternels — Fiche de présence</div>
+              <h1>{event.title}</h1>
+              <div className="meta">📅 {fmt(event.startsAt)} → {fmt(event.endsAt)}</div>
+              <div className="meta">📍 {event.location}</div>
+            </div>
+            <div className="header-meta">
+              <div>Imprimé le {fmtDate(new Date())}</div>
+              <div>{approved.length} participant{approved.length !== 1 ? "s" : ""} confirmé{approved.length !== 1 ? "s" : ""}</div>
+            </div>
+          </div>
+
+          {approved.length === 0 ? (
+            <p className="meta" style={{ marginTop: 16 }}>Aucune inscription confirmée.</p>
+          ) : (
+            <table style={{ marginTop: 16 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 28 }}>#</th>
+                  <th>Nom</th>
+                  <th style={{ width: 200, fontSize: 11 }}>Email</th>
+                  {event.hasMeal && <th style={{ width: 50, textAlign: "center" }}>Repas</th>}
+                  {event.activityType === "AIRSOFT" && <th style={{ width: 60, textAlign: "center" }}>Matériel</th>}
+                  <th style={{ width: 72, textAlign: "center" }}>Présent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...approved]
+                  .sort((a, b) =>
+                    `${a.user.name} ${a.user.firstName}`.localeCompare(`${b.user.name} ${b.user.firstName}`, "fr")
+                  )
+                  .map((r, i) => (
+                    <tr key={r.id}>
+                      <td style={{ color: "#aaa" }}>{i + 1}</td>
+                      <td>{r.user.firstName} {r.user.name}</td>
+                      <td style={{ fontSize: 11, color: "#666" }}>{r.user.email}</td>
+                      {event.hasMeal && <td style={{ textAlign: "center" }}>{r.wantsMeal ? "✓" : "—"}</td>}
+                      {event.activityType === "AIRSOFT" && (
+                        <td style={{ textAlign: "center" }}>{r.hasOwnEquipment ? "✓" : "—"}</td>
+                      )}
+                      <td style={{ textAlign: "center" }}>
+                        <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+
+          {pending.length > 0 && (
+            <p style={{ marginTop: 10, fontSize: 11, color: "#888", fontStyle: "italic" }}>
+              {pending.length} inscription{pending.length !== 1 ? "s" : ""} en attente non listée{pending.length !== 1 ? "s" : ""}.
+            </p>
+          )}
+
+          <div style={{ marginTop: 32, display: "flex", gap: 60 }}>
+            <div>
+              <div className="meta">Signature du responsable</div>
+              <div style={{ marginTop: 36, borderBottom: "1px solid #aaa", width: 200 }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Fiche technique complète */}
         <div className="header-bar">
           <div>
             <div className="meta">Les Éternels — {ACTIVITY_LABELS[event.activityType] ?? event.activityType}</div>
