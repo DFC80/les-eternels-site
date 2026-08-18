@@ -569,24 +569,14 @@ export default function AdminMembersPage() {
                     </span>
                   )}
                 </td>
-                {canEdit && (
+                {canEdit && m.email !== "admin@les-eternels.fr" && (
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => openEmail(m)}
-                        className="text-primary-300 hover:underline"
-                      >
-                        ✉️ Écrire
-                      </button>
-                      {m.email !== "admin@les-eternels.fr" && (
-                        <button
-                          onClick={() => removeMember(m.id)}
-                          className="text-red-400 hover:underline"
-                        >
-                          Supprimer
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => removeMember(m.id)}
+                      className="text-red-400 hover:underline"
+                    >
+                      Supprimer
+                    </button>
                   </td>
                 )}
               </tr>
@@ -894,10 +884,29 @@ export default function AdminMembersPage() {
               <p className="text-slate-400">Chargement...</p>
             ) : detail ? (
               <>
-                <h3 className="font-display text-xl text-silver-100">
-                  {detail.firstName} {detail.name}
-                </h3>
-                <p className="text-sm text-slate-400">{detail.email}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-xl text-silver-100">
+                      {detail.firstName} {detail.name}
+                    </h3>
+                    <p className="text-sm text-slate-400">{detail.email}</p>
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        if (!detailMemberId) return;
+                        setEmailFor({ id: detailMemberId, firstName: detail.firstName, name: detail.name, email: detail.email });
+                        setEmailSubject("");
+                        setEmailBody("");
+                        setEmailSuccess(false);
+                        setEmailError(null);
+                      }}
+                      className="flex-shrink-0 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-primary-300 hover:bg-primary-900"
+                    >
+                      ✉️ Écrire
+                    </button>
+                  )}
+                </div>
 
                 <div className="mt-4 space-y-2 text-sm text-slate-200">
                   <p>
