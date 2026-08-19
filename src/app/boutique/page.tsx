@@ -112,6 +112,9 @@ export default function BoutiquePage() {
   function openItem(item: ShopItem) {
     setSelectedItem(item);
     setPhotoIndex(0);
+  }
+
+  function addToCart(item: ShopItem) {
     if (!cart.find((c) => c.shopItemId === item.id)) {
       setCart((prev) => [
         ...prev,
@@ -598,7 +601,7 @@ export default function BoutiquePage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => openItem(selectedItem)}
+                    onClick={() => addToCart(selectedItem)}
                     className="mt-4 w-full rounded-md bg-primary-400 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
                   >
                     Ajouter au panier
