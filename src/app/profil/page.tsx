@@ -184,7 +184,7 @@ export default function ProfilePage() {
           href="/profil/jeux"
           className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white"
         >
-          🎲 Mes jeux de société
+          🎲 Mes jeux
         </Link>
       </div>
 
