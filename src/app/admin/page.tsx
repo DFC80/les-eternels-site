@@ -45,7 +45,7 @@ export default async function AdminHome() {
   ).concat(fullAdmin ? CARDS.filter((c) => c.fullAdminOnly) : []);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
+    <div className="mx-auto max-w-7xl px-4 py-12">
       <h1 className="font-display text-3xl text-silver-100">Administration</h1>
       <p className="mt-2 text-slate-400">Gérez les membres et les événements de l'association.</p>
 
@@ -53,24 +53,24 @@ export default async function AdminHome() {
         <p className="mt-8 text-slate-400">Vous n'avez accès à aucune section d'administration.</p>
       )}
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {visibleCards.map((card) => {
           const canWrite = card.fullAdminOnly || sessionHasWriteAccess(user, card.section);
           return (
             <Link
               key={card.href}
               href={card.href}
-              className="rounded-xl border border-primary-800 bg-primary-900/40 p-6 shadow-lg shadow-black/30 hover:border-primary-400"
+              className="rounded-xl border border-primary-800 bg-primary-900/40 p-4 shadow-lg shadow-black/30 hover:border-primary-400"
             >
               <div className="flex items-start justify-between gap-2">
-                <h2 className="font-display text-lg text-silver-100">{card.icon} {card.title}</h2>
+                <h2 className="font-display text-base text-silver-100">{card.icon} {card.title}</h2>
                 {!canWrite && (
                   <span className="mt-0.5 shrink-0 rounded px-2 py-0.5 text-xs font-medium bg-sky-900/60 text-sky-300">
-                    👁 Lecture
+                    👁
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-slate-400">{card.description}</p>
+              <p className="mt-2 text-xs text-slate-400">{card.description}</p>
             </Link>
           );
         })}
