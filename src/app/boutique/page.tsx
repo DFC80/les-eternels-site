@@ -576,9 +576,9 @@ export default function BoutiquePage() {
                     <div className="flex gap-3">
                       <button
                         onClick={closeItem}
-                        className="flex-1 rounded-md border border-primary-600 py-2 text-sm font-semibold text-slate-200 hover:bg-primary-800"
+                        className="flex-1 rounded-md bg-primary-400 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300"
                       >
-                        Dans le panier
+                        ✅ Dans le panier
                       </button>
                       <button
                         onClick={() => {
@@ -590,14 +590,6 @@ export default function BoutiquePage() {
                         Retirer
                       </button>
                     </div>
-                    <button
-                      onClick={placeOrder}
-                      disabled={ordering}
-                      className="w-full rounded-md bg-primary-400 py-2 text-sm font-semibold text-primary-950 hover:bg-silver-300 disabled:opacity-60"
-                    >
-                      {ordering ? "Commande en cours…" : "🛒 Passer la commande"}
-                    </button>
-                    {orderError && <p className="text-xs text-red-400">{orderError}</p>}
                   </div>
                 ) : (
                   <button
