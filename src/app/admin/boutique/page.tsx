@@ -189,6 +189,12 @@ export default function AdminBoutiquePage() {
     await loadOrders();
   }
 
+  async function deleteOrder(orderId: string) {
+    if (!canWrite || !confirm("Supprimer cette commande ? Le stock sera restauré si elle n'était pas annulée.")) return;
+    await fetch(`/api/admin/shop/orders/${orderId}`, { method: "DELETE" });
+    await loadOrders();
+  }
+
   function addPhoto(url: string) {
     if (url) setForm((f) => ({ ...f, photos: [...f.photos, url] }));
     setNewPhotoUrl("");
@@ -474,15 +480,23 @@ export default function AdminBoutiquePage() {
                           {STATUS_LABELS[order.status] ?? order.status}
                         </span>
                         {canWrite && (
-                          <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className="rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs text-slate-200"
-                          >
-                            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                              <option key={k} value={k}>{v}</option>
-                            ))}
-                          </select>
+                          <>
+                            <select
+                              value={order.status}
+                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                              className="rounded border border-primary-700 bg-primary-950 px-2 py-0.5 text-xs text-slate-200"
+                            >
+                              {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                                <option key={k} value={k}>{v}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => deleteOrder(order.id)}
+                              className="rounded bg-red-900/40 px-2 py-0.5 text-xs text-red-400 hover:bg-red-900/70"
+                            >
+                              Supprimer
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
