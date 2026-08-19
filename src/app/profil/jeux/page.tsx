@@ -117,7 +117,7 @@ export default function MesJeuxPage() {
           Profil
         </Link>
         <span className="border-b-2 border-primary-400 px-4 py-2 text-sm font-medium text-silver-100">
-          🎲 Mes jeux de société
+          🎲 Mes jeux
         </span>
       </div>
 
