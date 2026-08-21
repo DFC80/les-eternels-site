@@ -55,14 +55,16 @@ async function getHomeIdeas() {
       category: true,
       urgency: true,
       ratings: { select: { rating: true } },
+      _count: { select: { comments: true } },
     },
   });
-  return ideas.map(({ ratings, ...rest }) => ({
+  return ideas.map(({ ratings, _count, ...rest }) => ({
     ...rest,
     ratingCount: ratings.length,
     avgRating: ratings.length > 0
       ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
       : null,
+    commentCount: _count.comments,
   }));
 }
 
@@ -254,17 +256,24 @@ export default async function HomePage() {
                   </div>
                   <h3 className="mt-2 font-display text-base text-silver-100">{idea.title}</h3>
                   <p className="mt-1 line-clamp-3 text-sm text-slate-400">{idea.description}</p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <span className="flex">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <span key={s} className={`text-base leading-none ${idea.avgRating && s <= Math.round(idea.avgRating) ? "text-amber-400" : "text-primary-700"}`}>★</span>
-                      ))}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {idea.ratingCount > 0
-                        ? `${idea.avgRating!.toFixed(1)} (${idea.ratingCount} vote${idea.ratingCount > 1 ? "s" : ""})`
-                        : "Non noté"}
-                    </span>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <span key={s} className={`text-base leading-none ${idea.avgRating && s <= Math.round(idea.avgRating) ? "text-amber-400" : "text-primary-700"}`}>★</span>
+                        ))}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {idea.ratingCount > 0
+                          ? `${idea.avgRating!.toFixed(1)} (${idea.ratingCount})`
+                          : "Non noté"}
+                      </span>
+                    </div>
+                    {idea.commentCount > 0 && (
+                      <span className="text-xs text-slate-400">
+                        💬 {idea.commentCount} commentaire{idea.commentCount > 1 ? "s" : ""}
+                      </span>
+                    )}
                   </div>
                 </Link>
               );
