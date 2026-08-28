@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     if (res?.error) {
       if (res.error === "COMPTE_EN_ATTENTE") {
-        setError("Votre compte est en attente de validation par un administrateur. Vous recevrez un email de confirmation.");
+        setError("Votre compte n'est pas encore activé. Vérifiez votre boîte email et cliquez sur le lien d'activation reçu lors de votre inscription.");
       } else if (res.error === "COMPTE_DESACTIVE") {
         setError("Votre compte a été désactivé. Veuillez contacter l'association.");
       } else {
