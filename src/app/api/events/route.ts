@@ -24,7 +24,7 @@ export async function GET() {
   }
 
   const events = await prisma.event.findMany({
-    where: isBureau ? undefined : { bureauOnly: false },
+    where: isBureau ? undefined : { bureauOnly: false, showOnCalendar: true },
     orderBy: { startsAt: "asc" },
     include: {
       registrations: { include: { mealOrders: true, rentals: { include: { equipment: true } } } },
