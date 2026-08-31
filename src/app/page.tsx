@@ -354,7 +354,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {userHasMembership && <HomePollWidget />}
+      {!!session && <HomePollWidget />}
 
       {isBureau && bureauMeetings.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
