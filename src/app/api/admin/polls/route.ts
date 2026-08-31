@@ -157,9 +157,5 @@ export async function POST(request: Request) {
     include: { options: { orderBy: { order: "asc" } } },
   });
 
-  if (published) {
-    sendPollNotifications(poll.id, poll.question, poll.activityKey).catch(console.error);
-  }
-
   return NextResponse.json(poll, { status: 201 });
 }
