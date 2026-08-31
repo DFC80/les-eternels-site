@@ -169,6 +169,8 @@ export default function AdminEventsPage() {
   const [docLinking, setDocLinking] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
   const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
+  const [notifyingFor, setNotifyingFor] = useState<string | null>(null);
+  const [notifySuccess, setNotifySuccess] = useState<Record<string, number>>({});
 
   async function load() {
     const res = await fetch("/api/events");
@@ -459,6 +461,18 @@ export default function AdminEventsPage() {
     if (res.ok) await loadRentals(eventId);
   }
 
+  async function sendNotification(eventId: string) {
+    if (!confirm("Envoyer un email de notification à tous les membres actifs ?")) return;
+    setNotifyingFor(eventId);
+    const res = await fetch(`/api/admin/events/${eventId}/notify`, { method: "POST" });
+    setNotifyingFor(null);
+    if (res.ok) {
+      const data = await res.json();
+      setNotifySuccess((prev) => ({ ...prev, [eventId]: data.sent }));
+      setTimeout(() => setNotifySuccess((prev) => { const next = { ...prev }; delete next[eventId]; return next; }), 5000);
+    }
+  }
+
   async function loadEventDocs(eventId: string) {
     const res = await fetch(`/api/admin/events/${eventId}/documents`);
     if (res.ok) setEventDocuments(await res.json());
@@ -631,6 +645,20 @@ export default function AdminEventsPage() {
               }`}
             >
               {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
+            </button>
+          )}
+          {canWrite && !isPast && (
+            <button
+              type="button"
+              onClick={() => sendNotification(ev.id)}
+              disabled={notifyingFor === ev.id}
+              className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60 disabled:opacity-50"
+            >
+              {notifyingFor === ev.id
+                ? "Envoi…"
+                : notifySuccess[ev.id] !== undefined
+                  ? `✅ ${notifySuccess[ev.id]} emails envoyés`
+                  : "📣 Notifier les membres"}
             </button>
           )}
           {canWrite && (

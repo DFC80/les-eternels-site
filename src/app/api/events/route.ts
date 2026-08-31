@@ -5,7 +5,6 @@ import { authOptions } from "@/lib/auth";
 import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
-import { sendNewEventNotification } from "@/lib/mail";
 
 type MenuInput = { label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null };
 
@@ -110,24 +109,6 @@ export async function POST(request: Request) {
     },
     include: { menus: true, boardGames: true },
   });
-
-  const allUsers = await prisma.user.findMany({
-    where: { isActive: true, isPending: false },
-    select: { firstName: true, email: true },
-  });
-
-  await Promise.all(
-    allUsers.map((user) =>
-      sendNewEventNotification({
-        to: user.email,
-        firstName: user.firstName,
-        eventTitle: event.title,
-        description: event.description,
-        startsAt: event.startsAt,
-        location: event.location,
-      })
-    )
-  );
 
   return NextResponse.json(event, { status: 201 });
 }
