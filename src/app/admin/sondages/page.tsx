@@ -191,7 +191,7 @@ export default function AdminSondagesPage() {
   }
 
   async function renotify(p: Poll) {
-    if (!confirm(`Renvoyer l'email du sondage à ${p.activityKey ? "tous les membres concernés" : "tous les utilisateurs"} ?\n\nLes votes déjà effectués seront conservés.`)) return;
+    if (!confirm(`Envoyer l'email du sondage à ${p.activityKey ? "tous les membres concernés" : "tous les membres actifs"} ?`)) return;
     setNotifying(p.id);
     setNotifyResult((prev) => ({ ...prev, [p.id]: "" }));
     try {
@@ -241,7 +241,7 @@ export default function AdminSondagesPage() {
             </select>
             {form.activityKey && (
               <p className="mt-1 text-xs text-amber-400">
-                Seuls les membres adhérents à cette activité pourront voter. Un email sera envoyé aux membres concernés lors de la publication.
+                Seuls les membres adhérents à cette activité pourront voter.
               </p>
             )}
             {!form.activityKey && (
@@ -284,7 +284,7 @@ export default function AdminSondagesPage() {
               <input type="checkbox" checked={form.published}
                 onChange={(e) => setForm({ ...form, published: e.target.checked })}
                 className="h-4 w-4 accent-primary-400" />
-              Publier (envoi email aux membres)
+              Publier
             </label>
           </div>
 
@@ -414,7 +414,7 @@ export default function AdminSondagesPage() {
                 {p.published && (
                   <button onClick={() => !isClosed && renotify(p)} disabled={!!isClosed || notifying === p.id}
                     className="rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-900 disabled:cursor-not-allowed disabled:opacity-40">
-                    {notifying === p.id ? "Envoi…" : "📧 Renotifier"}
+                    {notifying === p.id ? "Envoi…" : "📣 Notifier les membres"}
                   </button>
                 )}
                 <button onClick={() => !isClosed && editPoll(p)} disabled={!!isClosed}

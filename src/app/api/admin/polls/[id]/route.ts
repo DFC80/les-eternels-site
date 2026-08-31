@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isFullAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { sendNewPollNotification, sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
+import { sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -77,12 +77,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   if (!question?.trim()) return NextResponse.json({ error: "La question est requise." }, { status: 400 });
 
-  // Check if we need to send notifications (first time publishing)
   const existing = await prisma.poll.findUnique({
     where: { id: params.id },
     include: { options: { orderBy: { order: "asc" } } },
   });
-  const shouldNotify = !!published && !existing?.publishNotificationSentAt;
 
   // Only rebuild options if they actually changed (avoids cascade-deleting votes)
   const newOpts = (options ?? [])
@@ -113,10 +111,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     },
     include: { options: { orderBy: { order: "asc" } } },
   });
-
-  if (shouldNotify) {
-    sendPollNotifications(poll.id, poll.question, poll.activityKey).catch(console.error);
-  }
 
   // Envoyer les résultats si le sondage vient d'être clôturé manuellement
   const justClosed =
