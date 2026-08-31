@@ -594,6 +594,30 @@ export async function sendNewPollNotification(params: {
   await sendMail(to, `Nouveau sondage — ${question.slice(0, 60)}`, html);
 }
 
+export async function sendPollVoteNotificationToAdmin(params: {
+  voterName: string;
+  voterEmail: string;
+  question: string;
+  selectedOptions: string[];
+  isChange: boolean;
+}) {
+  const { voterName, voterEmail, question, selectedOptions, isChange } = params;
+  const action = isChange ? "modifié son vote" : "voté";
+  const optionsList = selectedOptions.map((o) => `<li>${o}</li>`).join("");
+  const html = wrapHtml(
+    `🗳️ ${voterName} a ${action}`,
+    `
+      <p><strong>${voterName}</strong> (<a href="mailto:${voterEmail}">${voterEmail}</a>) a ${action} sur le sondage :</p>
+      <blockquote style="border-left:4px solid #6366f1;margin:16px 0;padding:8px 16px;color:#374151;background:#f9fafb;">
+        ${question}
+      </blockquote>
+      <p><strong>Réponse${selectedOptions.length > 1 ? "s" : ""} choisie${selectedOptions.length > 1 ? "s" : ""} :</strong></p>
+      <ul>${optionsList}</ul>
+    `
+  );
+  await sendMail("les.eternels@gmail.com", `Vote sondage — ${voterName} — ${question.slice(0, 50)}`, html);
+}
+
 export async function sendCustomEmail(params: {
   to: string;
   firstName: string;
