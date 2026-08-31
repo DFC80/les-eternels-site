@@ -635,30 +635,6 @@ export default function AdminEventsPage() {
             🖨️ Imprimer
           </a>
           {canWrite && (
-            <>
-              <button
-                type="button"
-                onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
-                className={`rounded-md border px-3 py-1.5 transition ${
-                  ev.showOnHome
-                    ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                    : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
-                }`}
-              >
-                {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleShowOnCalendar(ev.id, !ev.showOnCalendar)}
-                className={`rounded-md border px-3 py-1.5 transition ${
-                  ev.showOnCalendar
-                    ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                    : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
-                }`}
-              >
-                {ev.showOnCalendar ? "📅 Sur le calendrier" : "Publier calendrier"}
-              </button>
-            </>
             <button
               type="button"
               onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
