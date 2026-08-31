@@ -127,6 +127,7 @@ model Event {
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
   showOnHome           Boolean   @default(false)
+  showOnCalendar       Boolean   @default(false)
 
   registrations   EventRegistration[]
   menus           MealMenu[]
