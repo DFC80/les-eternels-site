@@ -109,13 +109,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  const body = (await request.json()) as { showOnHome?: boolean; showOnCalendar?: boolean };
-  const data: { showOnHome?: boolean; showOnCalendar?: boolean } = {};
-  if ("showOnHome" in body) data.showOnHome = !!body.showOnHome;
-  if ("showOnCalendar" in body) data.showOnCalendar = !!body.showOnCalendar;
+  const { showOnHome } = (await request.json()) as { showOnHome?: boolean };
   const event = await prisma.event.update({
     where: { id: params.id },
-    data,
+    data: { showOnHome: !!showOnHome },
   });
 
   return NextResponse.json(event);
