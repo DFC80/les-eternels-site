@@ -17,6 +17,7 @@ type Poll = {
   totalVotes: number;
   userVotedOptionIds: string[];
   options: PollOption[];
+  votersByOption?: Record<string, { name: string; email: string }[]>;
 };
 
 function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
@@ -120,6 +121,7 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
           const isChosen = selected.includes(opt.id);
 
           if (showResults) {
+            const optionVoters = poll.votersByOption?.[opt.id] ?? [];
             return (
               <div key={opt.id} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
@@ -134,6 +136,16 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
                     style={{ width: `${pct}%` }}
                   />
                 </div>
+                {optionVoters.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {optionVoters.map((v) => (
+                      <span key={v.email} title={v.email}
+                        className="rounded-full bg-primary-900 px-2 py-0.5 text-xs text-primary-200">
+                        {v.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           }
