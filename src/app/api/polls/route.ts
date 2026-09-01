@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
-import { canAccessAdmin } from "@/lib/permissions";
+import { isFullAdmin } from "@/lib/permissions";
 
 const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
   JEUX_DE_PLATEAU: "wantsBoardGames",
@@ -91,7 +91,7 @@ export async function GET() {
   const activityMap = Object.fromEntries(activities.map((a) => [a.key, a.label]));
 
   const userId = session?.user?.id;
-  const isAdmin = session ? canAccessAdmin((session.user as { role?: string }).role ?? "") : false;
+  const isAdmin = session ? isFullAdmin((session.user as { role?: string }).role ?? "") : false;
 
   const pollsWithVotes = await Promise.all(
     polls.map(async (poll) => {
