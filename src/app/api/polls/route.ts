@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
+import { canAccessAdmin } from "@/lib/permissions";
 
 const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
   JEUX_DE_PLATEAU: "wantsBoardGames",
@@ -90,6 +91,7 @@ export async function GET() {
   const activityMap = Object.fromEntries(activities.map((a) => [a.key, a.label]));
 
   const userId = session?.user?.id;
+  const isAdmin = session ? canAccessAdmin((session.user as { role?: string }).role ?? "") : false;
 
   const pollsWithVotes = await Promise.all(
     polls.map(async (poll) => {
@@ -112,6 +114,32 @@ export async function GET() {
         : false;
 
       const totalVotes = poll.options.reduce((sum, o) => sum + o._count.votes, 0);
+
+      let votersByOption: Record<string, { name: string; email: string }[]> | undefined;
+      if (isAdmin) {
+        const allVotes = await prisma.pollVote.findMany({
+          where: { pollId: poll.id },
+          select: { optionId: true, userId: true },
+        });
+        const voterUserIds = [...new Set(allVotes.map((v) => v.userId))];
+        const voterUsers = voterUserIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: voterUserIds } },
+              select: { id: true, firstName: true, name: true, email: true },
+            })
+          : [];
+        const userMap = Object.fromEntries(voterUsers.map((u) => [u.id, u]));
+        votersByOption = {};
+        for (const vote of allVotes) {
+          if (!votersByOption[vote.optionId]) votersByOption[vote.optionId] = [];
+          const u = userMap[vote.userId];
+          if (u) {
+            const name = u.name || u.firstName || u.email;
+            votersByOption[vote.optionId].push({ name, email: u.email });
+          }
+        }
+      }
+
       return {
         ...poll,
         activityLabel: poll.activityKey ? (activityMap[poll.activityKey] ?? null) : null,
@@ -120,6 +148,7 @@ export async function GET() {
         userHasChangedVote,
         totalVotes,
         options: poll.options.map((o) => ({ ...o, voteCount: o._count.votes })),
+        ...(isAdmin ? { votersByOption } : {}),
       };
     })
   );
