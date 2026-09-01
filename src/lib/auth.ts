@@ -4,6 +4,14 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { FULL_ADMIN_ROLES } from "@/lib/permissions";
 
+async function isProfileComplete(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { addressStreet: true, addressPostalCode: true, addressCity: true, gender: true },
+  });
+  return !!(user?.addressStreet && user?.addressPostalCode && user?.addressCity && user?.gender);
+}
+
 async function fetchAllowedSections(role: string): Promise<string[] | null | undefined> {
   if (FULL_ADMIN_ROLES.includes(role)) return null; // accès complet
   const perms = await prisma.rolePermission.findMany({
@@ -74,6 +82,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = (user as { role: string }).role;
         token.allowedSections = await fetchAllowedSections(token.role as string);
+        token.profileComplete = await isProfileComplete(user.id);
       } else if (trigger === "update") {
         // Rechargement forcé du rôle et des permissions depuis la DB
         const dbUser = await prisma.user.findUnique({
@@ -92,6 +101,7 @@ export const authOptions: NextAuthOptions = {
           token.role = effectiveRole;
         }
         token.allowedSections = await fetchAllowedSections(token.role as string);
+        token.profileComplete = await isProfileComplete(token.id as string);
       }
       return token;
     },
