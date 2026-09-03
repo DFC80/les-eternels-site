@@ -91,21 +91,15 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
         { href: "/documents", label: "Documents", icon: "📁" },
         { href: "/idees", label: "Idées", icon: "💡" },
         { href: "/boutique", label: "Boutique", icon: "🛍️" },
-        ...(hasMembership
-          ? [
-              { href: "/sondages", label: "Sondages", icon: "📊" },
-              { href: "/marche", label: "Brocante", icon: "🏪" },
-            ]
-          : []),
+        { href: "/sondages", label: "Sondages", icon: "📊" },
+        { href: "/marche", label: "Brocante", icon: "🏪" },
       ]
     : [];
 
   // Flat list for mobile (identical to before)
   const mobileLinks = [
     { href: "/actualites", label: "Actualités" },
-    ...(session && hasMembership
-      ? [{ href: "/sondages", label: "Sondages" }, { href: "/marche", label: "Brocante" }]
-      : []),
+    ...(session ? [{ href: "/sondages", label: "Sondages" }, { href: "/marche", label: "Brocante" }] : []),
     ...(session
       ? [{ href: "/documents", label: "Documents" }, { href: "/idees", label: "Idées" }, { href: "/boutique", label: "Boutique" }]
       : []),
