@@ -181,6 +181,8 @@ export default async function HomePage() {
       </section>
 
 
+      {!!session && <HomePollWidget />}
+
       {upcomingEvents.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -353,8 +355,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {!!session && <HomePollWidget />}
 
       {isBureau && bureauMeetings.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
