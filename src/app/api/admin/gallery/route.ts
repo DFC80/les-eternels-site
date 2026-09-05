@@ -13,7 +13,10 @@ export async function GET() {
 
   const photos = await prisma.galleryPhoto.findMany({
     orderBy: { date: "desc" },
-    include: { activities: true },
+    include: {
+      activities: true,
+      categories: { include: { category: true } },
+    },
   });
   return NextResponse.json(photos);
 }
@@ -25,11 +28,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { url, date, comment, activityKeys } = body as {
+  const { url, date, comment, activityKeys, categoryIds } = body as {
     url?: string;
     date?: string;
     comment?: string;
     activityKeys?: string[];
+    categoryIds?: string[];
   };
 
   if (!url || !date) {
@@ -37,6 +41,7 @@ export async function POST(request: Request) {
   }
 
   const keys = Array.isArray(activityKeys) ? activityKeys : [];
+  const catIds = Array.isArray(categoryIds) ? categoryIds : [];
 
   // Validate that all provided keys exist (excluding AUTRE sentinel)
   for (const key of keys.filter((k) => k !== "AUTRE")) {
@@ -51,8 +56,12 @@ export async function POST(request: Request) {
       comment: comment || null,
       visibility: "PUBLIC",
       activities: keys.length > 0 ? { create: keys.map((key) => ({ activityKey: key })) } : undefined,
+      categories: catIds.length > 0 ? { create: catIds.map((categoryId) => ({ categoryId })) } : undefined,
     },
-    include: { activities: true },
+    include: {
+      activities: true,
+      categories: { include: { category: true } },
+    },
   });
 
   return NextResponse.json(photo, { status: 201 });
