@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { getColors } from "@/lib/activity-colors";
 
 type ActivityMeta = { key: string; label: string; emoji: string; color: string };
+type GalleryCategory = { id: string; activityKey: string; label: string };
 
 type Photo = {
   id: string;
@@ -13,6 +14,7 @@ type Photo = {
   date: string;
   comment: string | null;
   activities: { activityKey: string }[];
+  categories: { categoryId: string; category: GalleryCategory }[];
   _count?: { comments: number };
 };
 
@@ -160,7 +162,9 @@ function GalerieContent() {
   const currentUserId = (session?.user as { id?: string } | undefined)?.id;
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [activityOptions, setActivityOptions] = useState<ActivityMeta[]>([]);
+  const [allCategories, setAllCategories] = useState<GalleryCategory[]>([]);
   const [activityFilter, setActivityFilter] = useState(() => searchParams.get("activite") ?? "ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [sort, setSort] = useState<"desc" | "asc">("desc");
   const [selected, setSelected] = useState<Photo | null>(null);
 
@@ -170,16 +174,31 @@ function GalerieContent() {
       .then((data: ActivityMeta[]) =>
         setActivityOptions([...data, { key: "AUTRE", label: "Autre", emoji: "📌", color: "slate" }])
       );
+    fetch("/api/gallery-categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then(setAllCategories)
+      .catch(() => {});
   }, []);
+
+  // Reset category filter when activity changes
+  useEffect(() => {
+    setCategoryFilter("ALL");
+  }, [activityFilter]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (activityFilter !== "ALL") params.set("activityType", activityFilter);
+    if (categoryFilter !== "ALL") params.set("categoryId", categoryFilter);
     params.set("sort", sort);
     fetch(`/api/gallery?${params.toString()}`)
       .then((res) => res.json())
       .then(setPhotos);
-  }, [activityFilter, sort]);
+  }, [activityFilter, categoryFilter, sort]);
+
+  // Categories available for the selected activity filter
+  const availableCategories = activityFilter === "ALL"
+    ? []
+    : allCategories.filter((c) => c.activityKey === activityFilter);
 
   function getActivityBadges(activityKeys: string[]) {
     if (activityKeys.length === 0) return [];
@@ -199,6 +218,7 @@ function GalerieContent() {
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
+        {/* Activity filter */}
         <select
           value={activityFilter}
           onChange={(e) => setActivityFilter(e.target.value)}
@@ -210,6 +230,21 @@ function GalerieContent() {
           ))}
         </select>
 
+        {/* Category filter — only shown when an activity is selected and it has categories */}
+        {availableCategories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100"
+          >
+            <option value="ALL">Toutes les catégories</option>
+            {availableCategories.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Sort */}
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as "desc" | "asc")}
@@ -226,6 +261,7 @@ function GalerieContent() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {photos.map((p) => {
             const badges = getActivityBadges(p.activities.map((a) => a.activityKey));
+            const photoCats = p.categories ?? [];
             return (
               <button
                 key={p.id}
@@ -238,6 +274,11 @@ function GalerieContent() {
                   <div className="flex flex-wrap gap-1">
                     {badges.map(({ badge, label }) => (
                       <span key={label} className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                    ))}
+                    {photoCats.map((c) => (
+                      <span key={c.categoryId} className="inline-block rounded border border-primary-700 bg-primary-900 px-2 py-0.5 text-xs text-primary-300">
+                        {c.category.label}
+                      </span>
                     ))}
                   </div>
                   <p className="mt-1 text-xs text-slate-400">{new Date(p.date).toLocaleDateString("fr-FR")}</p>
@@ -254,6 +295,7 @@ function GalerieContent() {
 
       {selected && (() => {
         const badges = getActivityBadges(selected.activities.map((a) => a.activityKey));
+        const selectedCats = selected.categories ?? [];
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -266,6 +308,11 @@ function GalerieContent() {
                 <div className="flex flex-wrap gap-1">
                   {badges.map(({ badge, label }) => (
                     <span key={label} className={`inline-block rounded border px-2 py-0.5 text-xs ${badge}`}>{label}</span>
+                  ))}
+                  {selectedCats.map((c) => (
+                    <span key={c.categoryId} className="inline-block rounded border border-primary-700 bg-primary-900 px-2 py-0.5 text-xs text-primary-300">
+                      {c.category.label}
+                    </span>
                   ))}
                 </div>
                 <p className="mt-1 text-sm text-slate-400">{new Date(selected.date).toLocaleDateString("fr-FR")}</p>

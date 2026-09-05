@@ -9,17 +9,21 @@ import { Prisma } from "@prisma/client";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const activityType = searchParams.get("activityType");
+  const categoryId = searchParams.get("categoryId");
   const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
 
   const session = await getServerSession(authOptions);
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
 
-  // Base filter by activity key from query param
-  const activityWhere: Prisma.GalleryPhotoWhereInput =
-    activityType && activityType !== "ALL"
-      ? { activities: { some: { activityKey: activityType } } }
-      : {};
+  // Base filter by activity key and/or category
+  const activityWhere: Prisma.GalleryPhotoWhereInput = {};
+  if (activityType && activityType !== "ALL") {
+    activityWhere.activities = { some: { activityKey: activityType } };
+  }
+  if (categoryId && categoryId !== "ALL") {
+    activityWhere.categories = { some: { categoryId } };
+  }
 
   // Visibility: isFavorite photos are always public.
   // Non-featured photos require at least one matching membership activity.
@@ -55,14 +59,21 @@ export async function GET(request: Request) {
     visibilityWhere = { OR: [{ isFavorite: true }] };
   }
 
-  const where: Prisma.GalleryPhotoWhereInput = seeAll
-    ? activityWhere
-    : { AND: [activityWhere, visibilityWhere!] };
+  const andClauses: Prisma.GalleryPhotoWhereInput[] = [];
+  if (activityWhere.activities) andClauses.push({ activities: activityWhere.activities });
+  if (activityWhere.categories) andClauses.push({ categories: activityWhere.categories });
+  if (!seeAll && visibilityWhere) andClauses.push(visibilityWhere);
+
+  const where: Prisma.GalleryPhotoWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
 
   const photos = await prisma.galleryPhoto.findMany({
     where,
     orderBy: { date: sort },
-    include: { activities: true, _count: { select: { comments: true } } },
+    include: {
+      activities: true,
+      categories: { include: { category: true } },
+      _count: { select: { comments: true } },
+    },
   });
 
   return NextResponse.json(photos);
