@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const body = await request.json();
-  const data: { comment?: string | null; isFavorite?: boolean } = {};
+  const data: { comment?: string | null; isFavorite?: boolean; date?: Date; url?: string } = {};
 
   if ("comment" in body) {
     data.comment = body.comment ?? null;
@@ -31,6 +31,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if ("isFavorite" in body) {
     data.isFavorite = !!body.isFavorite;
+  }
+
+  if ("date" in body && typeof body.date === "string") {
+    const parsed = new Date(body.date);
+    if (!isNaN(parsed.getTime())) data.date = parsed;
+  }
+
+  if ("url" in body && typeof body.url === "string" && body.url.trim()) {
+    data.url = body.url.trim();
   }
 
   if ("activityKeys" in body && Array.isArray(body.activityKeys)) {
@@ -53,7 +62,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
   }
 
-  if (Object.keys(data).length === 0 && !("activityKeys" in body) && !("categoryIds" in body)) {
+  if (Object.keys(data).length === 0 && !("activityKeys" in body) && !("categoryIds" in body) && !("date" in body) && !("url" in body)) {
     return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
   }
 
