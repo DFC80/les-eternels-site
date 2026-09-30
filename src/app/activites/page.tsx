@@ -12,6 +12,7 @@ type Activity = {
   emoji: string;
   color: string;
   isActive: boolean;
+  coverImage: string | null;
   content: string;
 };
 
@@ -100,12 +101,36 @@ function ActivitiesContent() {
           return (
             <div
               key={a.key}
-              className={`rounded-2xl border-2 bg-primary-900/40 p-6 transition-all ${
+              className={`overflow-hidden rounded-2xl border-2 bg-primary-900/40 transition-all ${
                 isExpanded ? `${colors.border} sm:col-span-3` : "border-primary-800 hover:border-primary-600"
               } ${!a.isActive ? "opacity-50" : ""}`}
             >
+              {/* Cover image banner (expanded) */}
+              {isExpanded && a.coverImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={a.coverImage}
+                  alt={a.label}
+                  className="h-40 w-full object-cover sm:h-52"
+                />
+              )}
+
+              <div className="p-6">
               <button onClick={() => toggleExpand(a.key)} className="w-full text-left">
-                <div className="text-4xl">{a.emoji}</div>
+                {/* Cover image thumbnail (collapsed) */}
+                {!isExpanded && a.coverImage ? (
+                  <div className="mb-3 overflow-hidden rounded-lg">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={a.coverImage}
+                      alt={a.label}
+                      className="h-24 w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  !isExpanded && <div className="text-4xl">{a.emoji}</div>
+                )}
+                {isExpanded && <div className="text-4xl">{a.emoji}</div>}
                 <h2 className={`mt-3 font-display text-xl ${isExpanded ? colors.text : "text-silver-100"}`}>
                   {a.label}
                   {!a.isActive && <span className="ml-2 text-xs font-normal text-slate-500">(inactif)</span>}
@@ -183,6 +208,7 @@ function ActivitiesContent() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           );
         })}
