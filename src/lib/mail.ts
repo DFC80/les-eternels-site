@@ -59,11 +59,29 @@ export async function sendNewEventRegistrationToAdmin(params: {
   mealPrice: number;
   participationFee: number;
   equipment: { name: string; rentalCost: number; quantity: number }[];
+  coverImage?: string | null;
+  eventUrl?: string;
 }) {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
   if (!adminEmail) return;
 
-  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, coverImage, eventUrl } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
 
   const prestations: string[] = [];
   if (wantsMeal) prestations.push(`Repas — ${mealPrice}€`);
@@ -76,19 +94,25 @@ export async function sendNewEventRegistrationToAdmin(params: {
     ? `<ul style="margin:8px 0;padding-left:20px;">${prestations.map((p) => `<li>${p}</li>`).join("")}</ul>`
     : `<p style="color:#888;">Aucune prestation supplémentaire.</p>`;
 
+  const eventLinkHtml = eventUrl
+    ? `<p style="margin-top:16px;"><a href="${eventUrl}" style="color:#6366f1;">Voir l'événement →</a></p>`
+    : "";
+
   const html = wrapHtml(
     "Nouvelle inscription à un événement",
     `
+      ${coverHtml}
       <p>Un membre vient de s'inscrire à un événement (inscription validée automatiquement).</p>
       <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
         <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Membre</td><td style="padding: 6px 12px;">${memberName} (${memberEmail})</td></tr>
         <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Événement</td><td style="padding: 6px 12px;">${eventTitle}</td></tr>
-        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${startsAt.toLocaleString("fr-FR")}</td></tr>
-        <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;">${location}</td></tr>
+        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${dateStr}</td></tr>
+        <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;"><a href="${mapsUrl}" style="color:#6366f1;">${location}</a></td></tr>
       </table>
       <p style="margin-top: 16px; font-weight: bold; color: #555;">Prestations choisies :</p>
       ${prestationsHtml}
       <p style="margin-top: 16px;">Rendez-vous dans le panneau d'administration pour gérer cette inscription (locations d'équipement à valider le cas échéant).</p>
+      ${eventLinkHtml}
     `
   );
   await sendMail(adminEmail, `Nouvelle inscription — ${memberName} à ${eventTitle}`, html);
