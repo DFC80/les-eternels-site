@@ -26,6 +26,7 @@ export default function AdminJeuxPage() {
   const canWrite = sessionHasWriteAccess(sessionUser, "jeux");
   const [games, setGames] = useState<BoardGame[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [filterKey, setFilterKey] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -76,19 +77,73 @@ export default function AdminJeuxPage() {
     if (res.ok) await load();
   }
 
+  const usedActivityKeys = new Set(games.map((g) => g.activityKey).filter(Boolean));
+  const tabActivities = activities.filter((a) => usedActivityKeys.has(a.key));
+  const hasUnassigned = games.some((g) => !g.activityKey);
+
+  const filteredGames =
+    filterKey === "__none__"
+      ? games.filter((g) => !g.activityKey)
+      : filterKey
+      ? games.filter((g) => g.activityKey === filterKey)
+      : games;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-display text-3xl text-silver-100">Jeux de société</h1>
+      <h1 className="font-display text-3xl text-silver-100">Jeux</h1>
       <p className="mt-2 text-slate-400">
-        Stock des jeux de société prêtés par les membres. Marquez un jeu indisponible s'il ne peut
+        Stock des jeux prêtés par les membres. Marquez un jeu indisponible s'il ne peut
         plus être emprunté pour le moment (en réparation, prêté ailleurs...).
       </p>
 
       {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
+      {(tabActivities.length > 0 || hasUnassigned) && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterKey("")}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              filterKey === ""
+                ? "bg-primary-400 text-primary-950"
+                : "border border-primary-800 text-slate-400 hover:border-primary-600 hover:text-slate-200"
+            }`}
+          >
+            Tous ({games.length})
+          </button>
+          {tabActivities.map((a) => {
+            const count = games.filter((g) => g.activityKey === a.key).length;
+            return (
+              <button
+                key={a.key}
+                onClick={() => setFilterKey(a.key)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  filterKey === a.key
+                    ? "bg-primary-400 text-primary-950"
+                    : "border border-primary-800 text-slate-400 hover:border-primary-600 hover:text-slate-200"
+                }`}
+              >
+                {a.emoji} {a.label} ({count})
+              </button>
+            );
+          })}
+          {hasUnassigned && (
+            <button
+              onClick={() => setFilterKey("__none__")}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                filterKey === "__none__"
+                  ? "bg-primary-400 text-primary-950"
+                  : "border border-primary-800 text-slate-400 hover:border-primary-600 hover:text-slate-200"
+              }`}
+            >
+              Sans activité ({games.filter((g) => !g.activityKey).length})
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {games.length === 0 && <p className="text-sm text-slate-400">Aucun jeu enregistré.</p>}
-        {games.map((game) => (
+        {filteredGames.length === 0 && <p className="text-sm text-slate-400">Aucun jeu enregistré.</p>}
+        {filteredGames.map((game) => (
           <div key={game.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
             <div className="flex gap-4">
               {game.photoUrl && (
