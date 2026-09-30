@@ -125,9 +125,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (justClosed) {
     (async () => {
       let activityLabel: string | undefined;
+      let coverImage: string | null = null;
       if (poll.activityKey) {
-        const act = await prisma.activity.findUnique({ where: { key: poll.activityKey } });
+        const act = await prisma.activity.findUnique({ where: { key: poll.activityKey }, select: { label: true, coverImage: true } });
         activityLabel = act?.label;
+        coverImage = act?.coverImage ?? null;
       }
       const opts = await prisma.pollOption.findMany({
         where: { pollId: poll.id },
@@ -137,7 +139,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       const totalVotes = options.reduce((s, o) => s + o.voteCount, 0);
       const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
       const pollUrl = `${baseUrl}/sondages`;
-      const resultParams = { question: poll.question, activityLabel, totalVotes, options, closedAt: poll.closedAt!, pollUrl };
+      const resultParams = { question: poll.question, activityLabel, coverImage, totalVotes, options, closedAt: poll.closedAt!, pollUrl };
 
       // Récupérer les votants distincts
       const voterRows = await prisma.pollVote.findMany({

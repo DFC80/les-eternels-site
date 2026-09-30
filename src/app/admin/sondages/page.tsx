@@ -45,6 +45,8 @@ export default function AdminSondagesPage() {
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState<string | null>(null);
   const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
+  const [notifyingAdmin, setNotifyingAdmin] = useState<string | null>(null);
+  const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
   const [votersOpen, setVotersOpen] = useState<string | null>(null);
   const [votersData, setVotersData] = useState<Record<string, PollVoterOption[]>>({});
   const [votersLoading, setVotersLoading] = useState(false);
@@ -187,6 +189,23 @@ export default function AdminSondagesPage() {
       }
     } finally {
       setVotersLoading(false);
+    }
+  }
+
+  async function renotifyAdmin(p: Poll) {
+    if (!confirm("Envoyer l'email du sondage à l'admin ?")) return;
+    setNotifyingAdmin(p.id);
+    setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "" }));
+    try {
+      const res = await fetch(`/api/admin/polls/${p.id}/notify-admin`, { method: "POST" });
+      const d = await res.json();
+      if (res.ok) {
+        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "✓ Email envoyé à l'admin" }));
+      } else {
+        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: `Erreur : ${d.error}` }));
+      }
+    } finally {
+      setNotifyingAdmin(null);
     }
   }
 
@@ -417,6 +436,12 @@ export default function AdminSondagesPage() {
                     {notifying === p.id ? "Envoi…" : "📣 Notifier les membres"}
                   </button>
                 )}
+                {p.published && (
+                  <button onClick={() => !isClosed && renotifyAdmin(p)} disabled={!!isClosed || notifyingAdmin === p.id}
+                    className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
+                    {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
+                  </button>
+                )}
                 <button onClick={() => !isClosed && editPoll(p)} disabled={!!isClosed}
                   className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-40">
                   Modifier
@@ -429,6 +454,11 @@ export default function AdminSondagesPage() {
               {notifyResult[p.id] && (
                 <p className={`mt-2 text-xs ${notifyResult[p.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
                   {notifyResult[p.id]}
+                </p>
+              )}
+              {notifyAdminResult[p.id] && (
+                <p className={`mt-1 text-xs ${notifyAdminResult[p.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                  {notifyAdminResult[p.id]}
                 </p>
               )}
             </div>

@@ -610,10 +610,14 @@ type PollResultsParams = {
   options: { label: string; voteCount: number }[];
   closedAt: Date;
   pollUrl: string;
+  coverImage?: string | null;
 };
 
 function buildPollResultsHtml(params: PollResultsParams & { greeting?: string }): string {
-  const { question, activityLabel, totalVotes, options, closedAt, pollUrl, greeting } = params;
+  const { question, activityLabel, totalVotes, options, closedAt, pollUrl, greeting, coverImage } = params;
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
   const sorted = [...options].sort((a, b) => b.voteCount - a.voteCount);
   const winner = sorted[0];
   const rows = sorted
@@ -637,6 +641,7 @@ function buildPollResultsHtml(params: PollResultsParams & { greeting?: string })
   return wrapHtml(
     "Résultats du sondage 📊",
     `
+      ${coverHtml}
       ${greeting ? `<p>${greeting}</p>` : ""}
       <p>Le sondage suivant vient de se clôturer le <strong>${closedAt.toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</strong> :</p>
       <blockquote style="border-left:4px solid #6366f1;margin:16px 0;padding:8px 16px;color:#374151;background:#f9fafb;">
