@@ -83,12 +83,12 @@ export async function GET() {
     },
   });
 
-  // Load activity labels for polls that have an activityKey
+  // Load activity labels and cover images for polls that have an activityKey
   const activityKeys = [...new Set(polls.map((p) => p.activityKey).filter(Boolean) as string[])];
   const activities = activityKeys.length
-    ? await prisma.activity.findMany({ where: { key: { in: activityKeys } } })
+    ? await prisma.activity.findMany({ where: { key: { in: activityKeys } }, select: { key: true, label: true, coverImage: true } })
     : [];
-  const activityMap = Object.fromEntries(activities.map((a) => [a.key, a.label]));
+  const activityMap = Object.fromEntries(activities.map((a) => [a.key, { label: a.label, coverImage: a.coverImage ?? null }]));
 
   const userId = session?.user?.id;
   const isAdmin = session ? isFullAdmin((session.user as { role?: string }).role ?? "") : false;
@@ -105,7 +105,7 @@ export async function GET() {
         : [];
 
       const userCanVote =
-        !poll.activityKey || !userId
+        !poll.activityKey || !poll.restrictToActivity || !userId
           ? !!userId
           : await userHasActivity(userId, poll.activityKey);
 
@@ -140,9 +140,11 @@ export async function GET() {
         }
       }
 
+      const activityInfo = poll.activityKey ? (activityMap[poll.activityKey] ?? null) : null;
       return {
         ...poll,
-        activityLabel: poll.activityKey ? (activityMap[poll.activityKey] ?? null) : null,
+        activityLabel: activityInfo?.label ?? null,
+        activityCoverImage: activityInfo?.coverImage ?? null,
         userVotedOptionIds,
         userCanVote,
         userHasChangedVote,

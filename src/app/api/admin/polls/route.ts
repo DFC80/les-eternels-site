@@ -82,11 +82,12 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { question, allowMultiple, published, activityKey, options } = body as {
+  const { question, allowMultiple, published, activityKey, restrictToActivity, options } = body as {
     question?: string;
     allowMultiple?: boolean;
     published?: boolean;
     activityKey?: string | null;
+    restrictToActivity?: boolean;
     options?: ({ label: string; order: number } | string)[];
   };
 
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       allowMultiple: !!allowMultiple,
       published: !!published,
       activityKey: activityKey || null,
+      restrictToActivity: restrictToActivity !== undefined ? !!restrictToActivity : true,
       options: {
         create: opts.map((o, i) => ({ label: o.label, order: o.order ?? i })),
       },
