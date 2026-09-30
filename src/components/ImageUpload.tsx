@@ -7,9 +7,10 @@ interface Props {
   onChange: (url: string) => void;
   label?: string;
   className?: string;
+  hideHint?: boolean;
 }
 
-export default function ImageUpload({ value, onChange, label, className = "" }: Props) {
+export default function ImageUpload({ value, onChange, label, className = "", hideHint = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +102,7 @@ export default function ImageUpload({ value, onChange, label, className = "" }: 
               <p className="text-sm text-slate-400">
                 Cliquez ou déposez une image ici
               </p>
-              <p className="text-xs text-slate-600">JPG, PNG, WEBP, GIF · max 10 Mo</p>
+              {!hideHint && <p className="text-xs text-slate-600">JPG, PNG, WEBP, GIF · max 10 Mo</p>}
             </>
           )}
         </div>
