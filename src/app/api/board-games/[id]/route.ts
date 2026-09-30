@@ -36,8 +36,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { name, version, photos, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
+  const { name, description, version, photos, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
     name?: string;
+    description?: string | null;
     version?: string | null;
     photos?: string[];
     minPlayers?: string | number;
@@ -64,6 +65,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     where: { id: params.id },
     data: {
       ...(name ? { name } : {}),
+      description: description !== undefined ? (description || null) : existing.description,
       version: version !== undefined ? (version || null) : existing.version,
       photoUrl: photoList[0] || null,
       photoUrls: joinCsv(photoList),

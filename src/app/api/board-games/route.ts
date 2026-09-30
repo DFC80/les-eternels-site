@@ -46,8 +46,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, version, photos, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
+  const { name, description, version, photos, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
     name?: string;
+    description?: string | null;
     version?: string | null;
     photos?: string[];
     minPlayers?: string | number;
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
     data: {
       ownerId: session.user.id,
       name,
+      description: description || null,
       version: version || null,
       photoUrl: photoList[0] || null,
       photoUrls: joinCsv(photoList),

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 type BoardGame = {
   id: string;
   name: string;
+  description: string | null;
   version: string | null;
   photos: string[];
   minPlayers: number;
@@ -177,6 +178,9 @@ export default function JeuxPage() {
                     : `${game.minPlayers}–${game.maxPlayers} joueurs`}
                   {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
                 </p>
+                {game.description && (
+                  <p className="mt-1 text-sm text-slate-400 line-clamp-3">{game.description}</p>
+                )}
 
                 {(game.mechanics.length > 0 || game.themes.length > 0) && (
                   <div className="mt-2 flex flex-wrap gap-1">
