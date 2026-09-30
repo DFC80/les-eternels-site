@@ -72,7 +72,7 @@ const EMPTY_FORM = {
   name: "",
   version: "",
   photos: [] as string[],
-  minPlayers: "",
+  minPlayers: "1",
   maxPlayers: "",
   durationMinutes: "",
   isPublic: true,
@@ -254,78 +254,6 @@ export default function MesJeuxPage() {
           {form.id ? "Modifier le jeu" : "Ajouter un jeu"}
         </h2>
 
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Nom du jeu</label>
-          <input
-            required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Ex: Catan"
-            className={inputClass}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">
-            Version <span className="font-normal text-slate-500">— optionnel</span>
-          </label>
-          <input
-            value={form.version}
-            onChange={(e) => setForm({ ...form, version: e.target.value })}
-            placeholder="Ex: Édition 2ème, Extension Pirates..."
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-300">Joueurs min.</label>
-          <input type="number" min={1} required value={form.minPlayers}
-            onChange={(e) => setForm({ ...form, minPlayers: e.target.value })}
-            placeholder="2" className={inputClass} />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-300">Joueurs max.</label>
-          <input type="number" min={1} required value={form.maxPlayers}
-            onChange={(e) => setForm({ ...form, maxPlayers: e.target.value })}
-            placeholder="4" className={inputClass} />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Durée d'une partie (min) <span className="text-slate-500 font-normal">— optionnel</span></label>
-          <input type="number" min={1} value={form.durationMinutes}
-            onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-            placeholder="40" className={inputClass} />
-        </div>
-
-        {/* Photos multiples */}
-        <div className="col-span-full">
-          <label className="block text-sm font-medium text-slate-300">
-            Photos <span className="font-normal text-slate-500">— optionnel, plusieurs photos possibles</span>
-          </label>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {form.photos.map((url, i) => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(i)}
-                  className="text-xs text-red-400 hover:underline"
-                >
-                  Supprimer
-                </button>
-              </div>
-            ))}
-            {/* Bouton d'ajout */}
-            <ImageUpload
-              value=""
-              onChange={addPhoto}
-              className="h-20 w-20"
-            />
-          </div>
-        </div>
-
         {activities.length > 0 && (
           <div className="col-span-full">
             <label className="block text-sm font-medium text-slate-300">
@@ -351,6 +279,61 @@ export default function MesJeuxPage() {
           </div>
         )}
 
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Nom du jeu</label>
+          <input
+            required
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Ex: Catan"
+            className={inputClass}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">
+            Version <span className="font-normal text-slate-500">— optionnel</span>
+          </label>
+          <input
+            value={form.version}
+            onChange={(e) => setForm({ ...form, version: e.target.value })}
+            placeholder="Ex: Édition 2ème, Extension Pirates..."
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Joueurs min.</label>
+          <select required value={form.minPlayers}
+            onChange={(e) => setForm({ ...form, minPlayers: e.target.value })}
+            className={inputClass}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Joueurs max.</label>
+          <select required value={form.maxPlayers}
+            onChange={(e) => setForm({ ...form, maxPlayers: e.target.value })}
+            className={inputClass}>
+            <option value="">—</option>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">
+            Durée minimum d'une partie (Minutes) <span className="text-slate-500 font-normal">— optionnel</span>
+          </label>
+          <input type="number" min={1} value={form.durationMinutes}
+            onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
+            placeholder="40" className={inputClass} />
+        </div>
+
         {activitySupportsMechanics(form.activityKey, activities) && (
           <ChipSelect
             label="Mécaniques de jeu"
@@ -366,6 +349,33 @@ export default function MesJeuxPage() {
           selected={form.themes}
           onChange={(themes) => setForm({ ...form, themes })}
         />
+
+        {/* Photos multiples */}
+        <div className="col-span-full">
+          <label className="block text-sm font-medium text-slate-300">
+            Photos <span className="font-normal text-slate-500">— optionnel, plusieurs photos possibles</span>
+          </label>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {form.photos.map((url, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="text-xs text-red-400 hover:underline"
+                >
+                  Supprimer
+                </button>
+              </div>
+            ))}
+            <ImageUpload
+              value=""
+              onChange={addPhoto}
+              className="h-20 w-20"
+            />
+          </div>
+        </div>
 
         <div className="col-span-full">
           <label className="flex cursor-pointer items-start gap-3">
