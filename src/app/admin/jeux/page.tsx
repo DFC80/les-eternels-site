@@ -18,11 +18,14 @@ type BoardGame = {
   owner: { firstName: string; name: string };
 };
 
+type Activity = { key: string; label: string; emoji: string };
+
 export default function AdminJeuxPage() {
   const { data: session } = useSession();
   const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
   const canWrite = sessionHasWriteAccess(sessionUser, "jeux");
   const [games, setGames] = useState<BoardGame[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -32,7 +35,25 @@ export default function AdminJeuxPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/activities")
+      .then((r) => r.json())
+      .then((list: Activity[]) => setActivities(list.filter((a) => a.key)));
   }, []);
+
+  async function updateActivity(id: string, activityKey: string | null) {
+    setError(null);
+    const res = await fetch(`/api/admin/board-games/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activityKey }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Erreur lors de la mise à jour.");
+      return;
+    }
+    await load();
+  }
 
   async function toggleStatus(id: string, status: "DISPONIBLE" | "INDISPONIBLE") {
     setError(null);
@@ -106,6 +127,20 @@ export default function AdminJeuxPage() {
                         {t}
                       </span>
                     ))}
+                  </div>
+                )}
+                {canWrite && activities.length > 0 && (
+                  <div className="mt-2">
+                    <select
+                      value={game.activityKey ?? ""}
+                      onChange={(e) => updateActivity(game.id, e.target.value || null)}
+                      className="rounded border border-primary-700 bg-primary-950 px-2 py-1 text-xs text-slate-300 focus:border-primary-400 focus:outline-none"
+                    >
+                      <option value="">— Aucune activité —</option>
+                      {activities.map((a) => (
+                        <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
                 {canWrite && (
