@@ -20,6 +20,15 @@ type BoardGame = {
 
 type Activity = { key: string; label: string; emoji: string };
 
+const GAME_MECHANICS_ACTIVITY_KEYS = new Set(["JEUX_DE_PLATEAU"]);
+
+function activitySupportsMechanics(activityKey: string, activities: Activity[]): boolean {
+  if (!activityKey) return false;
+  if (GAME_MECHANICS_ACTIVITY_KEYS.has(activityKey)) return true;
+  const act = activities.find((a) => a.key === activityKey);
+  return !!act && act.label.toLowerCase().includes("figurine");
+}
+
 const MECHANICS: string[] = [
   "Placement de tuiles",
   "Gestion de ressources",
@@ -279,7 +288,14 @@ export default function MesJeuxPage() {
             </label>
             <select
               value={form.activityKey}
-              onChange={(e) => setForm({ ...form, activityKey: e.target.value })}
+              onChange={(e) => {
+                const key = e.target.value;
+                setForm({
+                  ...form,
+                  activityKey: key,
+                  mechanics: activitySupportsMechanics(key, activities) ? form.mechanics : [],
+                });
+              }}
               className={inputClass}
             >
               <option value="">— Aucune —</option>
@@ -290,12 +306,14 @@ export default function MesJeuxPage() {
           </div>
         )}
 
-        <ChipSelect
-          label="Mécaniques de jeu"
-          options={MECHANICS}
-          selected={form.mechanics}
-          onChange={(mechanics) => setForm({ ...form, mechanics })}
-        />
+        {activitySupportsMechanics(form.activityKey, activities) && (
+          <ChipSelect
+            label="Mécaniques de jeu"
+            options={MECHANICS}
+            selected={form.mechanics}
+            onChange={(mechanics) => setForm({ ...form, mechanics })}
+          />
+        )}
 
         <ChipSelect
           label="Thèmes"
