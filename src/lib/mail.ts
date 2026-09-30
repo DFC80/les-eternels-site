@@ -444,7 +444,7 @@ export async function sendNewEventNotification(params: {
         </a>
       </p>
       <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${eventUrl}</p>
-      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">Si vous êtes déjà inscrit à cet événement, merci de ne pas tenir compte de ce message.</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">Si vous avez déjà répondu, merci de ne pas tenir compte de ce message.</p>
     `
   );
   await sendMail(to, `Nouvel événement — ${eventTitle}`, html);
