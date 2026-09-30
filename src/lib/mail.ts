@@ -876,6 +876,7 @@ export async function sendBureauMeetingNotification(params: {
   const { recipients, date, location, agenda } = params;
 
   const dateStr = date.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -883,6 +884,10 @@ export async function sendBureauMeetingNotification(params: {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const mapsUrl = location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
+    : null;
 
   const agendaHtml = agenda
     ? `<p style="margin-top:16px;font-weight:bold;color:#555;">Ordre du jour :</p>
@@ -901,7 +906,7 @@ export async function sendBureauMeetingNotification(params: {
               <td style="padding:6px 12px;font-weight:bold;color:#555;">Date</td>
               <td style="padding:6px 12px;">${dateStr}</td>
             </tr>
-            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;">${location}</td></tr>` : ""}
+            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;"><a href="${mapsUrl}" style="color:#6366f1;">${location}</a></td></tr>` : ""}
           </table>
           ${agendaHtml}
           <p style="margin-top:20px;">À bientôt !</p>
@@ -909,7 +914,7 @@ export async function sendBureauMeetingNotification(params: {
       );
       return sendMail(
         email,
-        `Réunion de bureau — ${date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`,
+        `Réunion de bureau — ${date.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" })}`,
         html
       );
     })
