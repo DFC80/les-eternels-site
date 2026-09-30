@@ -7,6 +7,7 @@ import { sessionHasWriteAccess } from "@/lib/permissions";
 type BoardGame = {
   id: string;
   name: string;
+  description: string | null;
   version: string | null;
   photos: string[];
   minPlayers: number;
@@ -173,6 +174,9 @@ export default function AdminJeuxPage() {
                     : `${game.minPlayers} à ${game.maxPlayers} joueurs`}{" "}
                   {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
                 </p>
+                {game.description && (
+                  <p className="mt-1 text-sm text-slate-400 line-clamp-2">{game.description}</p>
+                )}
                 <p className="mt-1 text-xs text-slate-500">
                   Prêté par {game.owner.firstName} {game.owner.name}
                 </p>

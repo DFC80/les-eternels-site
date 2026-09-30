@@ -7,6 +7,7 @@ import ImageUpload from "@/components/ImageUpload";
 type BoardGame = {
   id: string;
   name: string;
+  description: string | null;
   version: string | null;
   photos: string[];
   minPlayers: number;
@@ -70,6 +71,7 @@ const THEMES: string[] = [
 const EMPTY_FORM = {
   id: "",
   name: "",
+  description: "",
   version: "",
   photos: [] as string[],
   minPlayers: "1",
@@ -149,6 +151,7 @@ export default function MesJeuxPage() {
     setForm({
       id: game.id,
       name: game.name,
+      description: game.description ?? "",
       version: game.version ?? "",
       photos: game.photos ?? [],
       minPlayers: String(game.minPlayers),
@@ -168,6 +171,7 @@ export default function MesJeuxPage() {
     setSaving(true);
     const payload = {
       name: form.name,
+      description: form.description || null,
       version: form.version || null,
       photos: form.photos,
       minPlayers: form.minPlayers,
@@ -200,6 +204,7 @@ export default function MesJeuxPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: game.name,
+        description: game.description,
         version: game.version,
         photos: game.photos,
         minPlayers: game.minPlayers,
@@ -299,6 +304,19 @@ export default function MesJeuxPage() {
             onChange={(e) => setForm({ ...form, version: e.target.value })}
             placeholder="Ex: Édition 2ème, Extension Pirates..."
             className={inputClass}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">
+            Description <span className="font-normal text-slate-500">— optionnel</span>
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Règles, ambiance, nombre de joueurs recommandé..."
+            rows={3}
+            className={`${inputClass} resize-none`}
           />
         </div>
 
@@ -453,6 +471,9 @@ export default function MesJeuxPage() {
                       : `${game.minPlayers} à ${game.maxPlayers} joueurs`}
                     {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
                   </p>
+                  {game.description && (
+                    <p className="mt-1 text-sm text-slate-400 line-clamp-2">{game.description}</p>
+                  )}
 
                   {(game.mechanics.length > 0 || game.themes.length > 0) && (
                     <div className="mt-2 flex flex-wrap gap-1">
