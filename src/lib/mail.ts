@@ -687,14 +687,21 @@ export async function sendNewPollNotification(params: {
   question: string;
   pollUrl: string;
   activityLabel?: string;
+  coverImage?: string | null;
 }) {
-  const { to, firstName, question, pollUrl, activityLabel } = params;
+  const { to, firstName, question, pollUrl, activityLabel, coverImage } = params;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
+
   const scope = activityLabel
     ? `<p>Ce sondage concerne l'activité <strong>${activityLabel}</strong>.</p>`
     : "";
   const html = wrapHtml(
     "Nouveau sondage 🗳️",
     `
+      ${coverHtml}
       <p>Bonjour ${firstName},</p>
       <p>Un nouveau sondage vient d'être publié sur le site des <strong>Éternels</strong> :</p>
       <blockquote style="border-left:4px solid #6366f1;margin:16px 0;padding:8px 16px;color:#374151;background:#f9fafb;">
