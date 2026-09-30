@@ -21,8 +21,6 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
   const poll = await prisma.poll.findUnique({ where: { id: params.id } });
   if (!poll) return NextResponse.json({ error: "Sondage introuvable." }, { status: 404 });
-  if (!poll.published) return NextResponse.json({ error: "Le sondage doit être publié pour notifier." }, { status: 400 });
-
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
   const pollUrl = `${baseUrl}/sondages`;
 

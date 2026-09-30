@@ -436,12 +436,10 @@ export default function AdminSondagesPage() {
                     {notifying === p.id ? "Envoi…" : "📣 Notifier les membres"}
                   </button>
                 )}
-                {p.published && (
-                  <button onClick={() => !isClosed && renotifyAdmin(p)} disabled={!!isClosed || notifyingAdmin === p.id}
-                    className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
-                    {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
-                  </button>
-                )}
+                <button onClick={() => !isClosed && renotifyAdmin(p)} disabled={!!isClosed || notifyingAdmin === p.id}
+                  className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
+                  {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
+                </button>
                 <button onClick={() => !isClosed && editPoll(p)} disabled={!!isClosed}
                   className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-40">
                   Modifier
