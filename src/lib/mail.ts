@@ -59,11 +59,29 @@ export async function sendNewEventRegistrationToAdmin(params: {
   mealPrice: number;
   participationFee: number;
   equipment: { name: string; rentalCost: number; quantity: number }[];
+  coverImage?: string | null;
+  eventUrl?: string;
 }) {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
   if (!adminEmail) return;
 
-  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+  const { memberName, memberEmail, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, coverImage, eventUrl } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
 
   const prestations: string[] = [];
   if (wantsMeal) prestations.push(`Repas — ${mealPrice}€`);
@@ -76,19 +94,25 @@ export async function sendNewEventRegistrationToAdmin(params: {
     ? `<ul style="margin:8px 0;padding-left:20px;">${prestations.map((p) => `<li>${p}</li>`).join("")}</ul>`
     : `<p style="color:#888;">Aucune prestation supplémentaire.</p>`;
 
+  const eventLinkHtml = eventUrl
+    ? `<p style="margin-top:16px;"><a href="${eventUrl}" style="color:#6366f1;">Voir l'événement →</a></p>`
+    : "";
+
   const html = wrapHtml(
     "Nouvelle inscription à un événement",
     `
+      ${coverHtml}
       <p>Un membre vient de s'inscrire à un événement (inscription validée automatiquement).</p>
       <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
         <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Membre</td><td style="padding: 6px 12px;">${memberName} (${memberEmail})</td></tr>
         <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Événement</td><td style="padding: 6px 12px;">${eventTitle}</td></tr>
-        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${startsAt.toLocaleString("fr-FR")}</td></tr>
-        <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;">${location}</td></tr>
+        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${dateStr}</td></tr>
+        <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;"><a href="${mapsUrl}" style="color:#6366f1;">${location}</a></td></tr>
       </table>
       <p style="margin-top: 16px; font-weight: bold; color: #555;">Prestations choisies :</p>
       ${prestationsHtml}
       <p style="margin-top: 16px;">Rendez-vous dans le panneau d'administration pour gérer cette inscription (locations d'équipement à valider le cas échéant).</p>
+      ${eventLinkHtml}
     `
   );
   await sendMail(adminEmail, `Nouvelle inscription — ${memberName} à ${eventTitle}`, html);
@@ -296,8 +320,25 @@ export async function sendEventFeesRecapEmail(params: {
   participationFee: number;
   equipment: { name: string; rentalCost: number; quantity: number; isFree: boolean }[];
   eventUrl: string;
+  coverImage?: string | null;
 }) {
-  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, eventUrl } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, eventUrl, coverImage } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -342,11 +383,12 @@ export async function sendEventFeesRecapEmail(params: {
   const html = wrapHtml(
     "Vos locations sont validées — récapitulatif 📋",
     `
+      ${coverHtml}
       <p>Bonjour ${firstName},</p>
       <p>Vos locations d'équipement pour l'événement <strong>${eventTitle}</strong> ont été traitées par un administrateur. Voici le récapitulatif de vos frais :</p>
       <p>
-        📅 ${startsAt.toLocaleString("fr-FR")}<br/>
-        📍 ${location}
+        📅 ${dateStr}<br/>
+        📍 <a href="${mapsUrl}" style="color:#6366f1;">${location}</a>
       </p>
       ${detailHtml}
       ${paymentHtml}
@@ -402,7 +444,7 @@ export async function sendNewEventNotification(params: {
         </a>
       </p>
       <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${eventUrl}</p>
-      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">Si vous êtes déjà inscrit à cet événement, merci de ne pas tenir compte de ce message.</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">Si vous avez déjà répondu, merci de ne pas tenir compte de ce message.</p>
     `
   );
   await sendMail(to, `Nouvel événement — ${eventTitle}`, html);
@@ -596,7 +638,7 @@ function buildPollResultsHtml(params: PollResultsParams & { greeting?: string })
     "Résultats du sondage 📊",
     `
       ${greeting ? `<p>${greeting}</p>` : ""}
-      <p>Le sondage suivant vient de se clôturer le <strong>${closedAt.toLocaleString("fr-FR")}</strong> :</p>
+      <p>Le sondage suivant vient de se clôturer le <strong>${closedAt.toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</strong> :</p>
       <blockquote style="border-left:4px solid #6366f1;margin:16px 0;padding:8px 16px;color:#374151;background:#f9fafb;">
         ${question}
       </blockquote>
@@ -834,6 +876,7 @@ export async function sendBureauMeetingNotification(params: {
   const { recipients, date, location, agenda } = params;
 
   const dateStr = date.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -841,6 +884,10 @@ export async function sendBureauMeetingNotification(params: {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const mapsUrl = location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
+    : null;
 
   const agendaHtml = agenda
     ? `<p style="margin-top:16px;font-weight:bold;color:#555;">Ordre du jour :</p>
@@ -859,7 +906,7 @@ export async function sendBureauMeetingNotification(params: {
               <td style="padding:6px 12px;font-weight:bold;color:#555;">Date</td>
               <td style="padding:6px 12px;">${dateStr}</td>
             </tr>
-            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;">${location}</td></tr>` : ""}
+            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;"><a href="${mapsUrl}" style="color:#6366f1;">${location}</a></td></tr>` : ""}
           </table>
           ${agendaHtml}
           <p style="margin-top:20px;">À bientôt !</p>
@@ -867,7 +914,7 @@ export async function sendBureauMeetingNotification(params: {
       );
       return sendMail(
         email,
-        `Réunion de bureau — ${date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`,
+        `Réunion de bureau — ${date.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" })}`,
         html
       );
     })

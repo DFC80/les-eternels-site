@@ -35,7 +35,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       where: { id: rental.registrationId },
       include: {
         user: { select: { firstName: true, email: true } },
-        event: { select: { title: true, startsAt: true, location: true, mealPrice: true, hasMeal: true } },
+        event: { select: { title: true, startsAt: true, location: true, mealPrice: true, hasMeal: true, activityType: true } },
         rentals: { include: { equipment: { select: { name: true, rentalCost: true } } } },
       },
     });
@@ -51,6 +51,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           isFree: r.isFree,
         }));
 
+      const activity = registration.event.activityType
+        ? await prisma.activity.findUnique({ where: { key: registration.event.activityType }, select: { coverImage: true } })
+        : null;
       await sendEventFeesRecapEmail({
         to: registration.user.email,
         firstName: registration.user.firstName,
@@ -61,7 +64,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         mealPrice: registration.event.mealPrice,
         participationFee: registration.participationFee,
         equipment: approvedEquipment,
-        eventUrl: `${getSiteUrl()}/calendar`,
+        eventUrl: `${getSiteUrl()}/calendar?event=${registration.eventId}`,
+        coverImage: activity?.coverImage ?? null,
       }).catch(() => {});
     }
   }

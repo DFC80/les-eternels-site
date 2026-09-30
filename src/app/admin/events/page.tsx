@@ -172,6 +172,8 @@ export default function AdminEventsPage() {
   const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
   const [notifyingFor, setNotifyingFor] = useState<string | null>(null);
   const [notifySuccess, setNotifySuccess] = useState<Record<string, number>>({});
+  const [notifyingAdminFor, setNotifyingAdminFor] = useState<string | null>(null);
+  const [notifyAdminSuccess, setNotifyAdminSuccess] = useState<Record<string, boolean>>({});
 
   async function load() {
     const res = await fetch("/api/events");
@@ -483,6 +485,17 @@ export default function AdminEventsPage() {
     }
   }
 
+  async function sendAdminNotification(eventId: string) {
+    if (!confirm("Envoyer un email de notification à l'admin ?")) return;
+    setNotifyingAdminFor(eventId);
+    const res = await fetch(`/api/admin/events/${eventId}/notify-admin`, { method: "POST" });
+    setNotifyingAdminFor(null);
+    if (res.ok) {
+      setNotifyAdminSuccess((prev) => ({ ...prev, [eventId]: true }));
+      setTimeout(() => setNotifyAdminSuccess((prev) => { const next = { ...prev }; delete next[eventId]; return next; }), 5000);
+    }
+  }
+
   async function loadEventDocs(eventId: string) {
     const res = await fetch(`/api/admin/events/${eventId}/documents`);
     if (res.ok) setEventDocuments(await res.json());
@@ -682,6 +695,20 @@ export default function AdminEventsPage() {
                 : notifySuccess[ev.id] !== undefined
                   ? `✅ ${notifySuccess[ev.id]} emails envoyés`
                   : "📣 Notifier les membres"}
+            </button>
+          )}
+          {canWrite && !isPast && (
+            <button
+              type="button"
+              onClick={() => sendAdminNotification(ev.id)}
+              disabled={notifyingAdminFor === ev.id}
+              className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60 disabled:opacity-50"
+            >
+              {notifyingAdminFor === ev.id
+                ? "Envoi…"
+                : notifyAdminSuccess[ev.id]
+                  ? "✅ Email admin envoyé"
+                  : "📣 Notifier l'admin"}
             </button>
           )}
           {canWrite && (

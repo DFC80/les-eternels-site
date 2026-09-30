@@ -253,6 +253,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         mealPrice: event.mealPrice,
         participationFee,
         equipment: equipmentList,
+        coverImage: activity?.coverImage ?? null,
+        eventUrl,
       }),
     ]);
   }
