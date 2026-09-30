@@ -638,7 +638,7 @@ function buildPollResultsHtml(params: PollResultsParams & { greeting?: string })
     "Résultats du sondage 📊",
     `
       ${greeting ? `<p>${greeting}</p>` : ""}
-      <p>Le sondage suivant vient de se clôturer le <strong>${closedAt.toLocaleString("fr-FR")}</strong> :</p>
+      <p>Le sondage suivant vient de se clôturer le <strong>${closedAt.toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</strong> :</p>
       <blockquote style="border-left:4px solid #6366f1;margin:16px 0;padding:8px 16px;color:#374151;background:#f9fafb;">
         ${question}
       </blockquote>
