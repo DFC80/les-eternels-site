@@ -2,6 +2,19 @@ import nodemailer from "nodemailer";
 
 const CLUB_NAME = "Les Éternels";
 
+function absUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const base = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  return base ? `${base}${url}` : null;
+}
+
+function coverHtmlFor(coverImage: string | null | undefined): string {
+  const src = absUrl(coverImage);
+  if (!src) return "";
+  return `<img src="${src}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`;
+}
+
 function getTransporter() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) return null;
@@ -79,9 +92,7 @@ export async function sendNewEventRegistrationToAdmin(params: {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const prestations: string[] = [];
   if (wantsMeal) prestations.push(`Repas — ${mealPrice}€`);
@@ -145,9 +156,7 @@ export async function sendEventRegistrationApproved(params: {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -248,9 +257,7 @@ export async function sendEventRegistrationConfirmation(params: {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -336,9 +343,7 @@ export async function sendEventFeesRecapEmail(params: {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -422,9 +427,7 @@ export async function sendNewEventNotification(params: {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const html = wrapHtml(
     "Nouvel événement 🎉",
@@ -615,9 +618,7 @@ type PollResultsParams = {
 
 function buildPollResultsHtml(params: PollResultsParams & { greeting?: string }): string {
   const { question, activityLabel, totalVotes, options, closedAt, pollUrl, greeting, coverImage } = params;
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
   const sorted = [...options].sort((a, b) => b.voteCount - a.voteCount);
   const winner = sorted[0];
   const rows = sorted
@@ -696,9 +697,7 @@ export async function sendNewPollNotification(params: {
 }) {
   const { to, firstName, question, pollUrl, activityLabel, coverImage } = params;
 
-  const coverHtml = coverImage
-    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
-    : "";
+  const coverHtml = coverHtmlFor(coverImage);
 
   const scope = activityLabel
     ? `<p>Ce sondage concerne l'activité <strong>${activityLabel}</strong>.</p>`
