@@ -8,9 +8,10 @@ interface Props {
   label?: string;
   className?: string;
   hideHint?: boolean;
+  compact?: boolean;
 }
 
-export default function ImageUpload({ value, onChange, label, className = "", hideHint = false }: Props) {
+export default function ImageUpload({ value, onChange, label, className = "", hideHint = false, compact = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,17 +93,17 @@ export default function ImageUpload({ value, onChange, label, className = "", hi
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
-          className="mt-1 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary-700 bg-primary-950/40 px-4 py-6 text-center transition hover:border-primary-500"
+          className={`mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary-700 bg-primary-950/40 px-4 text-center transition hover:border-primary-500 ${compact ? "py-2 flex-row" : "py-6 flex-col"}`}
         >
           {uploading ? (
             <p className="text-sm text-slate-400">Upload en cours…</p>
           ) : (
             <>
-              <p className="text-2xl">🖼️</p>
+              {!compact && <p className="text-2xl">🖼️</p>}
               <p className="text-sm text-slate-400">
-                Cliquez ou déposez une image ici
+                {compact ? "+ Ajouter une photo" : "Cliquez ou déposez une image ici"}
               </p>
-              {!hideHint && <p className="text-xs text-slate-600">JPG, PNG, WEBP, GIF · max 10 Mo</p>}
+              {!hideHint && !compact && <p className="text-xs text-slate-600">JPG, PNG, WEBP, GIF · max 10 Mo</p>}
             </>
           )}
         </div>

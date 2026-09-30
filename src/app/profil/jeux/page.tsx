@@ -374,27 +374,30 @@ export default function MesJeuxPage() {
             <label className="block text-sm font-medium text-slate-300">
               Photos <span className="font-normal text-slate-500">— optionnel, plusieurs photos possibles</span>
             </label>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {form.photos.map((url, i) => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(i)}
-                    className="text-xs text-red-400 hover:underline"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              ))}
-              <ImageUpload
-                value=""
-                onChange={addPhoto}
-                className="h-20 w-20"
-                hideHint
-              />
-            </div>
+            {form.photos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-3">
+                {form.photos.map((url, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      className="text-xs text-red-400 hover:underline"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <ImageUpload
+              value=""
+              onChange={addPhoto}
+              className="w-full"
+              hideHint
+              compact
+            />
           </div>
 
           <label className="flex cursor-pointer items-start gap-3 pt-6 shrink-0">
