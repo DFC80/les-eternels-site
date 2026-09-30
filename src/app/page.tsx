@@ -44,6 +44,13 @@ async function getUpcomingEvents() {
   });
 }
 
+async function getActivityCoverImages(): Promise<Record<string, string | null>> {
+  const activities = await prisma.activity.findMany({
+    select: { key: true, coverImage: true },
+  });
+  return Object.fromEntries(activities.map((a) => [a.key, a.coverImage ?? null]));
+}
+
 async function getHomeIdeas() {
   const ideas = await prisma.idea.findMany({
     where: { showOnHome: true },
@@ -103,7 +110,7 @@ async function getSettings() {
 }
 
 export default async function HomePage() {
-  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas, homeShopItems, homeGameLocations] = await Promise.all([
+  const [session, { description, logoSrc }, latestArticle, latestAG, upcomingEvents, homeIdeas, homeShopItems, homeGameLocations, activityCoverImages] = await Promise.all([
     getServerSession(authOptions),
     getSettings(),
     getLatestArticle(),
@@ -112,6 +119,7 @@ export default async function HomePage() {
     getHomeIdeas(),
     getHomeShopItems(),
     getHomeGameLocations(),
+    getActivityCoverImages(),
   ]);
 
   const userHasMembership = session
@@ -194,31 +202,38 @@ export default async function HomePage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {upcomingEvents.map((ev) => {
               const isFull = ev.capacity != null && ev._count.registrations >= ev.capacity;
+              const coverImage = activityCoverImages[ev.activityType] ?? null;
               return (
                 <Link
                   key={ev.id}
                   href={`/calendar?event=${ev.id}`}
-                  className="rounded-xl border border-primary-800 bg-primary-900/50 p-4 transition hover:border-primary-600 hover:bg-primary-800/60"
+                  className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50 transition hover:border-primary-600 hover:bg-primary-800/60"
                 >
-                  <h3 className="mt-2 font-display text-base text-silver-100">{ev.title}</h3>
-                  <p className="mt-1 text-xs text-slate-400">
-                    📅{" "}
-                    {new Date(ev.startsAt).toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
-                    {" · "}
-                    {new Date(ev.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                  {ev.location && (
-                    <p className="mt-1 text-xs text-slate-500">📍 {ev.location}</p>
-                  )}
-                  {ev.capacity != null && (
-                    <p className={`mt-2 text-xs font-medium ${isFull ? "text-red-400" : "text-slate-500"}`}>
-                      {isFull ? "Complet" : `${ev._count.registrations} / ${ev.capacity} inscrit${ev._count.registrations > 1 ? "s" : ""}`}
+                  {coverImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={coverImage} alt={ev.activityType} className="h-28 w-full object-cover" />
+                  ) : null}
+                  <div className="p-4">
+                    <h3 className="font-display text-base text-silver-100">{ev.title}</h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      📅{" "}
+                      {new Date(ev.startsAt).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                      {" · "}
+                      {new Date(ev.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                     </p>
-                  )}
+                    {ev.location && (
+                      <p className="mt-1 text-xs text-slate-500">📍 {ev.location}</p>
+                    )}
+                    {ev.capacity != null && (
+                      <p className={`mt-2 text-xs font-medium ${isFull ? "text-red-400" : "text-slate-500"}`}>
+                        {isFull ? "Complet" : `${ev._count.registrations} / ${ev.capacity} inscrit${ev._count.registrations > 1 ? "s" : ""}`}
+                      </p>
+                    )}
+                  </div>
                 </Link>
               );
             })}
