@@ -78,15 +78,17 @@ async function maybeSendResultNotification(pollId: string) {
   await prisma.poll.update({ where: { id: pollId }, data: { resultNotificationSentAt: new Date() } });
 
   let activityLabel: string | undefined;
+  let coverImage: string | null = null;
   if (poll.activityKey) {
-    const act = await prisma.activity.findUnique({ where: { key: poll.activityKey } });
+    const act = await prisma.activity.findUnique({ where: { key: poll.activityKey }, select: { label: true, coverImage: true } });
     activityLabel = act?.label;
+    coverImage = act?.coverImage ?? null;
   }
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
   const options = poll.options.map((o) => ({ label: o.label, voteCount: o._count.votes }));
   const totalVotes = options.reduce((s, o) => s + o.voteCount, 0);
-  const resultParams = { question: poll.question, activityLabel, totalVotes, options, closedAt: poll.closedAt, pollUrl: `${baseUrl}/sondages` };
+  const resultParams = { question: poll.question, activityLabel, coverImage, totalVotes, options, closedAt: poll.closedAt, pollUrl: `${baseUrl}/sondages` };
 
   const voterRows = await prisma.pollVote.findMany({
     where: { pollId },
