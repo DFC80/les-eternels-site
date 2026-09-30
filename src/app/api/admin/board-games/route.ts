@@ -19,5 +19,11 @@ export async function GET() {
     include: { owner: { select: { firstName: true, name: true } } },
   });
 
-  return NextResponse.json(games);
+  return NextResponse.json(
+    games.map((g) => ({
+      ...g,
+      mechanics: g.mechanics ? g.mechanics.split(",").filter(Boolean) : [],
+      themes: g.themes ? g.themes.split(",").filter(Boolean) : [],
+    }))
+  );
 }

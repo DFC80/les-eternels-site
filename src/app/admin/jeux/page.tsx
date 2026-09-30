@@ -10,8 +10,11 @@ type BoardGame = {
   photoUrl: string | null;
   minPlayers: number;
   maxPlayers: number;
-  durationMinutes: number;
+  durationMinutes: number | null;
   status: "DISPONIBLE" | "INDISPONIBLE";
+  activityKey: string | null;
+  mechanics: string[];
+  themes: string[];
   owner: { firstName: string; name: string };
 };
 
@@ -86,11 +89,25 @@ export default function AdminJeuxPage() {
                   {game.minPlayers === game.maxPlayers
                     ? `${game.minPlayers} joueur(s)`
                     : `${game.minPlayers} à ${game.maxPlayers} joueurs`}{" "}
-                  · {game.durationMinutes} min
+                  {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   Prêté par {game.owner.firstName} {game.owner.name}
                 </p>
+                {(game.mechanics.length > 0 || game.themes.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {game.mechanics.map((m) => (
+                      <span key={m} className="rounded-full border border-primary-800 bg-primary-900/80 px-2 py-0.5 text-xs text-primary-300">
+                        {m}
+                      </span>
+                    ))}
+                    {game.themes.map((t) => (
+                      <span key={t} className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {canWrite && (
                   <div className="mt-2 flex gap-3 text-sm">
                     <button
