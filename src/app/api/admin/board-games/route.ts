@@ -19,11 +19,19 @@ export async function GET() {
     include: { owner: { select: { firstName: true, name: true } } },
   });
 
+  const activityKeys = [...new Set(games.map((g) => g.activityKey).filter(Boolean))] as string[];
+  const activities = activityKeys.length
+    ? await prisma.activity.findMany({ where: { key: { in: activityKeys } }, select: { key: true, label: true, emoji: true } })
+    : [];
+  const activityMap = Object.fromEntries(activities.map((a) => [a.key, { label: a.label, emoji: a.emoji }]));
+
   return NextResponse.json(
     games.map((g) => ({
       ...g,
       mechanics: g.mechanics ? g.mechanics.split(",").filter(Boolean) : [],
       themes: g.themes ? g.themes.split(",").filter(Boolean) : [],
+      activityLabel: g.activityKey ? (activityMap[g.activityKey]?.label ?? null) : null,
+      activityEmoji: g.activityKey ? (activityMap[g.activityKey]?.emoji ?? null) : null,
     }))
   );
 }
