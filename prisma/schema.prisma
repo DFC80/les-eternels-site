@@ -140,6 +140,7 @@ model BoardGame {
   id              String   @id @default(cuid())
   ownerId         String
   name            String
+  version         String?
   photoUrl        String?
   minPlayers      Int
   maxPlayers      Int

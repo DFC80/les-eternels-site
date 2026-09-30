@@ -7,6 +7,7 @@ import ImageUpload from "@/components/ImageUpload";
 type BoardGame = {
   id: string;
   name: string;
+  version: string | null;
   photoUrl: string | null;
   minPlayers: number;
   maxPlayers: number;
@@ -69,6 +70,7 @@ const THEMES: string[] = [
 const EMPTY_FORM = {
   id: "",
   name: "",
+  version: "",
   photoUrl: "",
   minPlayers: "",
   maxPlayers: "",
@@ -147,6 +149,7 @@ export default function MesJeuxPage() {
     setForm({
       id: game.id,
       name: game.name,
+      version: game.version ?? "",
       photoUrl: game.photoUrl ?? "",
       minPlayers: String(game.minPlayers),
       maxPlayers: String(game.maxPlayers),
@@ -165,6 +168,7 @@ export default function MesJeuxPage() {
     setSaving(true);
     const payload = {
       name: form.name,
+      version: form.version || null,
       photoUrl: form.photoUrl,
       minPlayers: form.minPlayers,
       maxPlayers: form.maxPlayers,
@@ -196,6 +200,7 @@ export default function MesJeuxPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: game.name,
+        version: game.version,
         photoUrl: game.photoUrl,
         minPlayers: game.minPlayers,
         maxPlayers: game.maxPlayers,
@@ -248,6 +253,18 @@ export default function MesJeuxPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Ex: Catan"
+            className={inputClass}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">
+            Version <span className="font-normal text-slate-500">— optionnel</span>
+          </label>
+          <input
+            value={form.version}
+            onChange={(e) => setForm({ ...form, version: e.target.value })}
+            placeholder="Ex: Édition 2ème, Extension Pirates..."
             className={inputClass}
           />
         </div>
@@ -371,6 +388,9 @@ export default function MesJeuxPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium text-slate-100">{game.name}</p>
+                    {game.version && (
+                      <span className="text-xs text-slate-400">{game.version}</span>
+                    )}
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                       game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
                     }`}>

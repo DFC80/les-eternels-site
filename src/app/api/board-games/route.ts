@@ -39,8 +39,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
+  const { name, version, photoUrl, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
     name?: string;
+    version?: string | null;
     photoUrl?: string | null;
     minPlayers?: string | number;
     maxPlayers?: string | number;
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     data: {
       ownerId: session.user.id,
       name,
+      version: version || null,
       photoUrl: photoUrl || null,
       minPlayers: min,
       maxPlayers: max,
