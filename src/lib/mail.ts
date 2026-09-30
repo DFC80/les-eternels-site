@@ -296,8 +296,25 @@ export async function sendEventFeesRecapEmail(params: {
   participationFee: number;
   equipment: { name: string; rentalCost: number; quantity: number; isFree: boolean }[];
   eventUrl: string;
+  coverImage?: string | null;
 }) {
-  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, eventUrl } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, eventUrl, coverImage } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -342,11 +359,12 @@ export async function sendEventFeesRecapEmail(params: {
   const html = wrapHtml(
     "Vos locations sont validées — récapitulatif 📋",
     `
+      ${coverHtml}
       <p>Bonjour ${firstName},</p>
       <p>Vos locations d'équipement pour l'événement <strong>${eventTitle}</strong> ont été traitées par un administrateur. Voici le récapitulatif de vos frais :</p>
       <p>
-        📅 ${startsAt.toLocaleString("fr-FR")}<br/>
-        📍 ${location}
+        📅 ${dateStr}<br/>
+        📍 <a href="${mapsUrl}" style="color:#6366f1;">${location}</a>
       </p>
       ${detailHtml}
       ${paymentHtml}
