@@ -221,9 +221,10 @@ export default async function HomePage() {
                         weekday: "long",
                         day: "numeric",
                         month: "long",
+                        timeZone: "Europe/Paris",
                       })}
                       {" · "}
-                      {new Date(ev.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(ev.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}
                     </p>
                     {ev.location && (
                       <p className="mt-1 text-xs text-slate-500">📍 {ev.location}</p>
