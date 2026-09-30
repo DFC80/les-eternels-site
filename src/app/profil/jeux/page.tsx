@@ -8,7 +8,7 @@ type BoardGame = {
   id: string;
   name: string;
   version: string | null;
-  photoUrl: string | null;
+  photos: string[];
   minPlayers: number;
   maxPlayers: number;
   durationMinutes: number | null;
@@ -71,7 +71,7 @@ const EMPTY_FORM = {
   id: "",
   name: "",
   version: "",
-  photoUrl: "",
+  photos: [] as string[],
   minPlayers: "",
   maxPlayers: "",
   durationMinutes: "",
@@ -150,7 +150,7 @@ export default function MesJeuxPage() {
       id: game.id,
       name: game.name,
       version: game.version ?? "",
-      photoUrl: game.photoUrl ?? "",
+      photos: game.photos ?? [],
       minPlayers: String(game.minPlayers),
       maxPlayers: String(game.maxPlayers),
       durationMinutes: String(game.durationMinutes ?? ""),
@@ -169,7 +169,7 @@ export default function MesJeuxPage() {
     const payload = {
       name: form.name,
       version: form.version || null,
-      photoUrl: form.photoUrl,
+      photos: form.photos,
       minPlayers: form.minPlayers,
       maxPlayers: form.maxPlayers,
       durationMinutes: form.durationMinutes,
@@ -201,7 +201,7 @@ export default function MesJeuxPage() {
       body: JSON.stringify({
         name: game.name,
         version: game.version,
-        photoUrl: game.photoUrl,
+        photos: game.photos,
         minPlayers: game.minPlayers,
         maxPlayers: game.maxPlayers,
         durationMinutes: game.durationMinutes,
@@ -219,6 +219,22 @@ export default function MesJeuxPage() {
     if (!confirm("Supprimer ce jeu de votre liste ?")) return;
     const res = await fetch(`/api/board-games/${id}`, { method: "DELETE" });
     if (res.ok) await load();
+  }
+
+  function addPhoto(url: string) {
+    setForm((f) => ({ ...f, photos: [...f.photos, url] }));
+  }
+
+  function removePhoto(index: number) {
+    setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== index) }));
+  }
+
+  function replacePhoto(index: number, url: string) {
+    setForm((f) => {
+      const next = [...f.photos];
+      next[index] = url;
+      return { ...f, photos: next };
+    });
   }
 
   const activityMap = Object.fromEntries(activities.map((a) => [a.key, a]));
@@ -290,12 +306,32 @@ export default function MesJeuxPage() {
             placeholder="40" className={inputClass} />
         </div>
 
-        <div>
-          <ImageUpload
-            label="Photo (optionnel)"
-            value={form.photoUrl}
-            onChange={(url) => setForm({ ...form, photoUrl: url })}
-          />
+        {/* Photos multiples */}
+        <div className="col-span-full">
+          <label className="block text-sm font-medium text-slate-300">
+            Photos <span className="font-normal text-slate-500">— optionnel, plusieurs photos possibles</span>
+          </label>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {form.photos.map((url, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="h-20 w-20 rounded-lg border border-primary-700 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="text-xs text-red-400 hover:underline"
+                >
+                  Supprimer
+                </button>
+              </div>
+            ))}
+            {/* Bouton d'ajout */}
+            <ImageUpload
+              value=""
+              onChange={addPhoto}
+              className="h-20 w-20"
+            />
+          </div>
         </div>
 
         {activities.length > 0 && (
@@ -381,9 +417,15 @@ export default function MesJeuxPage() {
           return (
             <div key={game.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
               <div className="flex gap-4">
-                {game.photoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={game.photoUrl} alt={game.name} className="h-20 w-20 flex-shrink-0 rounded-lg object-cover" />
+                {/* Photos miniatures */}
+                {game.photos.length > 0 && (
+                  <div className="flex flex-shrink-0 flex-col gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={game.photos[0]} alt={game.name} className="h-20 w-20 rounded-lg object-cover" />
+                    {game.photos.length > 1 && (
+                      <span className="text-center text-xs text-slate-500">+{game.photos.length - 1}</span>
+                    )}
+                  </div>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -425,7 +467,6 @@ export default function MesJeuxPage() {
                     </div>
                   )}
 
-                  {/* Visibilité toggle */}
                   <button
                     onClick={() => togglePublic(game)}
                     disabled={toggling === game.id}

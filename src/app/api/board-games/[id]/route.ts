@@ -12,6 +12,12 @@ function joinCsv(arr: string[] | null | undefined): string | null {
   return arr && arr.length > 0 ? arr.join(",") : null;
 }
 
+function photosFromGame(g: { photoUrls: string | null; photoUrl: string | null }): string[] {
+  const urls = splitCsv(g.photoUrls);
+  if (urls.length > 0) return urls;
+  return g.photoUrl ? [g.photoUrl] : [];
+}
+
 async function requireOwner(gameId: string, userId: string) {
   const game = await prisma.boardGame.findUnique({ where: { id: gameId } });
   if (!game || game.ownerId !== userId) return null;
@@ -30,10 +36,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { name, version, photoUrl, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
+  const { name, version, photos, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
     name?: string;
     version?: string | null;
-    photoUrl?: string | null;
+    photos?: string[];
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
@@ -51,12 +57,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 
+  const existingPhotos = photosFromGame(existing);
+  const photoList = photos !== undefined ? photos : existingPhotos;
+
   const game = await prisma.boardGame.update({
     where: { id: params.id },
     data: {
       ...(name ? { name } : {}),
       version: version !== undefined ? (version || null) : existing.version,
-      photoUrl: photoUrl !== undefined ? (photoUrl || null) : existing.photoUrl,
+      photoUrl: photoList[0] || null,
+      photoUrls: joinCsv(photoList),
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
@@ -67,7 +77,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     },
   });
 
-  return NextResponse.json({ ...game, mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) });
+  return NextResponse.json({ ...game, photos: photosFromGame(game), mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) });
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
