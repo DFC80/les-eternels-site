@@ -4,64 +4,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isFullAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { sendNewPollNotification, sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
+import { sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session || !isFullAdmin(session.user.role)) return null;
   return session;
-}
-
-const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
-  JEUX_DE_PLATEAU: "wantsBoardGames",
-  JEUX_DE_ROLE: "wantsRolePlay",
-  AIRSOFT: "wantsAirsoft",
-};
-
-async function sendPollNotifications(pollId: string, question: string, activityKey: string | null) {
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
-  const pollUrl = `${baseUrl}/sondages`;
-
-  let activityLabel: string | undefined;
-  let coverImage: string | null = null;
-  if (activityKey) {
-    const act = await prisma.activity.findUnique({ where: { key: activityKey }, select: { label: true, coverImage: true } });
-    activityLabel = act?.label;
-    coverImage = act?.coverImage ?? null;
-  }
-
-  // Find eligible users
-  let users: { email: string; firstName: string }[] = [];
-
-  if (!activityKey) {
-    users = await prisma.user.findMany({
-      where: { isActive: true, isPending: false },
-      select: { email: true, firstName: true },
-    });
-  } else {
-    const boolField = CORE_BOOL_FIELDS[activityKey];
-    if (boolField) {
-      users = await prisma.user.findMany({
-        where: { isActive: true, isPending: false, membership: { [boolField]: true } },
-        select: { email: true, firstName: true },
-      });
-    } else {
-      users = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          isPending: false,
-          membership: { extraActivities: { some: { activityKey } } },
-        },
-        select: { email: true, firstName: true },
-      });
-    }
-  }
-
-  await Promise.allSettled(
-    users.map((u) => sendNewPollNotification({ to: u.email, firstName: u.firstName, question, pollUrl, activityLabel, coverImage }))
-  );
-
-  await prisma.poll.update({ where: { id: pollId }, data: { publishNotificationSentAt: new Date() } });
 }
 
 async function maybeSendResultNotification(pollId: string) {
