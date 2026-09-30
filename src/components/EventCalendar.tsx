@@ -1144,6 +1144,24 @@ export default function EventCalendar() {
                             </p>
                           </>
                         )}
+                        {(() => {
+                          const PREDEFINED_KEYS = ["softs", "beer", "pain", "sauces", "assaisonnements"];
+                          const extras = selected.mealExtras ? selected.mealExtras.split(",").filter(Boolean) : [];
+                          const consommations = extras.filter((k) => !PREDEFINED_KEYS.includes(k));
+                          if (consommations.length === 0) return null;
+                          return (
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-slate-400">Consommations sélectionnées :</p>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {consommations.map((label) => (
+                                  <span key={label} className="rounded-full border border-primary-700 bg-primary-900/60 px-2.5 py-0.5 text-xs text-slate-300">
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {!isRegistrationClosed(selected) && (
                           <button
                             onClick={() => {
