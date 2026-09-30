@@ -229,14 +229,6 @@ export default function MesJeuxPage() {
     setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== index) }));
   }
 
-  function replacePhoto(index: number, url: string) {
-    setForm((f) => {
-      const next = [...f.photos];
-      next[index] = url;
-      return { ...f, photos: next };
-    });
-  }
-
   const activityMap = Object.fromEntries(activities.map((a) => [a.key, a]));
 
   return (
@@ -299,7 +291,7 @@ export default function MesJeuxPage() {
             placeholder="4" className={inputClass} />
         </div>
 
-        <div>
+        <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-300">Durée d'une partie (min) <span className="text-slate-500 font-normal">— optionnel</span></label>
           <input type="number" min={1} value={form.durationMinutes}
             onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
