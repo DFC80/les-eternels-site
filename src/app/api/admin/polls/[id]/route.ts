@@ -17,12 +17,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { question, allowMultiple, published, closedAt, activityKey, options } = body as {
+  const { question, allowMultiple, published, closedAt, activityKey, restrictToActivity, options } = body as {
     question?: string;
     allowMultiple?: boolean;
     published?: boolean;
     closedAt?: string | null;
     activityKey?: string | null;
+    restrictToActivity?: boolean;
     options?: { id?: string; label: string; order: number }[];
   };
 
@@ -53,6 +54,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       allowMultiple: !!allowMultiple,
       published: !!published,
       activityKey: activityKey !== undefined ? (activityKey || null) : existing?.activityKey ?? null,
+      restrictToActivity: restrictToActivity !== undefined ? !!restrictToActivity : existing?.restrictToActivity ?? true,
       closedAt: closedAt ? new Date(closedAt) : null,
       ...(optionsChanged && {
         options: {

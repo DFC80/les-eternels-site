@@ -12,6 +12,7 @@ type Poll = {
   closedAt: string | null;
   activityKey: string | null;
   activityLabel: string | null;
+  activityCoverImage: string | null;
   userCanVote: boolean;
   userHasChangedVote: boolean;
   totalVotes: number;
@@ -93,7 +94,12 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
   }
 
   return (
-    <div className="rounded-xl border border-primary-800 bg-primary-900/50 p-4 sm:p-6">
+    <div className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50">
+      {poll.activityCoverImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={poll.activityCoverImage} alt="" className="h-32 w-full object-cover sm:h-40" />
+      )}
+      <div className="p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 className="font-display text-lg text-silver-100">{poll.question}</h2>
         <div className="flex flex-wrap gap-2">
@@ -236,6 +242,7 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
           <Link href="/login" className="text-primary-300 hover:underline">Connectez-vous</Link> pour voter.
         </p>
       )}
+      </div>
     </div>
   );
 }

@@ -529,7 +529,8 @@ model Poll {
   question      String
   published     Boolean   @default(false)
   allowMultiple Boolean   @default(false)
-  activityKey   String?
+  activityKey        String?
+  restrictToActivity Boolean   @default(true)
   closedAt      DateTime?
   publishNotificationSentAt DateTime?
   resultNotificationSentAt  DateTime?

@@ -14,6 +14,7 @@ type Poll = {
   allowMultiple: boolean;
   published: boolean;
   activityKey: string | null;
+  restrictToActivity: boolean;
   closedAt: string | null;
   publishNotificationSentAt: string | null;
   resultNotificationSentAt: string | null;
@@ -30,6 +31,7 @@ const EMPTY_FORM = {
   allowMultiple: false,
   published: false,
   activityKey: "",
+  restrictToActivity: true,
   closedAt: "",
   options: ["", ""],
 };
@@ -77,6 +79,7 @@ export default function AdminSondagesPage() {
       allowMultiple: p.allowMultiple,
       published: p.published,
       activityKey: p.activityKey ?? "",
+      restrictToActivity: p.restrictToActivity,
       closedAt: p.closedAt ? p.closedAt.slice(0, 16) : "",
       options: p.options.map((o) => o.label),
     });
@@ -114,6 +117,7 @@ export default function AdminSondagesPage() {
         allowMultiple: form.allowMultiple,
         published: form.published,
         activityKey: form.activityKey || null,
+        restrictToActivity: form.restrictToActivity,
         closedAt: form.closedAt || null,
         options: form.options.map((label, i) => ({ label, order: i })),
       };
@@ -146,6 +150,7 @@ export default function AdminSondagesPage() {
         allowMultiple: p.allowMultiple,
         published: !p.published,
         activityKey: p.activityKey,
+        restrictToActivity: p.restrictToActivity,
         closedAt: p.closedAt,
         options: p.options.map((o, i) => ({ label: o.label, order: i })),
       }),
@@ -169,6 +174,7 @@ export default function AdminSondagesPage() {
         allowMultiple: p.allowMultiple,
         published: p.published,
         activityKey: p.activityKey,
+        restrictToActivity: p.restrictToActivity,
         closedAt: new Date().toISOString(),
         options: p.options.map((o, i) => ({ label: o.label, order: i })),
       }),
@@ -259,9 +265,28 @@ export default function AdminSondagesPage() {
               ))}
             </select>
             {form.activityKey && (
-              <p className="mt-1 text-xs text-amber-400">
-                Seuls les membres adhérents à cette activité pourront voter.
-              </p>
+              <div className="mt-2 space-y-1.5">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="radio"
+                    name="restrictToActivity"
+                    checked={!form.restrictToActivity}
+                    onChange={() => setForm({ ...form, restrictToActivity: false })}
+                    className="accent-primary-400"
+                  />
+                  Tous les membres (activité pour information uniquement)
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-300">
+                  <input
+                    type="radio"
+                    name="restrictToActivity"
+                    checked={form.restrictToActivity}
+                    onChange={() => setForm({ ...form, restrictToActivity: true })}
+                    className="accent-amber-400"
+                  />
+                  Uniquement les adhérents à cette activité
+                </label>
+              </div>
             )}
             {!form.activityKey && (
               <p className="mt-1 text-xs text-slate-500">
@@ -357,6 +382,7 @@ export default function AdminSondagesPage() {
                 {actLabel && (
                   <span className="rounded-full bg-amber-900/60 px-2 py-0.5 text-xs text-amber-300">
                     {actLabel.emoji} {actLabel.label}
+                    {p.restrictToActivity ? " · adhérents uniquement" : " · tous les membres"}
                   </span>
                 )}
                 {p.publishNotificationSentAt && (
