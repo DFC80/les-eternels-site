@@ -91,7 +91,7 @@ const EMPTY_FORM = {
   boardGameIds: [] as string[],
 };
 
-type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string; owner: { firstName: string; name: string } };
+type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string; activityKey: string | null; owner: { firstName: string; name: string } };
 
 type KioskMember = { id: string; firstName: string; name: string; balance: number };
 type KioskProduct = { id: string; category: string; name: string; price: number; stock: number };
@@ -252,7 +252,7 @@ export default function AdminEventsPage() {
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null })),
-      boardGameIds: form.activityType === "JEUX_DE_PLATEAU" ? form.boardGameIds : [],
+      boardGameIds: form.boardGameIds,
     };
 
     const res = await fetch(form.id ? `/api/events/${form.id}` : "/api/events", {
@@ -1298,7 +1298,7 @@ export default function AdminEventsPage() {
           <label className="block text-sm font-medium text-slate-300">Type d'activité</label>
           <select
             value={form.activityType}
-            onChange={(e) => setForm({ ...form, activityType: e.target.value })}
+            onChange={(e) => setForm({ ...form, activityType: e.target.value, boardGameIds: [] })}
             className={inputClass}
           >
             {visibleActivityOptions.map((a) => (
@@ -1370,16 +1370,16 @@ export default function AdminEventsPage() {
           />
         </div>
 
-        {form.activityType === "JEUX_DE_PLATEAU" && (
-          <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
-            <label className="block text-sm font-medium text-slate-200">
-              🎲 Jeux de société prêtés par les membres (optionnel)
-            </label>
-            {availableGames.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">Aucun jeu rendu visible par les membres pour le moment.</p>
-            ) : (
+        {(() => {
+          const gamesForActivity = availableGames.filter((g) => g.activityKey === form.activityType);
+          if (gamesForActivity.length === 0) return null;
+          return (
+            <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
+              <label className="block text-sm font-medium text-slate-200">
+                🎲 Jeux prêtés par les membres (optionnel)
+              </label>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {availableGames.map((game) => (
+                {gamesForActivity.map((game) => (
                   <label
                     key={game.id}
                     className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
@@ -1405,9 +1405,9 @@ export default function AdminEventsPage() {
                   </label>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          );
+        })()}
 
         <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-200">
