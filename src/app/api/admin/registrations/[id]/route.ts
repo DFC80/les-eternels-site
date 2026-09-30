@@ -55,6 +55,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       rentalCost: r.isFree ? 0 : r.equipment.rentalCost,
       quantity: r.quantity ?? 1,
     }));
+    const activity = registration.event.activityType
+      ? await prisma.activity.findUnique({ where: { key: registration.event.activityType }, select: { coverImage: true } })
+      : null;
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+    const eventUrl = `${baseUrl}/calendar?event=${registration.eventId}`;
     await sendEventRegistrationApproved({
       to: registration.user.email,
       firstName: registration.user.firstName,
@@ -65,6 +70,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       mealPrice: registration.event.mealPrice,
       participationFee: registration.participationFee,
       equipment: approvedEquipment,
+      coverImage: activity?.coverImage ?? null,
+      eventUrl,
     });
   } else {
     await sendEventRegistrationRejected({
