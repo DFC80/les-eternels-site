@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { sessionHasAccess, isFullAdmin, sessionHasWriteAccess } from "@/lib/permissions";
 import { currentSeasonYear, nextSeasonYear } from "@/lib/membership";
@@ -369,14 +370,23 @@ export default function AdminMembersPage() {
             Cliquez sur le nom d'un membre pour consulter sa fiche (lecture seule).
           </p>
         </div>
-        {canEdit && (
-          <button
-            onClick={openGroupEmail}
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/cotisations/print"
+            target="_blank"
             className="rounded-md border border-primary-700 px-4 py-2 text-sm font-medium text-primary-300 hover:bg-primary-800/60"
           >
-            📧 Message groupé
-          </button>
-        )}
+            🖨️ Imprimer les cotisations
+          </Link>
+          {canEdit && (
+            <button
+              onClick={openGroupEmail}
+              className="rounded-md border border-primary-700 px-4 py-2 text-sm font-medium text-primary-300 hover:bg-primary-800/60"
+            >
+              📧 Message groupé
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
