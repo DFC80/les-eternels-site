@@ -1570,7 +1570,7 @@ export default function AdminEventsPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, consommations: [...form.consommations, { label: "", included: true }] })}
+                  onClick={() => setForm({ ...form, consommations: [...form.consommations, { label: "", included: false }] })}
                   className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
                 >
                   + Consommations
