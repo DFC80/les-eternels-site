@@ -4,6 +4,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function splitCsv(val: string | null | undefined): string[] {
+  return val ? val.split(",").filter(Boolean) : [];
+}
+
+function joinCsv(arr: string[] | null | undefined): string | null {
+  return arr && arr.length > 0 ? arr.join(",") : null;
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -15,7 +23,13 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(games);
+  return NextResponse.json(
+    games.map((g) => ({
+      ...g,
+      mechanics: splitCsv(g.mechanics),
+      themes: splitCsv(g.themes),
+    }))
+  );
 }
 
 export async function POST(request: Request) {
@@ -25,12 +39,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes } = body as {
+  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
     name?: string;
     photoUrl?: string | null;
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
+    activityKey?: string | null;
+    mechanics?: string[];
+    themes?: string[];
   };
 
   if (!name || minPlayers == null || maxPlayers == null) {
@@ -56,8 +73,14 @@ export async function POST(request: Request) {
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
+      activityKey: activityKey || null,
+      mechanics: joinCsv(mechanics),
+      themes: joinCsv(themes),
     },
   });
 
-  return NextResponse.json(game, { status: 201 });
+  return NextResponse.json(
+    { ...game, mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) },
+    { status: 201 }
+  );
 }

@@ -13,7 +13,49 @@ type BoardGame = {
   durationMinutes: number | null;
   status: "DISPONIBLE" | "INDISPONIBLE";
   isPublic: boolean;
+  activityKey: string | null;
+  mechanics: string[];
+  themes: string[];
 };
+
+type Activity = { key: string; label: string; emoji: string };
+
+const MECHANICS: string[] = [
+  "Placement de tuiles",
+  "Gestion de ressources",
+  "Construction de deck",
+  "Pose de travailleurs",
+  "Enchères",
+  "Coopératif",
+  "Lancer de dés",
+  "Déduction",
+  "Négociation",
+  "Contrôle de zone",
+  "Draft de cartes",
+  "Programmation d'actions",
+  "Traître caché",
+  "Narration",
+  "Gestion de main",
+];
+
+const THEMES: string[] = [
+  "Fantasy",
+  "Science-fiction",
+  "Historique",
+  "Médiéval",
+  "Aventure",
+  "Horreur",
+  "Mystère",
+  "Civilisation",
+  "Économie",
+  "Nature / Animaux",
+  "Espace",
+  "Pirates",
+  "Guerre",
+  "Abstrait",
+  "Famille",
+  "Humour",
+];
 
 const EMPTY_FORM = {
   id: "",
@@ -23,13 +65,56 @@ const EMPTY_FORM = {
   maxPlayers: "",
   durationMinutes: "",
   isPublic: true,
+  activityKey: "",
+  mechanics: [] as string[],
+  themes: [] as string[],
 };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
+function ChipSelect({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (val: string[]) => void;
+}) {
+  function toggle(opt: string) {
+    onChange(selected.includes(opt) ? selected.filter((x) => x !== opt) : [...selected, opt]);
+  }
+  return (
+    <div className="col-span-full">
+      <label className="block text-sm font-medium text-slate-300">
+        {label} <span className="font-normal text-slate-500">— optionnel, plusieurs choix possibles</span>
+      </label>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => toggle(opt)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              selected.includes(opt)
+                ? "border-primary-400 bg-primary-900 text-primary-200"
+                : "border-primary-800 bg-primary-950/40 text-slate-400 hover:border-primary-600 hover:text-slate-300"
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MesJeuxPage() {
   const [games, setGames] = useState<BoardGame[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,7 +125,12 @@ export default function MesJeuxPage() {
     if (res.ok) setGames(await res.json());
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    fetch("/api/activities")
+      .then((r) => r.json())
+      .then((list: Activity[]) => setActivities(list.filter((a) => a.key)));
+  }, []);
 
   function resetForm() { setForm(EMPTY_FORM); }
 
@@ -51,8 +141,11 @@ export default function MesJeuxPage() {
       photoUrl: game.photoUrl ?? "",
       minPlayers: String(game.minPlayers),
       maxPlayers: String(game.maxPlayers),
-      durationMinutes: String(game.durationMinutes),
+      durationMinutes: String(game.durationMinutes ?? ""),
       isPublic: game.isPublic,
+      activityKey: game.activityKey ?? "",
+      mechanics: game.mechanics ?? [],
+      themes: game.themes ?? [],
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -68,6 +161,9 @@ export default function MesJeuxPage() {
       maxPlayers: form.maxPlayers,
       durationMinutes: form.durationMinutes,
       isPublic: form.isPublic,
+      activityKey: form.activityKey || null,
+      mechanics: form.mechanics,
+      themes: form.themes,
     };
     const res = await fetch(form.id ? `/api/board-games/${form.id}` : "/api/board-games", {
       method: form.id ? "PUT" : "POST",
@@ -96,6 +192,9 @@ export default function MesJeuxPage() {
         maxPlayers: game.maxPlayers,
         durationMinutes: game.durationMinutes,
         isPublic: !game.isPublic,
+        activityKey: game.activityKey,
+        mechanics: game.mechanics,
+        themes: game.themes,
       }),
     });
     setToggling(null);
@@ -107,6 +206,8 @@ export default function MesJeuxPage() {
     const res = await fetch(`/api/board-games/${id}`, { method: "DELETE" });
     if (res.ok) await load();
   }
+
+  const activityMap = Object.fromEntries(activities.map((a) => [a.key, a]));
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -171,6 +272,38 @@ export default function MesJeuxPage() {
           />
         </div>
 
+        {activities.length > 0 && (
+          <div className="col-span-full">
+            <label className="block text-sm font-medium text-slate-300">
+              Activité liée <span className="font-normal text-slate-500">— optionnel</span>
+            </label>
+            <select
+              value={form.activityKey}
+              onChange={(e) => setForm({ ...form, activityKey: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">— Aucune —</option>
+              {activities.map((a) => (
+                <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <ChipSelect
+          label="Mécaniques de jeu"
+          options={MECHANICS}
+          selected={form.mechanics}
+          onChange={(mechanics) => setForm({ ...form, mechanics })}
+        />
+
+        <ChipSelect
+          label="Thèmes"
+          options={THEMES}
+          selected={form.themes}
+          onChange={(themes) => setForm({ ...form, themes })}
+        />
+
         <div className="col-span-full">
           <label className="flex cursor-pointer items-start gap-3">
             <input
@@ -208,60 +341,84 @@ export default function MesJeuxPage() {
       <h2 className="mt-10 font-display text-xl text-silver-100">Mes jeux prêtés ({games.length})</h2>
       <div className="mt-4 space-y-3">
         {games.length === 0 && <p className="text-sm text-slate-400">Vous n'avez pas encore ajouté de jeu.</p>}
-        {games.map((game) => (
-          <div key={game.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
-            <div className="flex gap-4">
-              {game.photoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={game.photoUrl} alt={game.name} className="h-20 w-20 flex-shrink-0 rounded-lg object-cover" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-slate-100">{game.name}</p>
-                  <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                    game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
-                  }`}>
-                    {game.status === "DISPONIBLE" ? "Disponible" : "Indisponible"}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-slate-400">
-                  {game.minPlayers === game.maxPlayers
-                    ? `${game.minPlayers} joueur(s)`
-                    : `${game.minPlayers} à ${game.maxPlayers} joueurs`}
-                  {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
-                </p>
+        {games.map((game) => {
+          const act = game.activityKey ? activityMap[game.activityKey] : null;
+          return (
+            <div key={game.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
+              <div className="flex gap-4">
+                {game.photoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={game.photoUrl} alt={game.name} className="h-20 w-20 flex-shrink-0 rounded-lg object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-slate-100">{game.name}</p>
+                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                      game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
+                    }`}>
+                      {game.status === "DISPONIBLE" ? "Disponible" : "Indisponible"}
+                    </span>
+                    {act && (
+                      <span className="rounded-full bg-amber-900/50 px-2 py-0.5 text-xs text-amber-300">
+                        {act.emoji} {act.label}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Visibilité toggle */}
-                <button
-                  onClick={() => togglePublic(game)}
-                  disabled={toggling === game.id}
-                  className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
-                    game.isPublic
-                      ? "bg-primary-900 text-primary-300 hover:bg-primary-800"
-                      : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                  } disabled:opacity-50`}
-                >
-                  {toggling === game.id ? (
-                    "…"
-                  ) : game.isPublic ? (
-                    <>👁 Visible par les organisateurs</>
-                  ) : (
-                    <>🔒 Privé — cliquer pour rendre visible</>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {game.minPlayers === game.maxPlayers
+                      ? `${game.minPlayers} joueur(s)`
+                      : `${game.minPlayers} à ${game.maxPlayers} joueurs`}
+                    {game.durationMinutes != null && ` · ${game.durationMinutes} min`}
+                  </p>
+
+                  {(game.mechanics.length > 0 || game.themes.length > 0) && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {game.mechanics.map((m) => (
+                        <span key={m} className="rounded-full bg-primary-900/80 px-2 py-0.5 text-xs text-primary-300 border border-primary-800">
+                          {m}
+                        </span>
+                      ))}
+                      {game.themes.map((t) => (
+                        <span key={t} className="rounded-full bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300 border border-slate-700">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
                   )}
-                </button>
 
-                <div className="mt-2 flex gap-3 text-sm">
-                  <button onClick={() => editGame(game)} className="text-primary-300 hover:text-silver-200 hover:underline">
-                    Modifier
+                  {/* Visibilité toggle */}
+                  <button
+                    onClick={() => togglePublic(game)}
+                    disabled={toggling === game.id}
+                    className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
+                      game.isPublic
+                        ? "bg-primary-900 text-primary-300 hover:bg-primary-800"
+                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                    } disabled:opacity-50`}
+                  >
+                    {toggling === game.id ? (
+                      "…"
+                    ) : game.isPublic ? (
+                      <>👁 Visible par les organisateurs</>
+                    ) : (
+                      <>🔒 Privé — cliquer pour rendre visible</>
+                    )}
                   </button>
-                  <button onClick={() => removeGame(game.id)} className="text-red-400 hover:underline">
-                    Supprimer
-                  </button>
+
+                  <div className="mt-2 flex gap-3 text-sm">
+                    <button onClick={() => editGame(game)} className="text-primary-300 hover:text-silver-200 hover:underline">
+                      Modifier
+                    </button>
+                    <button onClick={() => removeGame(game.id)} className="text-red-400 hover:underline">
+                      Supprimer
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

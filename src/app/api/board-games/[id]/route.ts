@@ -4,6 +4,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function splitCsv(val: string | null | undefined): string[] {
+  return val ? val.split(",").filter(Boolean) : [];
+}
+
+function joinCsv(arr: string[] | null | undefined): string | null {
+  return arr && arr.length > 0 ? arr.join(",") : null;
+}
+
 async function requireOwner(gameId: string, userId: string) {
   const game = await prisma.boardGame.findUnique({ where: { id: gameId } });
   if (!game || game.ownerId !== userId) return null;
@@ -22,13 +30,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, isPublic } = body as {
+  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
     name?: string;
     photoUrl?: string | null;
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
     isPublic?: boolean;
+    activityKey?: string | null;
+    mechanics?: string[];
+    themes?: string[];
   };
 
   const min = minPlayers != null ? Math.round(Number(minPlayers)) : existing.minPlayers;
@@ -43,15 +54,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     where: { id: params.id },
     data: {
       ...(name ? { name } : {}),
-      photoUrl: photoUrl || null,
+      photoUrl: photoUrl !== undefined ? (photoUrl || null) : existing.photoUrl,
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
       ...(isPublic !== undefined ? { isPublic } : {}),
+      activityKey: activityKey !== undefined ? (activityKey || null) : existing.activityKey,
+      mechanics: mechanics !== undefined ? joinCsv(mechanics) : existing.mechanics,
+      themes: themes !== undefined ? joinCsv(themes) : existing.themes,
     },
   });
 
-  return NextResponse.json(game);
+  return NextResponse.json({ ...game, mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) });
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
