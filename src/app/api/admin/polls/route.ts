@@ -23,9 +23,11 @@ async function sendPollNotifications(pollId: string, question: string, activityK
   const pollUrl = `${baseUrl}/sondages`;
 
   let activityLabel: string | undefined;
+  let coverImage: string | null = null;
   if (activityKey) {
-    const act = await prisma.activity.findUnique({ where: { key: activityKey } });
+    const act = await prisma.activity.findUnique({ where: { key: activityKey }, select: { label: true, coverImage: true } });
     activityLabel = act?.label;
+    coverImage = act?.coverImage ?? null;
   }
 
   // Find eligible users
@@ -56,7 +58,7 @@ async function sendPollNotifications(pollId: string, question: string, activityK
   }
 
   await Promise.allSettled(
-    users.map((u) => sendNewPollNotification({ to: u.email, firstName: u.firstName, question, pollUrl, activityLabel }))
+    users.map((u) => sendNewPollNotification({ to: u.email, firstName: u.firstName, question, pollUrl, activityLabel, coverImage }))
   );
 
   await prisma.poll.update({ where: { id: pollId }, data: { publishNotificationSentAt: new Date() } });
