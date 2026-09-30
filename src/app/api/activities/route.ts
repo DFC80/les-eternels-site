@@ -40,6 +40,7 @@ export async function GET() {
     isCore: a.isCore,
     isActive: a.isActive,
     price: a.price,
+    coverImage: a.coverImage ?? null,
     content: contentMap[a.key] ?? DEFAULT_CONTENTS[a.key] ?? "",
   }));
 

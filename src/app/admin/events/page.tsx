@@ -110,7 +110,7 @@ const inputClass =
 
 const checkboxClass = "h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400";
 
-type ActivityOption = { key: string; label: string; emoji: string; color: string; isActive: boolean };
+type ActivityOption = { key: string; label: string; emoji: string; color: string; isActive: boolean; coverImage?: string | null };
 
 const DEFAULT_BADGE = "bg-primary-900 text-silver-300 border-primary-700";
 const COLOR_BADGE: Record<string, string> = {
@@ -1278,6 +1278,14 @@ export default function AdminEventsPage() {
               <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
             ))}
           </select>
+          {(() => {
+            const selected = visibleActivityOptions.find((a) => a.key === form.activityType);
+            return selected?.coverImage ? (
+              <div className="mt-2 overflow-hidden rounded-md border border-primary-700" style={{ maxHeight: "140px" }}>
+                <img src={selected.coverImage} alt={selected.label} className="w-full object-cover" style={{ maxHeight: "140px" }} />
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <div>

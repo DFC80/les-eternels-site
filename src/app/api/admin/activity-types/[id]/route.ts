@@ -11,7 +11,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 
-  const { label, emoji, color, membershipRequired, price, order, isActive } = await request.json();
+  const { label, emoji, color, membershipRequired, price, order, isActive, coverImage } = await request.json();
 
   const activity = await prisma.activity.update({
     where: { id: params.id },
@@ -23,6 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       ...(price !== undefined && typeof price === "number" && { price: Math.round(price) }),
       ...(order !== undefined && { order }),
       ...(isActive !== undefined && { isActive }),
+      ...(coverImage !== undefined && { coverImage: coverImage || null }),
     },
   });
 
