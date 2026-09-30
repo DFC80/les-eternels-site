@@ -182,8 +182,26 @@ export async function sendEventRegistrationConfirmation(params: {
   mealPrice: number;
   participationFee: number;
   equipment: { name: string; rentalCost: number; quantity: number }[];
+  coverImage?: string | null;
+  eventUrl: string;
 }) {
-  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment } = params;
+  const { to, firstName, eventTitle, startsAt, location, wantsMeal, mealPrice, participationFee, equipment, coverImage, eventUrl } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
 
   const lignes: { label: string; valeur: string }[] = [];
   if (wantsMeal) lignes.push({ label: "Repas", valeur: `${mealPrice}€` });
@@ -222,13 +240,20 @@ export async function sendEventRegistrationConfirmation(params: {
   const html = wrapHtml(
     "Inscription confirmée ✅",
     `
+      ${coverHtml}
       <p>Bonjour ${firstName},</p>
       <p>Votre inscription à l'événement <strong>${eventTitle}</strong> est <strong>confirmée</strong>.</p>
       <p>
-        📅 ${startsAt.toLocaleString("fr-FR")}<br/>
-        📍 ${location}
+        📅 ${dateStr}<br/>
+        📍 <a href="${mapsUrl}" style="color:#6366f1;">${location}</a>
       </p>
       ${detailHtml}
+      <p style="text-align:center;margin:24px 0;">
+        <a href="${eventUrl}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+          Voir l'événement →
+        </a>
+      </p>
+      <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${eventUrl}</p>
       <p style="margin-top:20px;">À bientôt !</p>
     `
   );
@@ -352,6 +377,7 @@ export async function sendNewEventNotification(params: {
         </a>
       </p>
       <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${eventUrl}</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">Si vous êtes déjà inscrit à cet événement, merci de ne pas tenir compte de ce message.</p>
     `
   );
   await sendMail(to, `Nouvel événement — ${eventTitle}`, html);
