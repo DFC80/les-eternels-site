@@ -257,42 +257,44 @@ export default function AdminSondagesPage() {
             <select
               className={inputClass}
               value={form.activityKey}
-              onChange={(e) => setForm({ ...form, activityKey: e.target.value })}
+              onChange={(e) => {
+                const key = e.target.value;
+                setForm({ ...form, activityKey: key, restrictToActivity: key ? form.restrictToActivity : false });
+              }}
             >
-              <option value="">Tous les membres</option>
+              <option value="">— Aucune —</option>
               {activities.map((a) => (
                 <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
               ))}
             </select>
-            {form.activityKey && (
-              <div className="mt-2 space-y-1.5">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                  <input
-                    type="radio"
-                    name="restrictToActivity"
-                    checked={!form.restrictToActivity}
-                    onChange={() => setForm({ ...form, restrictToActivity: false })}
-                    className="accent-primary-400"
-                  />
-                  Tous les membres (activité pour information uniquement)
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-300">
-                  <input
-                    type="radio"
-                    name="restrictToActivity"
-                    checked={form.restrictToActivity}
-                    onChange={() => setForm({ ...form, restrictToActivity: true })}
-                    className="accent-amber-400"
-                  />
-                  Uniquement les adhérents à cette activité
-                </label>
-              </div>
-            )}
-            {!form.activityKey && (
-              <p className="mt-1 text-xs text-slate-500">
-                Sans activité liée, tous les membres avec une adhésion payée peuvent voter.
-              </p>
-            )}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm text-slate-300">Qui peut voter ?</label>
+            <div className="space-y-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="radio"
+                  name="restrictToActivity"
+                  checked={!form.restrictToActivity}
+                  onChange={() => setForm({ ...form, restrictToActivity: false })}
+                  className="accent-primary-400"
+                />
+                Tous les membres
+              </label>
+              <label className={`flex items-center gap-2 text-sm ${form.activityKey ? "cursor-pointer text-amber-300" : "cursor-not-allowed text-slate-600"}`}>
+                <input
+                  type="radio"
+                  name="restrictToActivity"
+                  checked={form.restrictToActivity}
+                  onChange={() => setForm({ ...form, restrictToActivity: true })}
+                  disabled={!form.activityKey}
+                  className="accent-amber-400"
+                />
+                Uniquement les adhérents à l&apos;activité liée
+                {!form.activityKey && <span className="text-xs text-slate-600">(sélectionner une activité)</span>}
+              </label>
+            </div>
           </div>
 
           <div>
