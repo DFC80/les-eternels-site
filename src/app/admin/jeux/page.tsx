@@ -13,8 +13,6 @@ type BoardGame = {
   durationMinutes: number | null;
   status: "DISPONIBLE" | "INDISPONIBLE";
   activityKey: string | null;
-  activityLabel: string | null;
-  activityEmoji: string | null;
   mechanics: string[];
   themes: string[];
   owner: { firstName: string; name: string };
@@ -95,11 +93,6 @@ export default function AdminJeuxPage() {
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   Prêté par {game.owner.firstName} {game.owner.name}
-                  {game.activityLabel && (
-                    <span className="ml-2 rounded-full bg-amber-900/50 px-2 py-0.5 text-amber-300">
-                      {game.activityEmoji} {game.activityLabel}
-                    </span>
-                  )}
                 </p>
                 {(game.mechanics.length > 0 || game.themes.length > 0) && (
                   <div className="mt-2 flex flex-wrap gap-1">
