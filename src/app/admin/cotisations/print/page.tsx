@@ -14,14 +14,23 @@ function fmtDate(date: Date) {
   return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export default async function PrintCotisationsPage() {
+export default async function PrintCotisationsPage({ searchParams }: { searchParams: { saison?: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || !sessionHasAccess(session.user, "members")) {
     redirect("/login");
   }
 
+  const allYears = await prisma.membership.findMany({
+    select: { year: true },
+    distinct: ["year"],
+    orderBy: { year: "desc" },
+  });
+  const years = allYears.map((r) => r.year);
+
+  const selectedYear = searchParams.saison ? parseInt(searchParams.saison, 10) : (years[0] ?? null);
+
   const users = await prisma.user.findMany({
-    where: { membership: { isNot: null } },
+    where: { membership: { isNot: null, ...(selectedYear !== null ? { year: selectedYear } : {}) } },
     select: {
       firstName: true,
       name: true,
@@ -119,9 +128,26 @@ export default async function PrintCotisationsPage() {
       `}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 24px" }}>
+        <form method="get" className="no-print" style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+          <label htmlFor="saison" style={{ fontSize: 13, fontWeight: "bold" }}>Saison :</label>
+          <select
+            id="saison"
+            name="saison"
+            defaultValue={selectedYear ?? ""}
+            style={{ fontSize: 13, padding: "4px 8px", border: "1px solid #ccc", borderRadius: 4 }}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>{seasonLabel(y)}</option>
+            ))}
+          </select>
+          <button type="submit" style={{ fontSize: 13, padding: "4px 12px", background: "#6366f1", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}>
+            Filtrer
+          </button>
+        </form>
+
         <div className="header-bar">
           <div>
-            <div className="meta">Les Éternels — Cotisations</div>
+            <div className="meta">Les Éternels — Cotisations {selectedYear ? seasonLabel(selectedYear) : ""}</div>
             <h1>Liste des adhérents</h1>
           </div>
           <div className="header-meta">

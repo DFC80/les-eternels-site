@@ -73,6 +73,8 @@ type EventRegistrationAdmin = {
   mealOrders: { menuLabel: string | null; quantity: number }[];
 };
 
+type ConsommationItem = { label: string; included: boolean };
+
 const EMPTY_FORM = {
   id: "",
   title: "",
@@ -84,10 +86,11 @@ const EMPTY_FORM = {
   capacity: "",
   hasMeal: false,
   mealInfo: "",
-  mealExtras: [] as string[],
+  mealExtras: ["pain", "sauces", "assaisonnements"] as string[],
   mealPrice: "10",
   registrationDeadline: "",
   menus: [] as MenuFormItem[],
+  consommations: [] as ConsommationItem[],
   boardGameIds: [] as string[],
 };
 
@@ -98,12 +101,15 @@ type KioskProduct = { id: string; category: string; name: string; price: number;
 type KioskData = { members: KioskMember[]; products: KioskProduct[] };
 
 const MEAL_EXTRAS = [
-  { key: "softs",            label: "Boissons softs" },
-  { key: "beer",             label: "Bières (1€ / verre ou canette)" },
   { key: "pain",             label: "Pain" },
   { key: "sauces",           label: "Sauces diverses" },
   { key: "assaisonnements",  label: "Assaisonnements" },
 ] as const;
+
+const DEPRECATED_EXTRA_LABELS: Record<string, string> = {
+  softs: "Boissons softs",
+  beer: "Bières",
+};
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -148,7 +154,7 @@ export default function AdminEventsPage() {
   const [financeFor, setFinanceFor] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [newExpenseLabel, setNewExpenseLabel] = useState("");
-  const [newCustomExtra, setNewCustomExtra] = useState("");
+  const [newCustomExtra, setNewCustomExtra] = useState(""); // unused, kept to avoid ref errors in JSX below during transition
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [rentalsFor, setRentalsFor] = useState<string | null>(null);
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -215,10 +221,13 @@ export default function AdminEventsPage() {
       capacity: ev.capacity ? String(ev.capacity) : "",
       hasMeal: ev.hasMeal,
       mealInfo: ev.mealInfo ?? "",
-      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
+      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter((k) => MEAL_EXTRAS.some((e) => e.key === k)) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
       menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "" })),
+      consommations: ev.mealExtras
+        ? ev.mealExtras.split(",").filter(Boolean).filter((k) => !MEAL_EXTRAS.some((e) => e.key === k)).map((k) => ({ label: DEPRECATED_EXTRA_LABELS[k] ?? k, included: true }))
+        : [],
       boardGameIds: ev.boardGames.map((g) => g.id),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -248,7 +257,10 @@ export default function AdminEventsPage() {
       capacity: form.capacity || null,
       hasMeal: form.hasMeal,
       mealInfo: form.mealInfo,
-      mealExtras: form.mealExtras,
+      mealExtras: [
+        ...form.mealExtras,
+        ...form.consommations.filter((c) => c.included).map((c) => c.label),
+      ],
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null })),
@@ -1466,62 +1478,6 @@ export default function AdminEventsPage() {
                     </label>
                   ))}
                 </div>
-                {(() => {
-                  const predefinedKeys = MEAL_EXTRAS.map((e) => e.key as string);
-                  const customExtras = form.mealExtras.filter((k) => !predefinedKeys.includes(k));
-                  return (
-                    <>
-                      {customExtras.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {customExtras.map((label) => (
-                            <span key={label} className="flex items-center gap-1 rounded-full border border-primary-600 bg-primary-900/60 px-3 py-1 text-xs text-slate-200">
-                              {label}
-                              <button
-                                type="button"
-                                onClick={() => setForm({ ...form, mealExtras: form.mealExtras.filter((k) => k !== label) })}
-                                className="ml-1 text-slate-400 hover:text-red-400"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="mt-2 flex gap-2">
-                        <input
-                          type="text"
-                          value={newCustomExtra}
-                          onChange={(e) => setNewCustomExtra(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const v = newCustomExtra.trim();
-                              if (v && !form.mealExtras.includes(v)) {
-                                setForm({ ...form, mealExtras: [...form.mealExtras, v] });
-                              }
-                              setNewCustomExtra("");
-                            }
-                          }}
-                          placeholder="Ex: Pain, Salade…"
-                          className={inputClass}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const v = newCustomExtra.trim();
-                            if (v && !form.mealExtras.includes(v)) {
-                              setForm({ ...form, mealExtras: [...form.mealExtras, v] });
-                            }
-                            setNewCustomExtra("");
-                          }}
-                          className="rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
-                        >
-                          + Ajouter
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
               </div>
 
               <div>
@@ -1574,6 +1530,50 @@ export default function AdminEventsPage() {
                   + Ajouter un menu
                 </button>
                 <p className="mt-1 text-xs text-slate-500">Le supplément s&apos;ajoute au prix de base du repas et est réglé sur place.</p>
+
+                {form.consommations.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {form.consommations.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={c.included}
+                          onChange={(e) => {
+                            const updated = [...form.consommations];
+                            updated[i] = { ...updated[i], included: e.target.checked };
+                            setForm({ ...form, consommations: updated });
+                          }}
+                          className={checkboxClass}
+                          title="Je consomme cet élément"
+                        />
+                        <input
+                          value={c.label}
+                          onChange={(e) => {
+                            const updated = [...form.consommations];
+                            updated[i] = { ...updated[i], label: e.target.value };
+                            setForm({ ...form, consommations: updated });
+                          }}
+                          placeholder="Désignation"
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, consommations: form.consommations.filter((_, j) => j !== i) })}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-red-400 hover:bg-primary-900 sm:border-0 sm:py-0"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, consommations: [...form.consommations, { label: "", included: true }] })}
+                  className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
+                >
+                  + Consommations
+                </button>
               </div>
             </div>
           )}
