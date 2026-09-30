@@ -8,7 +8,7 @@ type BoardGame = {
   id: string;
   name: string;
   version: string | null;
-  photoUrl: string | null;
+  photos: string[];
   minPlayers: number;
   maxPlayers: number;
   durationMinutes: number | null;
@@ -147,9 +147,9 @@ export default function AdminJeuxPage() {
         {filteredGames.map((game) => (
           <div key={game.id} className="rounded-xl border border-primary-800 bg-primary-900/40 p-4">
             <div className="flex gap-4">
-              {game.photoUrl && (
+              {game.photos.length > 0 && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={game.photoUrl} alt={game.name} className="h-20 w-20 rounded-lg object-cover" />
+                <img src={game.photos[0]} alt={game.name} className="h-20 w-20 rounded-lg object-cover" />
               )}
               <div className="flex-1">
                 <div className="flex items-center justify-between">

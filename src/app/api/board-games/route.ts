@@ -12,6 +12,12 @@ function joinCsv(arr: string[] | null | undefined): string | null {
   return arr && arr.length > 0 ? arr.join(",") : null;
 }
 
+function photosFromGame(g: { photoUrls: string | null; photoUrl: string | null }): string[] {
+  const urls = splitCsv(g.photoUrls);
+  if (urls.length > 0) return urls;
+  return g.photoUrl ? [g.photoUrl] : [];
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -26,6 +32,7 @@ export async function GET() {
   return NextResponse.json(
     games.map((g) => ({
       ...g,
+      photos: photosFromGame(g),
       mechanics: splitCsv(g.mechanics),
       themes: splitCsv(g.themes),
     }))
@@ -39,10 +46,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, version, photoUrl, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
+  const { name, version, photos, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
     name?: string;
     version?: string | null;
-    photoUrl?: string | null;
+    photos?: string[];
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
@@ -66,12 +73,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 
+  const photoList = photos ?? [];
+
   const game = await prisma.boardGame.create({
     data: {
       ownerId: session.user.id,
       name,
       version: version || null,
-      photoUrl: photoUrl || null,
+      photoUrl: photoList[0] || null,
+      photoUrls: joinCsv(photoList),
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
@@ -82,7 +92,7 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json(
-    { ...game, mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) },
+    { ...game, photos: photosFromGame(game), mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) },
     { status: 201 }
   );
 }

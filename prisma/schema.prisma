@@ -142,11 +142,12 @@ model BoardGame {
   name            String
   version         String?
   photoUrl        String?
+  photoUrls       String?
   minPlayers      Int
   maxPlayers      Int
   durationMinutes Int?
   status          String   @default("DISPONIBLE") // DISPONIBLE | INDISPONIBLE
-  isPublic        Boolean  @default(false)
+  isPublic        Boolean  @default(true)
   activityKey     String?
   mechanics       String?
   themes          String?
