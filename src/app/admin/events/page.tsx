@@ -1533,6 +1533,7 @@ export default function AdminEventsPage() {
 
                 {form.consommations.length > 0 && (
                   <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-slate-300">Je consomme :</p>
                     {form.consommations.map((c, i) => (
                       <div key={i} className="flex items-center gap-2">
                         <input
