@@ -12,13 +12,26 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { status } = body as { status?: string };
+  const { status, activityKey } = body as { status?: string; activityKey?: string | null };
 
-  if (!status || !["DISPONIBLE", "INDISPONIBLE"].includes(status)) {
-    return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
+  const data: Record<string, unknown> = {};
+
+  if (status !== undefined) {
+    if (!["DISPONIBLE", "INDISPONIBLE"].includes(status)) {
+      return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
+    }
+    data.status = status;
   }
 
-  const game = await prisma.boardGame.update({ where: { id: params.id }, data: { status } });
+  if (activityKey !== undefined) {
+    data.activityKey = activityKey || null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Aucun champ à mettre à jour." }, { status: 400 });
+  }
+
+  const game = await prisma.boardGame.update({ where: { id: params.id }, data });
 
   return NextResponse.json(game);
 }
