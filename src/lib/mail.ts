@@ -313,20 +313,45 @@ export async function sendNewEventNotification(params: {
   description: string;
   startsAt: Date;
   location: string;
+  coverImage?: string | null;
+  eventUrl: string;
 }) {
-  const { to, firstName, eventTitle, description, startsAt, location } = params;
+  const { to, firstName, eventTitle, description, startsAt, location, coverImage, eventUrl } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+  const coverHtml = coverImage
+    ? `<img src="${coverImage}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+    : "";
+
   const html = wrapHtml(
     "Nouvel événement 🎉",
     `
+      ${coverHtml}
       <p>Bonjour ${firstName},</p>
-      <p>Un nouvel événement vient d'être créé pour une activité à laquelle vous avez adhéré :</p>
+      <p>Un nouvel événement vient d'être créé :</p>
       <p>
         <strong>${eventTitle}</strong><br/>
-        📅 ${startsAt.toLocaleString("fr-FR")}<br/>
-        📍 ${location}
+        📅 ${dateStr}<br/>
+        📍 <a href="${mapsUrl}" style="color:#6366f1;">${location}</a>
       </p>
       <p>${description}</p>
-      <p>Connectez-vous sur le site pour vous inscrire.</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a href="${eventUrl}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+          Voir l'événement et s'inscrire →
+        </a>
+      </p>
+      <p style="font-size:12px;color:#94a3b8;">Ou copiez ce lien dans votre navigateur :<br>${eventUrl}</p>
     `
   );
   await sendMail(to, `Nouvel événement — ${eventTitle}`, html);

@@ -17,10 +17,18 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
   }
 
-  const allUsers = await prisma.user.findMany({
-    where: { isActive: true, isPending: false },
-    select: { firstName: true, email: true },
-  });
+  const [allUsers, activity] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true, isPending: false },
+      select: { firstName: true, email: true },
+    }),
+    event.activityType
+      ? prisma.activity.findUnique({ where: { key: event.activityType }, select: { coverImage: true } })
+      : Promise.resolve(null),
+  ]);
+
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+  const eventUrl = `${baseUrl}/calendar?event=${event.id}`;
 
   await Promise.all(
     allUsers.map((user) =>
@@ -31,6 +39,8 @@ export async function POST(_request: Request, { params }: { params: { id: string
         description: event.description,
         startsAt: event.startsAt,
         location: event.location,
+        coverImage: activity?.coverImage ?? null,
+        eventUrl,
       })
     )
   );
