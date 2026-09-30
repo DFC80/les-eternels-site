@@ -79,7 +79,7 @@ type MembershipResponse = (Membership & { airsoftTrialDay?: boolean }) | { airso
 
 const GENERIC_MEAL_KEY = "__generic__";
 
-type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean };
+type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean; coverImage?: string | null };
 
 const COLOR_BADGE: Record<string, string> = {
   emerald: "bg-emerald-950 text-emerald-300 border-emerald-700",
@@ -591,7 +591,19 @@ export default function EventCalendar() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Card : informations événement */}
-            <div className="rounded-xl border border-primary-800 bg-primary-900/50 p-5">
+            <div className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50">
+              {(() => {
+                const act = activityMeta.find((a) => a.key === selected.activityType);
+                return act?.coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={act.coverImage}
+                    alt={act.label}
+                    className="h-32 w-full object-cover sm:h-44"
+                  />
+                ) : null;
+              })()}
+              <div className="p-5">
               {(() => {
                 const act = activityMeta.find((a) => a.key === selected.activityType);
                 return (
@@ -636,6 +648,7 @@ export default function EventCalendar() {
                   🎲 Jeux prévus : {selected.boardGames.map((g) => g.name).join(", ")}
                 </p>
               )}
+              </div>
             </div>
 
             {eventDocs.length > 0 && (
