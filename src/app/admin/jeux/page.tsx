@@ -7,6 +7,7 @@ import { sessionHasWriteAccess } from "@/lib/permissions";
 type BoardGame = {
   id: string;
   name: string;
+  version: string | null;
   photoUrl: string | null;
   minPlayers: number;
   maxPlayers: number;
@@ -152,7 +153,12 @@ export default function AdminJeuxPage() {
               )}
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-slate-100">{game.name}</p>
+                  <div>
+                    <p className="font-medium text-slate-100">{game.name}</p>
+                    {game.version && (
+                      <p className="text-xs text-slate-400">{game.version}</p>
+                    )}
+                  </div>
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-medium ${
                       game.status === "DISPONIBLE" ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300"
