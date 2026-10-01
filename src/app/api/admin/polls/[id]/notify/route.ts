@@ -30,9 +30,11 @@ export async function POST(_request: Request, { params }: { params: { id: string
   const pollUrl = `${baseUrl}/sondages`;
 
   let activityLabel: string | undefined;
+  let coverImage: string | null = null;
   if (poll.activityKey) {
-    const act = await prisma.activity.findUnique({ where: { key: poll.activityKey } });
+    const act = await prisma.activity.findUnique({ where: { key: poll.activityKey }, select: { label: true, coverImage: true } });
     activityLabel = act?.label;
+    coverImage = act?.coverImage ?? null;
   }
 
   let users: { email: string; firstName: string }[] = [];
@@ -63,7 +65,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
   await Promise.allSettled(
     users.map((u) =>
-      sendNewPollNotification({ to: u.email, firstName: u.firstName, question: poll.question, pollUrl, activityLabel })
+      sendNewPollNotification({ to: u.email, firstName: u.firstName, question: poll.question, pollUrl, activityLabel, coverImage })
     )
   );
 

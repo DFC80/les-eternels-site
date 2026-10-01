@@ -127,6 +127,7 @@ model Event {
   mealPrice            Int       @default(10)
   registrationDeadline DateTime?
   showOnHome           Boolean   @default(false)
+  showOnCalendar       Boolean   @default(false)
 
   registrations   EventRegistration[]
   menus           MealMenu[]
@@ -139,12 +140,18 @@ model BoardGame {
   id              String   @id @default(cuid())
   ownerId         String
   name            String
+  description     String?
+  version         String?
   photoUrl        String?
+  photoUrls       String?
   minPlayers      Int
   maxPlayers      Int
   durationMinutes Int?
   status          String   @default("DISPONIBLE") // DISPONIBLE | INDISPONIBLE
-  isPublic        Boolean  @default(false)
+  isPublic        Boolean  @default(true)
+  activityKey     String?
+  mechanics       String?
+  themes          String?
   createdAt       DateTime @default(now())
 
   owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -267,6 +274,7 @@ model GalleryPhoto {
   createdAt  DateTime @default(now())
 
   activities GalleryPhotoActivity[]
+  categories GalleryPhotoCategory[]
   comments   GalleryPhotoComment[]
 }
 
@@ -278,6 +286,29 @@ model GalleryPhotoActivity {
   photo GalleryPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
 
   @@unique([photoId, activityKey])
+}
+
+model GalleryCategory {
+  id          String   @id @default(cuid())
+  activityKey String
+  label       String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  photos GalleryPhotoCategory[]
+
+  @@unique([activityKey, label])
+}
+
+model GalleryPhotoCategory {
+  id         String @id @default(cuid())
+  photoId    String
+  categoryId String
+
+  photo    GalleryPhoto    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  category GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, categoryId])
 }
 
 model GalleryPhotoComment {
@@ -365,6 +396,7 @@ model Activity {
   isCore             Boolean  @default(false)   // les 3 activités de base ne peuvent pas être supprimées
   isActive           Boolean  @default(true)    // visible sur le site si true
   price              Int      @default(0)       // tarif d'adhésion pour cette activité (€)
+  coverImage         String?
   createdAt          DateTime @default(now())
   gameLocations      GameLocation[]
 }
@@ -503,7 +535,8 @@ model Poll {
   question      String
   published     Boolean   @default(false)
   allowMultiple Boolean   @default(false)
-  activityKey   String?
+  activityKey        String?
+  restrictToActivity Boolean   @default(true)
   closedAt      DateTime?
   publishNotificationSentAt DateTime?
   resultNotificationSentAt  DateTime?

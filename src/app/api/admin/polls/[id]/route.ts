@@ -12,66 +12,18 @@ async function requireAdmin() {
   return session;
 }
 
-const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
-  JEUX_DE_PLATEAU: "wantsBoardGames",
-  JEUX_DE_ROLE: "wantsRolePlay",
-  AIRSOFT: "wantsAirsoft",
-};
-
-async function sendPollNotifications(pollId: string, question: string, activityKey: string | null) {
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
-  const pollUrl = `${baseUrl}/sondages`;
-
-  let activityLabel: string | undefined;
-  if (activityKey) {
-    const act = await prisma.activity.findUnique({ where: { key: activityKey } });
-    activityLabel = act?.label;
-  }
-
-  let users: { email: string; firstName: string }[] = [];
-
-  if (!activityKey) {
-    users = await prisma.user.findMany({
-      where: { isActive: true, isPending: false },
-      select: { email: true, firstName: true },
-    });
-  } else {
-    const boolField = CORE_BOOL_FIELDS[activityKey];
-    if (boolField) {
-      users = await prisma.user.findMany({
-        where: { isActive: true, isPending: false, membership: { [boolField]: true } },
-        select: { email: true, firstName: true },
-      });
-    } else {
-      users = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          isPending: false,
-          membership: { extraActivities: { some: { activityKey } } },
-        },
-        select: { email: true, firstName: true },
-      });
-    }
-  }
-
-  await Promise.allSettled(
-    users.map((u) => sendNewPollNotification({ to: u.email, firstName: u.firstName, question, pollUrl, activityLabel }))
-  );
-
-  await prisma.poll.update({ where: { id: pollId }, data: { publishNotificationSentAt: new Date() } });
-}
-
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
-  const { question, allowMultiple, published, closedAt, activityKey, options } = body as {
+  const { question, allowMultiple, published, closedAt, activityKey, restrictToActivity, options } = body as {
     question?: string;
     allowMultiple?: boolean;
     published?: boolean;
     closedAt?: string | null;
     activityKey?: string | null;
+    restrictToActivity?: boolean;
     options?: { id?: string; label: string; order: number }[];
   };
 
@@ -102,6 +54,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       allowMultiple: !!allowMultiple,
       published: !!published,
       activityKey: activityKey !== undefined ? (activityKey || null) : existing?.activityKey ?? null,
+      restrictToActivity: restrictToActivity !== undefined ? !!restrictToActivity : existing?.restrictToActivity ?? true,
       closedAt: closedAt ? new Date(closedAt) : null,
       ...(optionsChanged && {
         options: {
@@ -123,9 +76,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (justClosed) {
     (async () => {
       let activityLabel: string | undefined;
+      let coverImage: string | null = null;
       if (poll.activityKey) {
-        const act = await prisma.activity.findUnique({ where: { key: poll.activityKey } });
+        const act = await prisma.activity.findUnique({ where: { key: poll.activityKey }, select: { label: true, coverImage: true } });
         activityLabel = act?.label;
+        coverImage = act?.coverImage ?? null;
       }
       const opts = await prisma.pollOption.findMany({
         where: { pollId: poll.id },
@@ -135,7 +90,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       const totalVotes = options.reduce((s, o) => s + o.voteCount, 0);
       const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
       const pollUrl = `${baseUrl}/sondages`;
-      const resultParams = { question: poll.question, activityLabel, totalVotes, options, closedAt: poll.closedAt!, pollUrl };
+      const resultParams = { question: poll.question, activityLabel, coverImage, totalVotes, options, closedAt: poll.closedAt!, pollUrl };
 
       // Récupérer les votants distincts
       const voterRows = await prisma.pollVote.findMany({

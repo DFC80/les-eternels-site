@@ -22,6 +22,7 @@ type EventItem = {
   mealPrice: number;
   registrationDeadline: string | null;
   showOnHome: boolean;
+  showOnCalendar: boolean;
   menus: MenuItem[];
   boardGames: { id: string; name: string }[];
   registrations: {
@@ -72,6 +73,8 @@ type EventRegistrationAdmin = {
   mealOrders: { menuLabel: string | null; quantity: number }[];
 };
 
+type ConsommationItem = { label: string; included: boolean };
+
 const EMPTY_FORM = {
   id: "",
   title: "",
@@ -83,33 +86,37 @@ const EMPTY_FORM = {
   capacity: "",
   hasMeal: false,
   mealInfo: "",
-  mealExtras: [] as string[],
+  mealExtras: ["pain", "sauces", "assaisonnements"] as string[],
   mealPrice: "10",
   registrationDeadline: "",
   menus: [] as MenuFormItem[],
+  consommations: [] as ConsommationItem[],
   boardGameIds: [] as string[],
 };
 
-type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string; owner: { firstName: string; name: string } };
+type AvailableGame = { id: string; name: string; minPlayers: number; maxPlayers: number; status: string; activityKey: string | null; owner: { firstName: string; name: string } };
 
 type KioskMember = { id: string; firstName: string; name: string; balance: number };
 type KioskProduct = { id: string; category: string; name: string; price: number; stock: number };
 type KioskData = { members: KioskMember[]; products: KioskProduct[] };
 
 const MEAL_EXTRAS = [
-  { key: "softs",            label: "Boissons softs" },
-  { key: "beer",             label: "Bières (1€ / verre ou canette)" },
   { key: "pain",             label: "Pain" },
   { key: "sauces",           label: "Sauces diverses" },
   { key: "assaisonnements",  label: "Assaisonnements" },
 ] as const;
+
+const DEPRECATED_EXTRA_LABELS: Record<string, string> = {
+  softs: "Boissons softs",
+  beer: "Bières",
+};
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
 const checkboxClass = "h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400";
 
-type ActivityOption = { key: string; label: string; emoji: string; color: string; isActive: boolean };
+type ActivityOption = { key: string; label: string; emoji: string; color: string; isActive: boolean; coverImage?: string | null };
 
 const DEFAULT_BADGE = "bg-primary-900 text-silver-300 border-primary-700";
 const COLOR_BADGE: Record<string, string> = {
@@ -147,7 +154,7 @@ export default function AdminEventsPage() {
   const [financeFor, setFinanceFor] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [newExpenseLabel, setNewExpenseLabel] = useState("");
-  const [newCustomExtra, setNewCustomExtra] = useState("");
+  const [newCustomExtra, setNewCustomExtra] = useState(""); // unused, kept to avoid ref errors in JSX below during transition
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [rentalsFor, setRentalsFor] = useState<string | null>(null);
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -171,6 +178,8 @@ export default function AdminEventsPage() {
   const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
   const [notifyingFor, setNotifyingFor] = useState<string | null>(null);
   const [notifySuccess, setNotifySuccess] = useState<Record<string, number>>({});
+  const [notifyingAdminFor, setNotifyingAdminFor] = useState<string | null>(null);
+  const [notifyAdminSuccess, setNotifyAdminSuccess] = useState<Record<string, boolean>>({});
 
   async function load() {
     const res = await fetch("/api/events");
@@ -212,10 +221,13 @@ export default function AdminEventsPage() {
       capacity: ev.capacity ? String(ev.capacity) : "",
       hasMeal: ev.hasMeal,
       mealInfo: ev.mealInfo ?? "",
-      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter(Boolean) : [],
+      mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter((k) => MEAL_EXTRAS.some((e) => e.key === k)) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
       menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "" })),
+      consommations: ev.mealExtras
+        ? ev.mealExtras.split(",").filter(Boolean).filter((k) => !MEAL_EXTRAS.some((e) => e.key === k)).map((k) => ({ label: DEPRECATED_EXTRA_LABELS[k] ?? k, included: true }))
+        : [],
       boardGameIds: ev.boardGames.map((g) => g.id),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -245,11 +257,14 @@ export default function AdminEventsPage() {
       capacity: form.capacity || null,
       hasMeal: form.hasMeal,
       mealInfo: form.mealInfo,
-      mealExtras: form.mealExtras,
+      mealExtras: [
+        ...form.mealExtras,
+        ...form.consommations.filter((c) => c.included).map((c) => c.label),
+      ],
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null })),
-      boardGameIds: form.activityType === "JEUX_DE_PLATEAU" ? form.boardGameIds : [],
+      boardGameIds: form.boardGameIds,
     };
 
     const res = await fetch(form.id ? `/api/events/${form.id}` : "/api/events", {
@@ -281,6 +296,15 @@ export default function AdminEventsPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ showOnHome: value }),
+    });
+    if (res.ok) await load();
+  }
+
+  async function toggleShowOnCalendar(id: string, value: boolean) {
+    const res = await fetch(`/api/events/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showOnCalendar: value }),
     });
     if (res.ok) await load();
   }
@@ -473,6 +497,17 @@ export default function AdminEventsPage() {
     }
   }
 
+  async function sendAdminNotification(eventId: string) {
+    if (!confirm("Envoyer un email de notification à l'admin ?")) return;
+    setNotifyingAdminFor(eventId);
+    const res = await fetch(`/api/admin/events/${eventId}/notify-admin`, { method: "POST" });
+    setNotifyingAdminFor(null);
+    if (res.ok) {
+      setNotifyAdminSuccess((prev) => ({ ...prev, [eventId]: true }));
+      setTimeout(() => setNotifyAdminSuccess((prev) => { const next = { ...prev }; delete next[eventId]; return next; }), 5000);
+    }
+  }
+
   async function loadEventDocs(eventId: string) {
     const res = await fetch(`/api/admin/events/${eventId}/documents`);
     if (res.ok) setEventDocuments(await res.json());
@@ -659,17 +694,6 @@ export default function AdminEventsPage() {
                 {ev.showOnCalendar ? "📅 Sur le calendrier" : "Publier calendrier"}
               </button>
             </>
-            <button
-              type="button"
-              onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
-              className={`rounded-md border px-3 py-1.5 transition ${
-                ev.showOnHome
-                  ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                  : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
-              }`}
-            >
-              {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
-            </button>
           )}
           {canWrite && !isPast && (
             <button
@@ -683,6 +707,20 @@ export default function AdminEventsPage() {
                 : notifySuccess[ev.id] !== undefined
                   ? `✅ ${notifySuccess[ev.id]} emails envoyés`
                   : "📣 Notifier les membres"}
+            </button>
+          )}
+          {canWrite && !isPast && (
+            <button
+              type="button"
+              onClick={() => sendAdminNotification(ev.id)}
+              disabled={notifyingAdminFor === ev.id}
+              className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60 disabled:opacity-50"
+            >
+              {notifyingAdminFor === ev.id
+                ? "Envoi…"
+                : notifyAdminSuccess[ev.id]
+                  ? "✅ Email admin envoyé"
+                  : "📣 Notifier l'admin"}
             </button>
           )}
           {canWrite && (
@@ -1272,13 +1310,21 @@ export default function AdminEventsPage() {
           <label className="block text-sm font-medium text-slate-300">Type d'activité</label>
           <select
             value={form.activityType}
-            onChange={(e) => setForm({ ...form, activityType: e.target.value })}
+            onChange={(e) => setForm({ ...form, activityType: e.target.value, boardGameIds: [] })}
             className={inputClass}
           >
             {visibleActivityOptions.map((a) => (
               <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
             ))}
           </select>
+          {(() => {
+            const selected = visibleActivityOptions.find((a) => a.key === form.activityType);
+            return selected?.coverImage ? (
+              <div className="mt-2 overflow-hidden rounded-md border border-primary-700" style={{ maxHeight: "140px" }}>
+                <img src={selected.coverImage} alt={selected.label} className="w-full object-cover" style={{ maxHeight: "140px" }} />
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <div>
@@ -1336,16 +1382,16 @@ export default function AdminEventsPage() {
           />
         </div>
 
-        {form.activityType === "JEUX_DE_PLATEAU" && (
-          <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
-            <label className="block text-sm font-medium text-slate-200">
-              🎲 Jeux de société prêtés par les membres (optionnel)
-            </label>
-            {availableGames.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">Aucun jeu rendu visible par les membres pour le moment.</p>
-            ) : (
+        {(() => {
+          const gamesForActivity = availableGames.filter((g) => g.activityKey === form.activityType);
+          if (gamesForActivity.length === 0) return null;
+          return (
+            <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
+              <label className="block text-sm font-medium text-slate-200">
+                🎲 Jeux prêtés par les membres (optionnel)
+              </label>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {availableGames.map((game) => (
+                {gamesForActivity.map((game) => (
                   <label
                     key={game.id}
                     className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
@@ -1371,9 +1417,9 @@ export default function AdminEventsPage() {
                   </label>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          );
+        })()}
 
         <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-200">
@@ -1432,62 +1478,6 @@ export default function AdminEventsPage() {
                     </label>
                   ))}
                 </div>
-                {(() => {
-                  const predefinedKeys = MEAL_EXTRAS.map((e) => e.key as string);
-                  const customExtras = form.mealExtras.filter((k) => !predefinedKeys.includes(k));
-                  return (
-                    <>
-                      {customExtras.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {customExtras.map((label) => (
-                            <span key={label} className="flex items-center gap-1 rounded-full border border-primary-600 bg-primary-900/60 px-3 py-1 text-xs text-slate-200">
-                              {label}
-                              <button
-                                type="button"
-                                onClick={() => setForm({ ...form, mealExtras: form.mealExtras.filter((k) => k !== label) })}
-                                className="ml-1 text-slate-400 hover:text-red-400"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="mt-2 flex gap-2">
-                        <input
-                          type="text"
-                          value={newCustomExtra}
-                          onChange={(e) => setNewCustomExtra(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const v = newCustomExtra.trim();
-                              if (v && !form.mealExtras.includes(v)) {
-                                setForm({ ...form, mealExtras: [...form.mealExtras, v] });
-                              }
-                              setNewCustomExtra("");
-                            }
-                          }}
-                          placeholder="Ex: Pain, Salade…"
-                          className={inputClass}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const v = newCustomExtra.trim();
-                            if (v && !form.mealExtras.includes(v)) {
-                              setForm({ ...form, mealExtras: [...form.mealExtras, v] });
-                            }
-                            setNewCustomExtra("");
-                          }}
-                          className="rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
-                        >
-                          + Ajouter
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
               </div>
 
               <div>
@@ -1540,6 +1530,51 @@ export default function AdminEventsPage() {
                   + Ajouter un menu
                 </button>
                 <p className="mt-1 text-xs text-slate-500">Le supplément s&apos;ajoute au prix de base du repas et est réglé sur place.</p>
+
+                {form.consommations.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-slate-300">Je consomme :</p>
+                    {form.consommations.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={c.included}
+                          onChange={(e) => {
+                            const updated = [...form.consommations];
+                            updated[i] = { ...updated[i], included: e.target.checked };
+                            setForm({ ...form, consommations: updated });
+                          }}
+                          className={checkboxClass}
+                          title="Je consomme cet élément"
+                        />
+                        <input
+                          value={c.label}
+                          onChange={(e) => {
+                            const updated = [...form.consommations];
+                            updated[i] = { ...updated[i], label: e.target.value };
+                            setForm({ ...form, consommations: updated });
+                          }}
+                          placeholder="Désignation"
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, consommations: form.consommations.filter((_, j) => j !== i) })}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-red-400 hover:bg-primary-900 sm:border-0 sm:py-0"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, consommations: [...form.consommations, { label: "", included: false }] })}
+                  className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
+                >
+                  + Consommations
+                </button>
               </div>
             </div>
           )}

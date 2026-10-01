@@ -489,6 +489,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
                     <thead>
                       <tr>
                         <th>Article</th>
+                        <th style={{ width: 80, textAlign: "center" }}>Quantité</th>
                         <th style={{ width: 120, textAlign: "center" }}>Acheté □</th>
                       </tr>
                     </thead>
@@ -496,6 +497,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
                       {extras.map((key) => (
                         <tr key={key}>
                           <td>{EXTRAS_LABELS[key] ?? key}</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold" }}>{dinerCount}</td>
                           <td style={{ textAlign: "center" }}>
                             <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
                           </td>

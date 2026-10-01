@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { sessionHasWriteAccess } from "@/lib/permissions";
 import { COLOR_OPTIONS, type ColorKey } from "@/lib/activity-colors";
+import ImageUpload from "@/components/ImageUpload";
 
 type Activity = {
   id: string;
@@ -16,6 +17,7 @@ type Activity = {
   isCore: boolean;
   isActive: boolean;
   price: number;
+  coverImage: string | null;
   content: string;
 };
 
@@ -39,7 +41,7 @@ export default function AdminActivitiesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [metaDrafts, setMetaDrafts] = useState<Record<string, { label: string; emoji: string; color: ColorKey; membershipRequired: boolean; isActive: boolean; price: number }>>({});
+  const [metaDrafts, setMetaDrafts] = useState<Record<string, { label: string; emoji: string; color: ColorKey; membershipRequired: boolean; isActive: boolean; price: number; coverImage: string | null }>>({});
   const [savingMeta, setSavingMeta] = useState<string | null>(null);
 
   const [docs, setDocs] = useState<Record<string, ActivityDoc[]>>({});
@@ -61,6 +63,7 @@ export default function AdminActivitiesPage() {
         membershipRequired: a.membershipRequired,
         isActive: a.isActive,
         price: a.price,
+        coverImage: a.coverImage ?? null,
       }])));
     }
   }
@@ -316,7 +319,8 @@ export default function AdminActivitiesPage() {
               meta.color !== a.color ||
               meta.membershipRequired !== a.membershipRequired ||
               meta.isActive !== a.isActive ||
-              meta.price !== a.price
+              meta.price !== a.price ||
+              meta.coverImage !== (a.coverImage ?? null)
             );
             return (
               <div key={a.key} className={`rounded-xl border-2 bg-primary-900/40 p-6 ${colors.border}`}>
@@ -409,6 +413,14 @@ export default function AdminActivitiesPage() {
                         className={inputClass}
                       />
                     </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-300">Image de couverture (optionnel)</label>
+                      <ImageUpload
+                        value={meta.coverImage ?? ""}
+                        onChange={(url) => setMetaDrafts((p) => ({ ...p, [a.id]: { ...p[a.id], coverImage: url || null } }))}
+                        className="mt-1"
+                      />
+                    </div>
                     <div className="sm:col-span-2 flex flex-wrap gap-x-8 gap-y-3">
                       <div className="flex items-center gap-3">
                         <input
@@ -447,7 +459,7 @@ export default function AdminActivitiesPage() {
                       {metaChanged && savingMeta !== a.id && (
                         <button
                           type="button"
-                          onClick={() => setMetaDrafts((p) => ({ ...p, [a.id]: { label: a.label, emoji: a.emoji, color: a.color as ColorKey, membershipRequired: a.membershipRequired, isActive: a.isActive, price: a.price } }))}
+                          onClick={() => setMetaDrafts((p) => ({ ...p, [a.id]: { label: a.label, emoji: a.emoji, color: a.color as ColorKey, membershipRequired: a.membershipRequired, isActive: a.isActive, price: a.price, coverImage: a.coverImage ?? null } }))}
                           className="text-sm text-slate-500 hover:text-slate-300"
                         >
                           Annuler

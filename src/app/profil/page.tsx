@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import BalanceTopUpCard from "@/components/BalanceTopUpCard";
 import DateInput from "@/components/DateInput";
 
@@ -26,6 +27,7 @@ function computeAge(dateOfBirth: string): number | null {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { update } = useSession();
   const [firstName, setFirstName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -169,6 +171,7 @@ export default function ProfilePage() {
 
     setIncompleteWarning(false);
     setFieldErrors({ firstName: false, name: false, addressStreet: false, addressPostalCode: false, addressCity: false, gender: false });
+    await update(); // Rafraîchit le token pour mettre à jour profileComplete
     router.push("/");
   }
 

@@ -205,12 +205,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
   });
 
   const allRentalIds = allRentals.map((r) => r.equipmentId);
-  const [user, equipmentRecords] = await Promise.all([
+  const [user, equipmentRecords, activity] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.user.id } }),
     allRentalIds.length > 0
       ? prisma.equipment.findMany({ where: { id: { in: allRentalIds } }, select: { id: true, name: true, rentalCost: true } })
       : Promise.resolve([]),
+    event.activityType
+      ? prisma.activity.findUnique({ where: { key: event.activityType }, select: { coverImage: true } })
+      : Promise.resolve(null),
   ]);
+
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+  const eventUrl = `${baseUrl}/calendar?event=${event.id}`;
 
   // Récap email : éléments associés auto-ajoutés sont gratuits (inclus dans le prix de la réplique)
   const equipmentList = equipmentRecords.map((eq) => {
@@ -234,6 +240,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         mealPrice: event.mealPrice,
         participationFee,
         equipment: equipmentList,
+        coverImage: activity?.coverImage ?? null,
+        eventUrl,
       }),
       sendNewEventRegistrationToAdmin({
         memberName: `${user.firstName} ${user.name}`,
@@ -245,6 +253,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         mealPrice: event.mealPrice,
         participationFee,
         equipment: equipmentList,
+        coverImage: activity?.coverImage ?? null,
+        eventUrl,
       }),
     ]);
   }

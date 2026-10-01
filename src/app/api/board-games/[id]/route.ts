@@ -4,6 +4,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function splitCsv(val: string | null | undefined): string[] {
+  return val ? val.split(",").filter(Boolean) : [];
+}
+
+function joinCsv(arr: string[] | null | undefined): string | null {
+  return arr && arr.length > 0 ? arr.join(",") : null;
+}
+
+function photosFromGame(g: { photoUrls: string | null; photoUrl: string | null }): string[] {
+  const urls = splitCsv(g.photoUrls);
+  if (urls.length > 0) return urls;
+  return g.photoUrl ? [g.photoUrl] : [];
+}
+
 async function requireOwner(gameId: string, userId: string) {
   const game = await prisma.boardGame.findUnique({ where: { id: gameId } });
   if (!game || game.ownerId !== userId) return null;
@@ -22,13 +36,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes, isPublic } = body as {
+  const { name, description, version, photos, minPlayers, maxPlayers, durationMinutes, isPublic, activityKey, mechanics, themes } = body as {
     name?: string;
-    photoUrl?: string | null;
+    description?: string | null;
+    version?: string | null;
+    photos?: string[];
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
     isPublic?: boolean;
+    activityKey?: string | null;
+    mechanics?: string[];
+    themes?: string[];
   };
 
   const min = minPlayers != null ? Math.round(Number(minPlayers)) : existing.minPlayers;
@@ -39,19 +58,28 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 
+  const existingPhotos = photosFromGame(existing);
+  const photoList = photos !== undefined ? photos : existingPhotos;
+
   const game = await prisma.boardGame.update({
     where: { id: params.id },
     data: {
       ...(name ? { name } : {}),
-      photoUrl: photoUrl || null,
+      description: description !== undefined ? (description || null) : existing.description,
+      version: version !== undefined ? (version || null) : existing.version,
+      photoUrl: photoList[0] || null,
+      photoUrls: joinCsv(photoList),
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
       ...(isPublic !== undefined ? { isPublic } : {}),
+      activityKey: activityKey !== undefined ? (activityKey || null) : existing.activityKey,
+      mechanics: mechanics !== undefined ? joinCsv(mechanics) : existing.mechanics,
+      themes: themes !== undefined ? joinCsv(themes) : existing.themes,
     },
   });
 
-  return NextResponse.json(game);
+  return NextResponse.json({ ...game, photos: photosFromGame(game), mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) });
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {

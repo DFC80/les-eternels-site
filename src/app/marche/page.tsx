@@ -475,6 +475,7 @@ function ListingCard({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   function startEdit() {
     setForm({
@@ -542,6 +543,22 @@ function ListingCard({
   const typeInfo = TYPE_INFO[listing.type] ?? TYPE_INFO.VENTE;
   const photos = listing.photos ? listing.photos.split("\n").filter(Boolean) : [];
   const activity = ACTIVITIES.find((a) => a.key === listing.activityKey);
+
+  function navLightbox(dir: 1 | -1) {
+    setLightboxIndex((i) => i === null ? null : (i + dir + photos.length) % photos.length);
+  }
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft") navLightbox(-1);
+      if (e.key === "ArrowRight") navLightbox(1);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxIndex, photos.length]);
 
   if (editing) {
     return (
@@ -619,16 +636,38 @@ function ListingCard({
       {photos.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {photos.map((url, i) => (
-            <a
+            <button
               key={i}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="relative block h-16 w-16 overflow-hidden rounded"
+              type="button"
+              onClick={() => setLightboxIndex(i)}
+              className="relative block h-16 w-16 flex-shrink-0 overflow-hidden rounded cursor-zoom-in"
             >
               <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" unoptimized />
-            </a>
+            </button>
           ))}
+        </div>
+      )}
+
+      {lightboxIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
+          onClick={() => setLightboxIndex(null)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photos[lightboxIndex]} alt="" className="max-h-[90vh] max-w-full rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setLightboxIndex(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1 text-white hover:bg-black/80">✕</button>
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(-1); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              >‹</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(1); }}
+                className="absolute right-16 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              >›</button>
+              <p className="absolute bottom-4 text-sm text-white/70">{lightboxIndex + 1} / {photos.length}</p>
+            </>
+          )}
         </div>
       )}
 

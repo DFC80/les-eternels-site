@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sessionHasAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function splitCsv(val: string | null | undefined): string[] {
@@ -17,14 +16,12 @@ function photosFromGame(g: { photoUrls: string | null; photoUrl: string | null }
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
-
-  if (!sessionHasAccess(session.user, "events")) {
-    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  if (!session) {
+    return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
   }
 
   const games = await prisma.boardGame.findMany({
-    where: { isPublic: true },
+    where: { isPublic: true, status: "DISPONIBLE" },
     orderBy: { name: "asc" },
     include: { owner: { select: { firstName: true, name: true } } },
   });

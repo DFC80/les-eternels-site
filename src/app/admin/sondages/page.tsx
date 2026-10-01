@@ -14,6 +14,7 @@ type Poll = {
   allowMultiple: boolean;
   published: boolean;
   activityKey: string | null;
+  restrictToActivity: boolean;
   closedAt: string | null;
   publishNotificationSentAt: string | null;
   resultNotificationSentAt: string | null;
@@ -30,6 +31,7 @@ const EMPTY_FORM = {
   allowMultiple: false,
   published: false,
   activityKey: "",
+  restrictToActivity: true,
   closedAt: "",
   options: ["", ""],
 };
@@ -45,6 +47,8 @@ export default function AdminSondagesPage() {
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState<string | null>(null);
   const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
+  const [notifyingAdmin, setNotifyingAdmin] = useState<string | null>(null);
+  const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
   const [votersOpen, setVotersOpen] = useState<string | null>(null);
   const [votersData, setVotersData] = useState<Record<string, PollVoterOption[]>>({});
   const [votersLoading, setVotersLoading] = useState(false);
@@ -75,6 +79,7 @@ export default function AdminSondagesPage() {
       allowMultiple: p.allowMultiple,
       published: p.published,
       activityKey: p.activityKey ?? "",
+      restrictToActivity: p.restrictToActivity,
       closedAt: p.closedAt ? p.closedAt.slice(0, 16) : "",
       options: p.options.map((o) => o.label),
     });
@@ -112,6 +117,7 @@ export default function AdminSondagesPage() {
         allowMultiple: form.allowMultiple,
         published: form.published,
         activityKey: form.activityKey || null,
+        restrictToActivity: form.restrictToActivity,
         closedAt: form.closedAt || null,
         options: form.options.map((label, i) => ({ label, order: i })),
       };
@@ -144,6 +150,7 @@ export default function AdminSondagesPage() {
         allowMultiple: p.allowMultiple,
         published: !p.published,
         activityKey: p.activityKey,
+        restrictToActivity: p.restrictToActivity,
         closedAt: p.closedAt,
         options: p.options.map((o, i) => ({ label: o.label, order: i })),
       }),
@@ -167,6 +174,7 @@ export default function AdminSondagesPage() {
         allowMultiple: p.allowMultiple,
         published: p.published,
         activityKey: p.activityKey,
+        restrictToActivity: p.restrictToActivity,
         closedAt: new Date().toISOString(),
         options: p.options.map((o, i) => ({ label: o.label, order: i })),
       }),
@@ -187,6 +195,23 @@ export default function AdminSondagesPage() {
       }
     } finally {
       setVotersLoading(false);
+    }
+  }
+
+  async function renotifyAdmin(p: Poll) {
+    if (!confirm("Envoyer l'email du sondage à l'admin ?")) return;
+    setNotifyingAdmin(p.id);
+    setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "" }));
+    try {
+      const res = await fetch(`/api/admin/polls/${p.id}/notify-admin`, { method: "POST" });
+      const d = await res.json();
+      if (res.ok) {
+        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "✓ Email envoyé à l'admin" }));
+      } else {
+        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: `Erreur : ${d.error}` }));
+      }
+    } finally {
+      setNotifyingAdmin(null);
     }
   }
 
@@ -232,23 +257,44 @@ export default function AdminSondagesPage() {
             <select
               className={inputClass}
               value={form.activityKey}
-              onChange={(e) => setForm({ ...form, activityKey: e.target.value })}
+              onChange={(e) => {
+                const key = e.target.value;
+                setForm({ ...form, activityKey: key, restrictToActivity: key ? form.restrictToActivity : false });
+              }}
             >
-              <option value="">Tous les membres</option>
+              <option value="">— Aucune —</option>
               {activities.map((a) => (
                 <option key={a.key} value={a.key}>{a.emoji} {a.label}</option>
               ))}
             </select>
-            {form.activityKey && (
-              <p className="mt-1 text-xs text-amber-400">
-                Seuls les membres adhérents à cette activité pourront voter.
-              </p>
-            )}
-            {!form.activityKey && (
-              <p className="mt-1 text-xs text-slate-500">
-                Sans activité liée, tous les membres avec une adhésion payée peuvent voter.
-              </p>
-            )}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm text-slate-300">Qui peut voter ?</label>
+            <div className="space-y-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="radio"
+                  name="restrictToActivity"
+                  checked={!form.restrictToActivity}
+                  onChange={() => setForm({ ...form, restrictToActivity: false })}
+                  className="accent-primary-400"
+                />
+                Tous les membres
+              </label>
+              <label className={`flex items-center gap-2 text-sm ${form.activityKey ? "cursor-pointer text-amber-300" : "cursor-not-allowed text-slate-600"}`}>
+                <input
+                  type="radio"
+                  name="restrictToActivity"
+                  checked={form.restrictToActivity}
+                  onChange={() => setForm({ ...form, restrictToActivity: true })}
+                  disabled={!form.activityKey}
+                  className="accent-amber-400"
+                />
+                Uniquement les adhérents à l&apos;activité liée
+                {!form.activityKey && <span className="text-xs text-slate-600">(sélectionner une activité)</span>}
+              </label>
+            </div>
           </div>
 
           <div>
@@ -338,6 +384,7 @@ export default function AdminSondagesPage() {
                 {actLabel && (
                   <span className="rounded-full bg-amber-900/60 px-2 py-0.5 text-xs text-amber-300">
                     {actLabel.emoji} {actLabel.label}
+                    {p.restrictToActivity ? " · adhérents uniquement" : " · tous les membres"}
                   </span>
                 )}
                 {p.publishNotificationSentAt && (
@@ -417,6 +464,10 @@ export default function AdminSondagesPage() {
                     {notifying === p.id ? "Envoi…" : "📣 Notifier les membres"}
                   </button>
                 )}
+                <button onClick={() => !isClosed && renotifyAdmin(p)} disabled={!!isClosed || notifyingAdmin === p.id}
+                  className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
+                  {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
+                </button>
                 <button onClick={() => !isClosed && editPoll(p)} disabled={!!isClosed}
                   className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-40">
                   Modifier
@@ -429,6 +480,11 @@ export default function AdminSondagesPage() {
               {notifyResult[p.id] && (
                 <p className={`mt-2 text-xs ${notifyResult[p.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
                   {notifyResult[p.id]}
+                </p>
+              )}
+              {notifyAdminResult[p.id] && (
+                <p className={`mt-1 text-xs ${notifyAdminResult[p.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                  {notifyAdminResult[p.id]}
                 </p>
               )}
             </div>

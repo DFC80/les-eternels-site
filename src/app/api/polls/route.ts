@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendPollResultsToAdmin, sendPollResultsToVoters } from "@/lib/mail";
+import { isFullAdmin } from "@/lib/permissions";
 
 const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
   JEUX_DE_PLATEAU: "wantsBoardGames",
@@ -82,14 +83,15 @@ export async function GET() {
     },
   });
 
-  // Load activity labels for polls that have an activityKey
+  // Load activity labels and cover images for polls that have an activityKey
   const activityKeys = [...new Set(polls.map((p) => p.activityKey).filter(Boolean) as string[])];
   const activities = activityKeys.length
-    ? await prisma.activity.findMany({ where: { key: { in: activityKeys } } })
+    ? await prisma.activity.findMany({ where: { key: { in: activityKeys } }, select: { key: true, label: true, coverImage: true } })
     : [];
-  const activityMap = Object.fromEntries(activities.map((a) => [a.key, a.label]));
+  const activityMap = Object.fromEntries(activities.map((a) => [a.key, { label: a.label, coverImage: a.coverImage ?? null }]));
 
   const userId = session?.user?.id;
+  const isAdmin = session ? isFullAdmin((session.user as { role?: string }).role ?? "") : false;
 
   const pollsWithVotes = await Promise.all(
     polls.map(async (poll) => {
@@ -103,7 +105,7 @@ export async function GET() {
         : [];
 
       const userCanVote =
-        !poll.activityKey || !userId
+        !poll.activityKey || !poll.restrictToActivity || !userId
           ? !!userId
           : await userHasActivity(userId, poll.activityKey);
 
@@ -112,14 +114,43 @@ export async function GET() {
         : false;
 
       const totalVotes = poll.options.reduce((sum, o) => sum + o._count.votes, 0);
+
+      let votersByOption: Record<string, { name: string; email: string }[]> | undefined;
+      if (isAdmin) {
+        const allVotes = await prisma.pollVote.findMany({
+          where: { pollId: poll.id },
+          select: { optionId: true, userId: true },
+        });
+        const voterUserIds = [...new Set(allVotes.map((v) => v.userId))];
+        const voterUsers = voterUserIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: voterUserIds } },
+              select: { id: true, firstName: true, name: true, email: true },
+            })
+          : [];
+        const userMap = Object.fromEntries(voterUsers.map((u) => [u.id, u]));
+        votersByOption = {};
+        for (const vote of allVotes) {
+          if (!votersByOption[vote.optionId]) votersByOption[vote.optionId] = [];
+          const u = userMap[vote.userId];
+          if (u) {
+            const name = u.name || u.firstName || u.email;
+            votersByOption[vote.optionId].push({ name, email: u.email });
+          }
+        }
+      }
+
+      const activityInfo = poll.activityKey ? (activityMap[poll.activityKey] ?? null) : null;
       return {
         ...poll,
-        activityLabel: poll.activityKey ? (activityMap[poll.activityKey] ?? null) : null,
+        activityLabel: activityInfo?.label ?? null,
+        activityCoverImage: activityInfo?.coverImage ?? null,
         userVotedOptionIds,
         userCanVote,
         userHasChangedVote,
         totalVotes,
         options: poll.options.map((o) => ({ ...o, voteCount: o._count.votes })),
+        ...(isAdmin ? { votersByOption } : {}),
       };
     })
   );

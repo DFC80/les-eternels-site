@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendPollVoteNotificationToAdmin } from "@/lib/mail";
 
 const CORE_BOOL_FIELDS: Record<string, "wantsBoardGames" | "wantsRolePlay" | "wantsAirsoft"> = {
   JEUX_DE_PLATEAU: "wantsBoardGames",
@@ -75,9 +76,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await prisma.pollVoteChange.create({ data: { pollId: params.id, userId } });
   }
 
+  const isChange = existingVotes.length > 0;
+
   await prisma.pollVote.createMany({
     data: selectedIds.map((optionId) => ({ pollId: params.id, optionId, userId })),
   });
+
+  const selectedLabels = poll.options.filter((o) => selectedIds.includes(o.id)).map((o) => o.label);
+  sendPollVoteNotificationToAdmin({
+    voterName: session.user.name ?? session.user.email ?? userId,
+    voterEmail: session.user.email ?? "",
+    question: poll.question,
+    selectedOptions: selectedLabels,
+    isChange,
+  }).catch((e) => console.error("[mail] sendPollVoteNotificationToAdmin:", e));
 
   return NextResponse.json({ ok: true });
 }

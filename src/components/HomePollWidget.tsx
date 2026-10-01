@@ -12,11 +12,13 @@ type Poll = {
   closedAt: string | null;
   activityKey: string | null;
   activityLabel: string | null;
+  activityCoverImage: string | null;
   userCanVote: boolean;
   userHasChangedVote: boolean;
   totalVotes: number;
   userVotedOptionIds: string[];
   options: PollOption[];
+  votersByOption?: Record<string, { name: string; email: string }[]>;
 };
 
 export default function HomePollWidget() {
@@ -108,7 +110,12 @@ export default function HomePollWidget() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-8 pt-2">
       <h2 className="font-display text-2xl text-silver-100">Sondage</h2>
-      <div className="mt-4 rounded-xl border border-primary-800 bg-primary-900/50 p-4 sm:p-6">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50">
+        {poll.activityCoverImage && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={poll.activityCoverImage} alt="" className="h-32 w-full object-cover sm:h-40" />
+        )}
+        <div className="p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <p className="font-medium text-silver-100">{poll.question}</p>
           {poll.activityLabel && (
@@ -128,6 +135,7 @@ export default function HomePollWidget() {
             const isChosen = selected.includes(opt.id);
 
             if (showResults) {
+              const optionVoters = poll.votersByOption?.[opt.id] ?? [];
               return (
                 <div key={opt.id} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
@@ -140,6 +148,16 @@ export default function HomePollWidget() {
                     <div className={`h-full rounded-full transition-all duration-500 ${isUserVote ? "bg-primary-400" : "bg-primary-700"}`}
                       style={{ width: `${pct}%` }} />
                   </div>
+                  {optionVoters.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {optionVoters.map((v) => (
+                        <span key={v.email} title={v.email}
+                          className="rounded-full bg-primary-900 px-2 py-0.5 text-xs text-primary-200">
+                          {v.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -224,6 +242,7 @@ export default function HomePollWidget() {
             <Link href="/login" className="text-primary-300 hover:underline">Connectez-vous</Link> pour voter.
           </p>
         )}
+        </div>
       </div>
     </section>
   );

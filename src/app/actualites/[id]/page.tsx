@@ -30,7 +30,7 @@ export default function ArticlePage() {
   const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   async function load() {
@@ -80,6 +80,21 @@ export default function ArticlePage() {
   const photos = (article.photos ?? "").split("\n").map((u) => u.trim()).filter(Boolean);
   const dateLabel = new Date(article.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
+  function navLightbox(dir: 1 | -1) {
+    setLightboxIndex((i) => i === null ? null : (i + dir + photos.length) % photos.length);
+  }
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft") navLightbox(-1);
+      if (e.key === "ArrowRight") navLightbox(1);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, photos.length]);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link href="/actualites" className="text-sm text-primary-300 hover:underline">← Actualités</Link>
@@ -90,9 +105,9 @@ export default function ArticlePage() {
       {/* Photo gallery */}
       {photos.length > 0 && (
         <div className={`mt-6 grid gap-3 ${photos.length === 1 ? "" : "grid-cols-2 sm:grid-cols-3"}`}>
-          {photos.map((url) => (
+          {photos.map((url, i) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={url} src={url} alt="" onClick={() => setSelectedPhoto(url)}
+            <img key={url} src={url} alt="" onClick={() => setLightboxIndex(i)}
               className={`cursor-pointer rounded-xl border border-primary-700 object-cover transition hover:opacity-90 ${
                 photos.length === 1 ? "max-h-96 w-full" : "h-40 w-full"
               }`} />
@@ -101,13 +116,26 @@ export default function ArticlePage() {
       )}
 
       {/* Lightbox */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setSelectedPhoto(null)}>
+      {lightboxIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
+          onClick={() => setLightboxIndex(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={selectedPhoto} alt="" className="max-h-[90vh] max-w-full rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
-          <button onClick={() => setSelectedPhoto(null)}
+          <img src={photos[lightboxIndex]} alt="" className="max-h-[90vh] max-w-full rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setLightboxIndex(null)}
             className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1 text-white hover:bg-black/80">✕</button>
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(-1); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              >‹</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); navLightbox(1); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+              >›</button>
+              <p className="absolute bottom-4 text-sm text-white/70">{lightboxIndex + 1} / {photos.length}</p>
+            </>
+          )}
         </div>
       )}
 

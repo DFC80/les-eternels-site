@@ -4,6 +4,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function splitCsv(val: string | null | undefined): string[] {
+  return val ? val.split(",").filter(Boolean) : [];
+}
+
+function joinCsv(arr: string[] | null | undefined): string | null {
+  return arr && arr.length > 0 ? arr.join(",") : null;
+}
+
+function photosFromGame(g: { photoUrls: string | null; photoUrl: string | null }): string[] {
+  const urls = splitCsv(g.photoUrls);
+  if (urls.length > 0) return urls;
+  return g.photoUrl ? [g.photoUrl] : [];
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -15,7 +29,14 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(games);
+  return NextResponse.json(
+    games.map((g) => ({
+      ...g,
+      photos: photosFromGame(g),
+      mechanics: splitCsv(g.mechanics),
+      themes: splitCsv(g.themes),
+    }))
+  );
 }
 
 export async function POST(request: Request) {
@@ -25,12 +46,17 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, photoUrl, minPlayers, maxPlayers, durationMinutes } = body as {
+  const { name, description, version, photos, minPlayers, maxPlayers, durationMinutes, activityKey, mechanics, themes } = body as {
     name?: string;
-    photoUrl?: string | null;
+    description?: string | null;
+    version?: string | null;
+    photos?: string[];
     minPlayers?: string | number;
     maxPlayers?: string | number;
     durationMinutes?: string | number;
+    activityKey?: string | null;
+    mechanics?: string[];
+    themes?: string[];
   };
 
   if (!name || minPlayers == null || maxPlayers == null) {
@@ -48,16 +74,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valeurs invalides." }, { status: 400 });
   }
 
+  const photoList = photos ?? [];
+
   const game = await prisma.boardGame.create({
     data: {
       ownerId: session.user.id,
       name,
-      photoUrl: photoUrl || null,
+      description: description || null,
+      version: version || null,
+      photoUrl: photoList[0] || null,
+      photoUrls: joinCsv(photoList),
       minPlayers: min,
       maxPlayers: max,
       durationMinutes: duration,
+      activityKey: activityKey || null,
+      mechanics: joinCsv(mechanics),
+      themes: joinCsv(themes),
     },
   });
 
-  return NextResponse.json(game, { status: 201 });
+  return NextResponse.json(
+    { ...game, photos: photosFromGame(game), mechanics: splitCsv(game.mechanics), themes: splitCsv(game.themes) },
+    { status: 201 }
+  );
 }

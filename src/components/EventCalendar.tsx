@@ -79,7 +79,7 @@ type MembershipResponse = (Membership & { airsoftTrialDay?: boolean }) | { airso
 
 const GENERIC_MEAL_KEY = "__generic__";
 
-type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean };
+type ActivityMeta = { key: string; label: string; emoji: string; color: string; membershipRequired: boolean; coverImage?: string | null };
 
 const COLOR_BADGE: Record<string, string> = {
   emerald: "bg-emerald-950 text-emerald-300 border-emerald-700",
@@ -591,7 +591,19 @@ export default function EventCalendar() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Card : informations événement */}
-            <div className="rounded-xl border border-primary-800 bg-primary-900/50 p-5">
+            <div className="overflow-hidden rounded-xl border border-primary-800 bg-primary-900/50">
+              {(() => {
+                const act = activityMeta.find((a) => a.key === selected.activityType);
+                return act?.coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={act.coverImage}
+                    alt={act.label}
+                    className="h-32 w-full object-cover sm:h-44"
+                  />
+                ) : null;
+              })()}
+              <div className="p-5">
               {(() => {
                 const act = activityMeta.find((a) => a.key === selected.activityType);
                 return (
@@ -636,6 +648,7 @@ export default function EventCalendar() {
                   🎲 Jeux prévus : {selected.boardGames.map((g) => g.name).join(", ")}
                 </p>
               )}
+              </div>
             </div>
 
             {eventDocs.length > 0 && (
@@ -1131,6 +1144,24 @@ export default function EventCalendar() {
                             </p>
                           </>
                         )}
+                        {(() => {
+                          const PREDEFINED_KEYS = ["softs", "beer", "pain", "sauces", "assaisonnements"];
+                          const extras = selected.mealExtras ? selected.mealExtras.split(",").filter(Boolean) : [];
+                          const consommations = extras.filter((k) => !PREDEFINED_KEYS.includes(k));
+                          if (consommations.length === 0) return null;
+                          return (
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-slate-400">Consommations sélectionnées :</p>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {consommations.map((label) => (
+                                  <span key={label} className="rounded-full border border-primary-700 bg-primary-900/60 px-2.5 py-0.5 text-xs text-slate-300">
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {!isRegistrationClosed(selected) && (
                           <button
                             onClick={() => {

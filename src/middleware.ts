@@ -23,10 +23,19 @@ const ADMIN_SECTION_MAP: { prefix: string; section: AdminSection; fullAdminOnly?
   { prefix: "/admin/permissions",  section: "parametres", fullAdminOnly: true },
 ];
 
+// Routes qui nécessitent une session active
+const AUTH_REQUIRED_PREFIXES = ["/admin", "/mon-compte", "/comptoir"];
+
 export default withAuth(
   function middleware(req) {
     const { pathname } = req.nextUrl;
-    const role = (req.nextauth.token?.role as string) ?? "";
+    const token = req.nextauth.token;
+    const role = (token?.role as string) ?? "";
+
+    // Rediriger vers /profil si le profil est incomplet (sauf si déjà sur /profil)
+    if (token && token.profileComplete === false && !pathname.startsWith("/profil")) {
+      return NextResponse.redirect(new URL("/profil?incomplete=1", req.url));
+    }
 
     // Bloquer les membres purs de toutes les pages admin
     if (pathname.startsWith("/admin") && (role === "MEMBER" || !role)) {
@@ -40,7 +49,7 @@ export default withAuth(
         return NextResponse.redirect(new URL("/admin", req.url));
       }
       if (!match.fullAdminOnly) {
-        const allowedSections = req.nextauth.token?.allowedSections as string[] | null | undefined;
+        const allowedSections = token?.allowedSections as string[] | null | undefined;
         if (!tokenHasAccess(role, allowedSections, match.section)) {
           return NextResponse.redirect(new URL("/admin", req.url));
         }
@@ -50,10 +59,30 @@ export default withAuth(
     return NextResponse.next();
   },
   {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl;
+        // Pages qui nécessitent une session active
+        if (AUTH_REQUIRED_PREFIXES.some((p) => pathname.startsWith(p)) || pathname === "/comptoir") {
+          return !!token;
+        }
+        // Pour /profil et toutes les autres pages du matcher : laisser passer (auth optionnelle)
+        return true;
+      },
+    },
     pages: { signIn: "/login" },
   }
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/mon-compte/:path*", "/profil/:path*", "/comptoir/:path*", "/comptoir"],
+  matcher: [
+    "/admin/:path*",
+    "/mon-compte/:path*",
+    "/profil/:path*",
+    "/comptoir/:path*",
+    "/comptoir",
+    "/sondages/:path*",
+    "/activites/:path*",
+    "/",
+  ],
 };
