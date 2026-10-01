@@ -30,7 +30,7 @@ export default async function PrintCotisationsPage({ searchParams }: { searchPar
   const selectedYear = searchParams.saison ? parseInt(searchParams.saison, 10) : (years[0] ?? null);
 
   const users = await prisma.user.findMany({
-    where: { membership: { isNot: null, ...(selectedYear !== null ? { year: selectedYear } : {}) } },
+    where: { membership: selectedYear !== null ? { year: selectedYear } : { isNot: null } },
     select: {
       firstName: true,
       name: true,
