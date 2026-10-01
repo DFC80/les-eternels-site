@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 import HomePollWidget from "@/components/HomePollWidget";
 import HomeCarouselWidget from "@/components/HomeCarouselWidget";
-import HomeMarketWidget from "@/components/HomeMarketWidget";
+import HomeMarketCarousel from "@/components/HomeMarketCarousel";
 import { canAccessAdmin, sessionHasAccess } from "@/lib/permissions";
 import { formatCentsToEuros } from "@/lib/money";
 
@@ -482,7 +482,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {session && <HomeMarketWidget />}
+      <HomeMarketCarousel />
       <HomeCarouselWidget />
 
       {(latestAG || latestArticle) && (
