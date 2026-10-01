@@ -113,7 +113,7 @@ export default async function PrintCotisationsPage({ searchParams }: { searchPar
           tr { page-break-inside: avoid; }
           h2 { page-break-before: auto; }
         }
-        body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: white; color-scheme: light; }
+        body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a !important; background: white !important; color-scheme: light; }
         h1 { font-size: 20px; margin: 0 0 4px; color: #1a1a1a !important; }
         h2 { font-size: 14px; font-weight: bold; border-bottom: 2px solid #333; padding-bottom: 4px; margin: 20px 0 10px; color: #1a1a1a !important; }
         table { width: 100%; border-collapse: collapse; }

@@ -30,7 +30,7 @@ export default async function PrintNotePage({ params }: { params: { id: string }
           .no-print { display: none !important; }
           body { background: white !important; color: black !important; }
         }
-        body { font-family: Georgia, serif; margin: 0; padding: 0; background: white; color: #111; color-scheme: light; }
+        body { font-family: Georgia, serif; margin: 0; padding: 0; background: white !important; color: #111 !important; color-scheme: light; }
         .container { max-width: 680px; margin: 40px auto; padding: 0 24px; }
         h1 { font-size: 24px; margin: 0 0 6px; color: #111 !important; }
         .meta { font-size: 12px; color: #666; margin-bottom: 24px; }
