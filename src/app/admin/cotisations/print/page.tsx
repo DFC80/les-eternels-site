@@ -108,21 +108,21 @@ export default async function PrintCotisationsPage({ searchParams }: { searchPar
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; background: white; color: black; }
+          body { margin: 0; background: white !important; color: black !important; }
           table { page-break-inside: auto; }
           tr { page-break-inside: avoid; }
           h2 { page-break-before: auto; }
         }
-        body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: white; }
-        h1 { font-size: 20px; margin: 0 0 4px; }
-        h2 { font-size: 14px; font-weight: bold; border-bottom: 2px solid #333; padding-bottom: 4px; margin: 20px 0 10px; }
+        body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: white; color-scheme: light; }
+        h1 { font-size: 20px; margin: 0 0 4px; color: #1a1a1a !important; }
+        h2 { font-size: 14px; font-weight: bold; border-bottom: 2px solid #333; padding-bottom: 4px; margin: 20px 0 10px; color: #1a1a1a !important; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #eee; text-align: left; padding: 5px 8px; font-size: 12px; }
-        td { padding: 4px 8px; border-bottom: 1px solid #ddd; font-size: 12px; }
+        th { background: #eee !important; color: #1a1a1a !important; text-align: left; padding: 5px 8px; font-size: 12px; }
+        td { background: white !important; color: #1a1a1a !important; padding: 4px 8px; border-bottom: 1px solid #ddd; font-size: 12px; }
         .meta { color: #555; font-size: 12px; margin-bottom: 4px; }
-        .badge-paid { color: #16a34a; font-weight: bold; }
-        .badge-unpaid { color: #d97706; }
-        .total-row td { font-weight: bold; border-top: 2px solid #999; background: #f5f5f5; }
+        .badge-paid { color: #16a34a !important; font-weight: bold; }
+        .badge-unpaid { color: #d97706 !important; }
+        .total-row td { font-weight: bold; border-top: 2px solid #999; background: #f5f5f5 !important; color: #1a1a1a !important; }
         .header-bar { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #333; padding-bottom: 12px; margin-bottom: 4px; }
         .header-meta { text-align: right; font-size: 12px; color: #555; }
       `}</style>
