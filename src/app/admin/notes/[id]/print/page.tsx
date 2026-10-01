@@ -28,25 +28,25 @@ export default async function PrintNotePage({ params }: { params: { id: string }
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: white; color: black; }
+          body { background: white !important; color: black !important; }
         }
-        body { font-family: Georgia, serif; margin: 0; padding: 0; background: white; color: #111; }
+        body { font-family: Georgia, serif; margin: 0; padding: 0; background: white; color: #111; color-scheme: light; }
         .container { max-width: 680px; margin: 40px auto; padding: 0 24px; }
-        h1 { font-size: 24px; margin: 0 0 6px; }
+        h1 { font-size: 24px; margin: 0 0 6px; color: #111 !important; }
         .meta { font-size: 12px; color: #666; margin-bottom: 24px; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px;
-                 background: #e5e7eb; color: #374151; margin-right: 8px; }
-        .description { font-size: 14px; line-height: 1.7; white-space: pre-wrap; margin-top: 16px; }
+                 background: #e5e7eb !important; color: #374151 !important; margin-right: 8px; }
+        .description { font-size: 14px; line-height: 1.7; white-space: pre-wrap; margin-top: 16px; color: #111 !important; }
         .items { margin-top: 16px; list-style: none; padding: 0; }
         .items li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
-                    border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+                    border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111 !important; }
         .items li:last-child { border-bottom: none; }
         .checkbox { width: 16px; height: 16px; border: 2px solid #6b7280; border-radius: 3px;
-                    flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; }
-        .checkbox.checked { background: #10b981; border-color: #10b981; }
-        .checkmark { color: white; font-size: 11px; line-height: 1; }
-        .item-label { flex: 1; }
-        .item-label.checked { text-decoration: line-through; color: #9ca3af; }
+                    flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; background: white !important; }
+        .checkbox.checked { background: #10b981 !important; border-color: #10b981; }
+        .checkmark { color: white !important; font-size: 11px; line-height: 1; }
+        .item-label { flex: 1; color: #111 !important; }
+        .item-label.checked { text-decoration: line-through; color: #9ca3af !important; }
         .progress { margin-top: 8px; font-size: 12px; color: #6b7280; }
         hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
       `}</style>
