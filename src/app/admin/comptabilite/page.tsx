@@ -176,11 +176,23 @@ export default function ComptabilitePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-display text-3xl text-silver-100">Comptabilité</h1>
-      <p className="mt-2 text-slate-400">
-        Vue d'ensemble des gains et dépenses des événements, et des dépenses générales de
-        l'association.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl text-silver-100">Comptabilité</h1>
+          <p className="mt-2 text-slate-400">
+            Vue d'ensemble des gains et dépenses des événements, et des dépenses générales de
+            l'association.
+          </p>
+        </div>
+        <a
+          href="/admin/comptabilite/print"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 shrink-0 rounded-md bg-primary-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-primary-600"
+        >
+          🖨️ Imprimer
+        </a>
+      </div>
 
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-7">
         <div className="rounded-xl border border-primary-700 bg-primary-900/50 p-4 text-center">
