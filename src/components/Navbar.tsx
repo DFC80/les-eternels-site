@@ -84,6 +84,7 @@ export default function Navbar({ nomAssociation = "Les Éternels", logoSrc = "/l
     { href: "/admin/boutique?tab=orders", label: "Commandes boutique",    icon: "🛍️" },
     { href: "/admin/events",            label: "Fiche d'un événement",    icon: "📅" },
     { href: "/admin/notes",             label: "Impression d'une note",   icon: "📝" },
+    { href: "/admin/comptabilite/print", label: "Comptabilité",           icon: "💰" },
   ];
 
   const membreItems = session
