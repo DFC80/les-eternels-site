@@ -16,6 +16,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       user: { select: { firstName: true, name: true, email: true } },
       mealOrders: { include: { menu: { select: { label: true } } } },
+      rentals: { include: { equipment: { select: { name: true, rentalCost: true } } } },
+      event: { select: { mealPrice: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -25,13 +27,28 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       id: r.id,
       status: r.status,
       wantsMeal: r.wantsMeal,
+      mealPaid: r.mealPaid,
       isTrialDay: r.isTrialDay,
       hasOwnEquipment: r.hasOwnEquipment,
       isPaid: r.isPaid,
+      participationFee: r.participationFee,
+      participationPaid: r.participationPaid,
+      mealPrice: r.event.mealPrice,
       createdAt: r.createdAt,
       memberName: `${r.user.firstName} ${r.user.name}`,
       memberEmail: r.user.email,
       mealOrders: r.mealOrders.map((o) => ({ menuLabel: o.menu?.label ?? null, quantity: o.quantity })),
+      rentals: r.rentals
+        .filter((rt) => rt.status !== "REJECTED")
+        .map((rt) => ({
+          id: rt.id,
+          equipmentName: rt.equipment.name,
+          rentalCost: rt.equipment.rentalCost,
+          quantity: rt.quantity,
+          isFree: rt.isFree,
+          isPaid: rt.isPaid,
+          status: rt.status,
+        })),
     }))
   );
 }
