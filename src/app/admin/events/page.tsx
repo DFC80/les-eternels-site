@@ -876,6 +876,24 @@ export default function AdminEventsPage() {
                               {r.status === "APPROVED" ? "Validée" : r.status === "REJECTED" ? "Refusée" : "En attente"}
                             </span>
                           </p>
+                          {r.rentals.length > 0 && (
+                            <p className="mt-1.5 flex flex-wrap gap-1">
+                              {r.rentals.map((rt) => (
+                                <span
+                                  key={rt.id}
+                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${
+                                    rt.status === "APPROVED"
+                                      ? "bg-primary-800/60 text-slate-300"
+                                      : "bg-amber-950/60 text-amber-300"
+                                  }`}
+                                >
+                                  🔫 {rt.quantity > 1 ? `${rt.quantity}× ` : ""}{rt.equipmentName}
+                                  {rt.isFree && <span className="ml-1 opacity-60">(inclus)</span>}
+                                  {rt.status === "PENDING" && <span className="ml-1 opacity-70">⏳</span>}
+                                </span>
+                              ))}
+                            </p>
+                          )}
                         </div>
                         {canWrite && (
                           <div className="flex gap-2">
