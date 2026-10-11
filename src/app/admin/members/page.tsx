@@ -362,7 +362,7 @@ export default function AdminMembersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
+    <div className="mx-auto max-w-screen-2xl px-4 py-12">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl text-silver-100">Membres</h1>
