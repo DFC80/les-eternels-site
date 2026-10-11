@@ -858,6 +858,7 @@ export default function EventCalendar() {
                     return cats.map((cat) => {
                       const items = equipmentList.filter((eq) => {
                         if (eq.category !== cat.key) return false;
+                        if ((selectedEquipment[eq.id] ?? 0) > 0) return true;
                         if (eq.status !== "DISPONIBLE") return false;
                         const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
                         if (Math.max(0, (eq.stock ?? 1) - takenQty) <= 0) return false;
@@ -1234,6 +1235,7 @@ export default function EventCalendar() {
                       return cats.map((cat) => {
                         const items = equipmentList.filter((eq) => {
                           if (eq.category !== cat.key) return false;
+                          if ((editEquipmentSelection[eq.id] ?? 0) > 0) return true;
                           if (eq.status !== "DISPONIBLE") return false;
                           const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
                           if (Math.max(0, (eq.stock ?? 1) - takenQty) <= 0) return false;
