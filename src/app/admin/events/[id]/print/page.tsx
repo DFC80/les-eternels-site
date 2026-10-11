@@ -82,6 +82,7 @@ export default async function PrintEventPage({ params }: { params: { id: string 
 
   const byMenu = event.menus.map((menu) => ({
     label: menu.label,
+    stock: menu.stock ?? null,
     count: diners.reduce(
       (sum, r) => sum + r.mealOrders.filter((o) => o.menuId === menu.id).reduce((s, o) => s + o.quantity, 0),
       0
@@ -450,25 +451,36 @@ export default async function PrintEventPage({ params }: { params: { id: string 
                       <tr>
                         <th>Menu</th>
                         <th style={{ width: 80, textAlign: "center" }}>Quantité</th>
+                        <th style={{ width: 80, textAlign: "center" }}>Stock</th>
                         <th style={{ width: 120 }}>Supplément</th>
-                        <th style={{ width: 120, textAlign: "center" }}>À acheter □</th>
+                        <th style={{ width: 120, textAlign: "center" }}>À acheter</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {byMenu.filter((m) => m.count > 0).map((m) => (
+                      {byMenu.filter((m) => m.count > 0).map((m) => {
+                        const toOrder = m.stock != null ? Math.max(0, m.count - m.stock) : null;
+                        return (
                         <tr key={m.label}>
                           <td>{m.label}</td>
                           <td style={{ textAlign: "center", fontWeight: "bold" }}>{m.count}</td>
+                          <td style={{ textAlign: "center", color: "#555" }}>
+                            {m.stock != null ? m.stock : <span style={{ color: "#aaa" }}>∞</span>}
+                          </td>
                           <td style={{ fontSize: 11, color: "#666" }}>
                             {event.menus.find((menu) => menu.label === m.label)?.extraPrice
                               ? `+${(event.menus.find((menu) => menu.label === m.label)!.extraPrice! / 100).toFixed(2)}€/pers.`
                               : "—"}
                           </td>
                           <td style={{ textAlign: "center" }}>
-                            <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
+                            {toOrder != null ? (
+                              <strong style={{ color: toOrder > 0 ? "#dc2626" : "#16a34a" }}>{toOrder}</strong>
+                            ) : (
+                              <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #555", borderRadius: 3 }} />
+                            )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                       {withoutMenuCount > 0 && (
                         <tr>
                           <td style={{ color: "#888", fontStyle: "italic" }}>Sans menu précisé</td>
