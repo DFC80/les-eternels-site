@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendRegistrationModificationToAdmin } from "@/lib/mail";
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -95,6 +96,35 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (allRentals.length > 0) {
     await prisma.equipmentRental.createMany({
       data: allRentals.map((r) => ({ ...r, registrationId: registration.id })),
+    });
+  }
+
+  const [user, equipmentRecords] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { firstName: true, name: true, email: true } }),
+    allRentals.length > 0
+      ? prisma.equipment.findMany({ where: { id: { in: allRentals.map((r) => r.equipmentId) } }, select: { id: true, name: true } })
+      : Promise.resolve([]),
+  ]);
+
+  if (user) {
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+    const detailsHtml = allRentals.length > 0
+      ? `<ul style="margin:8px 0;padding-left:20px;">${allRentals.map((r) => {
+          const eq = equipmentRecords.find((e) => e.id === r.equipmentId);
+          const qty = r.quantity > 1 ? `${r.quantity}× ` : "";
+          return `<li>${qty}${eq?.name ?? r.equipmentId}${r.isFree ? " (inclus)" : ""}</li>`;
+        }).join("")}</ul>`
+      : `<p style="color:#888;">Aucune location de matériel.</p>`;
+
+    await sendRegistrationModificationToAdmin({
+      memberName: `${user.firstName} ${user.name}`,
+      memberEmail: user.email,
+      eventTitle: event.title,
+      startsAt: event.startsAt,
+      location: event.location,
+      modificationType: "matériel",
+      detailsHtml,
+      eventUrl: `${baseUrl}/calendar?event=${event.id}`,
     });
   }
 
