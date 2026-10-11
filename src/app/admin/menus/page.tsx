@@ -102,12 +102,16 @@ export default function AdminMenusPage() {
                 <tr key={item.id} className="border-b border-primary-800/50 last:border-0 hover:bg-primary-900/30">
                   <td className="px-4 py-3 text-slate-100">{item.label}</td>
                   <td className="px-4 py-3 text-center text-slate-300">
-                    {item.stock != null ? (
+                    {item.stock == null ? (
+                      <span className="text-xs text-slate-500">Illimité</span>
+                    ) : item.stock === 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-300">
+                        Épuisé
+                      </span>
+                    ) : (
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-300">
                         {item.stock} portions
                       </span>
-                    ) : (
-                      <span className="text-xs text-slate-500">Illimité</span>
                     )}
                   </td>
                   {canWrite && (
@@ -169,7 +173,7 @@ export default function AdminMenusPage() {
               </label>
               <input
                 type="number"
-                min={1}
+                min={0}
                 value={form.stock}
                 onChange={(e) => setForm({ ...form, stock: e.target.value })}
                 placeholder="Ex: 30"
