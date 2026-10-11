@@ -184,15 +184,28 @@ model GeneralCredit {
   createdAt DateTime @default(now())
 }
 
+model MenuCatalog {
+  id        String     @id @default(cuid())
+  label     String
+  stock     Int?       // portions par défaut proposées lors de l'ajout à un événement
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  menus MealMenu[]
+}
+
 model MealMenu {
   id            String @id @default(cuid())
   eventId       String
   label         String
   maxPerPerson  Int?
   extraPrice    Int?   // centimes, supplément optionnel en plus du prix de base du repas
+  stock         Int?   // total portions disponibles pour cet événement (null = illimité)
+  catalogId     String?
 
   event      Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   orderItems MealOrderItem[]
+  catalog    MenuCatalog?    @relation(fields: [catalogId], references: [id], onDelete: SetNull)
 }
 
 model EventRegistration {
