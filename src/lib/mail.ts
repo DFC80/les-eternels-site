@@ -113,7 +113,7 @@ export async function sendNewEventRegistrationToAdmin(params: {
     "Nouvelle inscription à un événement",
     `
       ${coverHtml}
-      <p>Un membre vient de s'inscrire à un événement (inscription validée automatiquement).</p>
+      <p>Un membre vient de s'inscrire à un événement. Son inscription est <strong>en attente de validation</strong>.</p>
       <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
         <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Membre</td><td style="padding: 6px 12px;">${memberName} (${memberEmail})</td></tr>
         <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Événement</td><td style="padding: 6px 12px;">${eventTitle}</td></tr>
@@ -294,11 +294,12 @@ export async function sendEventRegistrationConfirmation(params: {
     : "";
 
   const html = wrapHtml(
-    "Inscription confirmée ✅",
+    "Inscription reçue ⏳",
     `
       ${coverHtml}
       <p>Bonjour ${firstName},</p>
-      <p>Votre inscription à l'événement <strong>${eventTitle}</strong> est <strong>confirmée</strong>.</p>
+      <p>Votre inscription à l'événement <strong>${eventTitle}</strong> est bien enregistrée et <strong>en attente de validation</strong> par un administrateur.</p>
+      <p style="color:#888;font-size:13px;">Vous recevrez un email de confirmation dès qu'elle sera validée.</p>
       <p>
         📅 ${dateStr}<br/>
         📍 <a href="${mapsUrl}" style="color:#6366f1;">${location}</a>
@@ -313,7 +314,7 @@ export async function sendEventRegistrationConfirmation(params: {
       <p style="margin-top:20px;">À bientôt !</p>
     `
   );
-  await sendMail(to, `Inscription confirmée — ${eventTitle}`, html);
+  await sendMail(to, `Inscription en attente — ${eventTitle}`, html);
 }
 
 export async function sendEventFeesRecapEmail(params: {
