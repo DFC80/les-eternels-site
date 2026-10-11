@@ -190,7 +190,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       participationFee,
       isTrialDay,
       hasOwnEquipment,
-      status: "APPROVED",
+      status: "PENDING",
       mealOrders: mealOrders.length > 0
         ? {
             create: mealOrders
