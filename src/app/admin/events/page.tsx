@@ -60,17 +60,32 @@ type Rental = {
 
 type EquipmentCategory = { id: string; key: string; label: string; emoji: string; order: number };
 
+type RegistrationRental = {
+  id: string;
+  equipmentName: string;
+  rentalCost: number;
+  quantity: number;
+  isFree: boolean;
+  isPaid: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+};
+
 type EventRegistrationAdmin = {
   id: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   wantsMeal: boolean;
+  mealPaid: boolean;
+  mealPrice: number;
   isTrialDay: boolean;
   hasOwnEquipment: boolean;
   isPaid: boolean;
+  participationFee: number;
+  participationPaid: boolean;
   memberName: string;
   memberEmail: string;
   createdAt: string;
   mealOrders: { menuLabel: string | null; quantity: number }[];
+  rentals: RegistrationRental[];
 };
 
 type ConsommationItem = { label: string; included: boolean };
@@ -476,6 +491,40 @@ export default function AdminEventsPage() {
     if (res.ok) await loadEventRegistrations(eventId);
   }
 
+  async function setPaymentField(eventId: string, registrationId: string, field: "mealPaid" | "participationPaid", value: boolean) {
+    const res = await fetch(`/api/admin/registrations/${registrationId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (res.ok) await loadEventRegistrations(eventId);
+  }
+
+  async function removePaymentLine(eventId: string, registrationId: string, type: "meal" | "participation") {
+    const field = type === "meal" ? "removeMeal" : "removeParticipation";
+    const res = await fetch(`/api/admin/registrations/${registrationId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: true }),
+    });
+    if (res.ok) await loadEventRegistrations(eventId);
+  }
+
+  async function setRentalPaid(eventId: string, rentalId: string, isPaid: boolean) {
+    const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPaid }),
+    });
+    if (res.ok) await loadEventRegistrations(eventId);
+  }
+
+  async function deleteRentalLine(eventId: string, rentalId: string) {
+    if (!confirm("Supprimer cette location ?")) return;
+    const res = await fetch(`/api/admin/rentals/${rentalId}`, { method: "DELETE" });
+    if (res.ok) await loadEventRegistrations(eventId);
+  }
+
   async function updateRental(eventId: string, rentalId: string, data: { status?: string; isFree?: boolean }) {
     const res = await fetch(`/api/admin/rentals/${rentalId}`, {
       method: "PUT",
@@ -739,91 +788,161 @@ export default function AdminEventsPage() {
               <p className="text-slate-500">Aucune inscription pour cet événement.</p>
             ) : (
               <ul className="space-y-3">
-                {eventRegistrations.map((r) => (
-                  <li key={r.id} className="rounded-lg border border-primary-800 bg-primary-900/40 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-slate-200">
-                          {r.memberName}
-                          {r.isTrialDay && (
-                            <span className="ml-2 rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">
-                              🎯 Essai
-                            </span>
-                          )}
-                          {r.hasOwnEquipment && (
-                            <span className="ml-2 rounded-full bg-blue-900/60 px-2 py-0.5 text-xs font-semibold text-blue-300">
-                              🔫 Proprio
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {r.memberEmail}
-                          {" · "}
-                          <span
-                            className={
-                              r.status === "APPROVED"
-                                ? "text-emerald-400"
-                                : r.status === "REJECTED"
-                                  ? "text-red-400"
-                                  : "text-amber-400"
-                            }
-                          >
-                            {r.status === "APPROVED"
-                              ? "Validée"
-                              : r.status === "REJECTED"
-                                ? "Refusée"
-                                : "En attente"}
-                          </span>
-                          {" · "}
-                          <span className={r.isPaid ? "text-emerald-400" : "text-amber-400"}>
-                            {r.isPaid ? "💶 Payé" : "💶 Non payé"}
-                          </span>
-                        </p>
-                        {r.wantsMeal && (
-                          <p className="mt-1 text-xs text-slate-400">
-                            🍽️{" "}
-                            {r.mealOrders.length > 0
-                              ? r.mealOrders
-                                  .map((o) => `${o.quantity}× ${o.menuLabel ?? "Repas"}`)
-                                  .join(", ")
-                              : "Repas (sans détail)"}
+                {eventRegistrations.map((r) => {
+                  const payLines: { key: string; icon: string; label: string; amount: string; paid: boolean; onToggle: () => void; onDelete?: () => void }[] = [];
+                  if (r.wantsMeal) {
+                    payLines.push({
+                      key: "meal",
+                      icon: "🍽️",
+                      label: r.mealOrders.length > 0 ? r.mealOrders.map((o) => `${o.quantity}× ${o.menuLabel ?? "Repas"}`).join(", ") : "Repas",
+                      amount: `${r.mealPrice}€`,
+                      paid: r.mealPaid,
+                      onToggle: () => setPaymentField(ev.id, r.id, "mealPaid", !r.mealPaid),
+                      onDelete: !r.mealPaid ? () => removePaymentLine(ev.id, r.id, "meal") : undefined,
+                    });
+                  }
+                  if (r.participationFee > 0) {
+                    payLines.push({
+                      key: "participation",
+                      icon: "👤",
+                      label: "Participation",
+                      amount: `${(r.participationFee / 100).toFixed(2)}€`,
+                      paid: r.participationPaid,
+                      onToggle: () => setPaymentField(ev.id, r.id, "participationPaid", !r.participationPaid),
+                      onDelete: !r.participationPaid ? () => removePaymentLine(ev.id, r.id, "participation") : undefined,
+                    });
+                  }
+                  for (const rt of r.rentals) {
+                    const cost = rt.isFree ? "Gratuit" : `${rt.rentalCost * rt.quantity}€`;
+                    payLines.push({
+                      key: `rental-${rt.id}`,
+                      icon: "🔫",
+                      label: `${rt.quantity > 1 ? `${rt.quantity}× ` : ""}${rt.equipmentName}`,
+                      amount: rt.isFree ? "Gratuit" : cost,
+                      paid: rt.isPaid,
+                      onToggle: () => setRentalPaid(ev.id, rt.id, !rt.isPaid),
+                      onDelete: !rt.isPaid ? () => deleteRentalLine(ev.id, rt.id) : undefined,
+                    });
+                  }
+
+                  return (
+                    <li key={r.id} className="rounded-lg border border-primary-800 bg-primary-900/40 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-200">
+                            {r.memberName}
+                            {r.isTrialDay && (
+                              <span className="ml-2 rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                                🎯 Essai
+                              </span>
+                            )}
+                            {r.hasOwnEquipment && (
+                              <span className="ml-2 rounded-full bg-blue-900/60 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                                🔫 Proprio
+                              </span>
+                            )}
                           </p>
+                          <p className="text-xs text-slate-400">
+                            {r.memberEmail}
+                            {" · "}
+                            <span
+                              className={
+                                r.status === "APPROVED"
+                                  ? "text-emerald-400"
+                                  : r.status === "REJECTED"
+                                    ? "text-red-400"
+                                    : "text-amber-400"
+                              }
+                            >
+                              {r.status === "APPROVED" ? "Validée" : r.status === "REJECTED" ? "Refusée" : "En attente"}
+                            </span>
+                          </p>
+                        </div>
+                        {canWrite && (
+                          <div className="flex gap-2">
+                            {r.status !== "APPROVED" && (
+                              <button
+                                onClick={() => updateRegistration(ev.id, r.id, "APPROVED")}
+                                className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
+                              >
+                                Valider
+                              </button>
+                            )}
+                            {r.status !== "REJECTED" && (
+                              <button
+                                onClick={() => updateRegistration(ev.id, r.id, "REJECTED")}
+                                className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
+                              >
+                                Refuser
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                      {canWrite && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => toggleRegistrationPaid(ev.id, r.id, !r.isPaid)}
-                            className={`rounded px-2 py-1 text-xs font-medium ${
-                              r.isPaid
-                                ? "bg-primary-900 text-slate-400 hover:bg-primary-800"
-                                : "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
-                            }`}
-                            title={r.isPaid ? "Repasser en non payé" : "Règlement reçu sur place"}
-                          >
-                            {r.isPaid ? "Annuler paiement" : "Marquer payé"}
-                          </button>
-                          {r.status !== "APPROVED" && (
-                            <button
-                              onClick={() => updateRegistration(ev.id, r.id, "APPROVED")}
-                              className="rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900"
-                            >
-                              Valider
-                            </button>
-                          )}
-                          {r.status !== "REJECTED" && (
-                            <button
-                              onClick={() => updateRegistration(ev.id, r.id, "REJECTED")}
-                              className="rounded bg-red-950 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-900"
-                            >
-                              Refuser
-                            </button>
-                          )}
+
+                      {payLines.length > 0 && (
+                        <div className="mt-2 overflow-x-auto rounded border border-primary-800">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-primary-800 bg-primary-950/60">
+                                <th className="px-3 py-1.5 text-left font-medium text-slate-400">Type</th>
+                                <th className="px-3 py-1.5 text-right font-medium text-slate-400">Montant</th>
+                                <th className="px-3 py-1.5 text-center font-medium text-slate-400">Statut</th>
+                                {canWrite && <th className="px-3 py-1.5 text-right font-medium text-slate-400">Actions</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {payLines.map((line) => (
+                                <tr key={line.key} className="border-b border-primary-800/50 last:border-0">
+                                  <td className="px-3 py-1.5 text-slate-200">
+                                    {line.icon} {line.label}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right text-slate-300">{line.amount}</td>
+                                  <td className="px-3 py-1.5 text-center">
+                                    <span
+                                      className={`inline-block rounded-full px-2 py-0.5 font-semibold ${
+                                        line.paid
+                                          ? "bg-emerald-900/60 text-emerald-300"
+                                          : "bg-amber-900/60 text-amber-300"
+                                      }`}
+                                    >
+                                      {line.paid ? "Payé" : "En Attente"}
+                                    </span>
+                                  </td>
+                                  {canWrite && (
+                                    <td className="px-3 py-1.5 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          onClick={line.onToggle}
+                                          className={`rounded px-2 py-0.5 font-medium ${
+                                            line.paid
+                                              ? "bg-primary-800 text-slate-400 hover:bg-primary-700"
+                                              : "bg-emerald-950 text-emerald-300 hover:bg-emerald-900"
+                                          }`}
+                                        >
+                                          {line.paid ? "Annuler" : "Marquer payé"}
+                                        </button>
+                                        {line.onDelete && (
+                                          <button
+                                            onClick={line.onDelete}
+                                            className="rounded px-2 py-0.5 font-medium text-red-400 hover:bg-red-950/40"
+                                            title="Supprimer cette ligne en attente"
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

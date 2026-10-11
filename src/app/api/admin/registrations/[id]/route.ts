@@ -13,7 +13,38 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { status, isPaid } = body as { status?: "APPROVED" | "REJECTED"; isPaid?: boolean };
+  const { status, isPaid, mealPaid, participationPaid, removeMeal, removeParticipation } = body as {
+    status?: "APPROVED" | "REJECTED";
+    isPaid?: boolean;
+    mealPaid?: boolean;
+    participationPaid?: boolean;
+    removeMeal?: boolean;
+    removeParticipation?: boolean;
+  };
+
+  if (removeMeal) {
+    await prisma.eventRegistration.update({
+      where: { id: params.id },
+      data: { wantsMeal: false, mealPaid: false },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (removeParticipation) {
+    await prisma.eventRegistration.update({
+      where: { id: params.id },
+      data: { participationFee: 0, participationPaid: false },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (mealPaid !== undefined || participationPaid !== undefined) {
+    const data: Record<string, unknown> = {};
+    if (mealPaid !== undefined) data.mealPaid = !!mealPaid;
+    if (participationPaid !== undefined) data.participationPaid = !!participationPaid;
+    const updated = await prisma.eventRegistration.update({ where: { id: params.id }, data });
+    return NextResponse.json(updated);
+  }
 
   // Marquage manuel « payé sur place » par l'admin (sans changement de statut)
   if (status === undefined && isPaid !== undefined) {

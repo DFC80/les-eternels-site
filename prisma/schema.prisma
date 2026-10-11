@@ -205,9 +205,11 @@ model EventRegistration {
   participationFee Int      @default(0)          // 0 = membre, 500 = 5€ participation invité airsoft
   isTrialDay       Boolean  @default(false)       // inscription en journée d'essai airsoft
   hasOwnEquipment  Boolean  @default(false)       // membre possède sa propre réplique et équipement airsoft
-  isPaid           Boolean  @default(false)       // frais (repas, participation, locations) payés en ligne
-  paidAt           DateTime?
-  createdAt        DateTime @default(now())
+  isPaid            Boolean  @default(false)       // frais (repas, participation, locations) payés en ligne
+  paidAt            DateTime?
+  mealPaid          Boolean  @default(false)
+  participationPaid Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -435,6 +437,7 @@ model EquipmentRental {
   quantity       Int      @default(1)
   status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
   isFree         Boolean  @default(false)
+  isPaid         Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)

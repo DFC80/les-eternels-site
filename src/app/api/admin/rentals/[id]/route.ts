@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const body = await request.json();
-  const { status, isFree } = body as { status?: string; isFree?: boolean };
+  const { status, isFree, isPaid } = body as { status?: string; isFree?: boolean; isPaid?: boolean };
 
   if (status && !["PENDING", "APPROVED", "REJECTED"].includes(status)) {
     return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
@@ -25,6 +25,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     data: {
       ...(status ? { status } : {}),
       ...(isFree !== undefined ? { isFree } : {}),
+      ...(isPaid !== undefined ? { isPaid: !!isPaid } : {}),
     },
   });
 
@@ -71,4 +72,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   return NextResponse.json(rental);
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || !sessionHasWriteAccess(session.user, "events")) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  }
+  await prisma.equipmentRental.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
 }
