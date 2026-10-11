@@ -6,7 +6,7 @@ import { sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 
-type MenuInput = { id?: string; label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null };
+type MenuInput = { id?: string; label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null; stock?: number | string | null; catalogId?: string | null };
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -53,6 +53,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       label: m.label.trim(),
       maxPerPerson: m.maxPerPerson ? Number(m.maxPerPerson) : null,
       extraPrice: m.extraPrice != null && m.extraPrice !== "" ? Math.round(Number(m.extraPrice)) : null,
+      stock: m.stock != null && m.stock !== "" ? Number(m.stock) : null,
+      catalogId: m.catalogId ?? null,
     }))
     .filter((m) => m.label);
 
@@ -66,11 +68,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       if (m.id) {
         await prisma.mealMenu.update({
           where: { id: m.id },
-          data: { label: m.label, maxPerPerson: m.maxPerPerson, extraPrice: m.extraPrice },
+          data: { label: m.label, maxPerPerson: m.maxPerPerson, extraPrice: m.extraPrice, stock: m.stock, catalogId: m.catalogId },
         });
       } else {
         await prisma.mealMenu.create({
-          data: { eventId: params.id, label: m.label, maxPerPerson: m.maxPerPerson, extraPrice: m.extraPrice },
+          data: { eventId: params.id, label: m.label, maxPerPerson: m.maxPerPerson, extraPrice: m.extraPrice, stock: m.stock, catalogId: m.catalogId },
         });
       }
     }

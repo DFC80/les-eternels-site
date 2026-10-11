@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { getAllowedActivityTypes, sessionHasWriteAccess } from "@/lib/permissions";
 import DateInput from "@/components/DateInput";
 
-type MenuItem = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null };
+type MenuItem = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null; stock: number | null; catalogId: string | null };
 
 type EventItem = {
   id: string;
@@ -45,7 +45,8 @@ type MealReport = {
   diners: { name: string; items: { label: string; quantity: number }[]; notes: string | null }[];
 };
 
-type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string };
+type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
+type CatalogItem = { id: string; label: string; stock: number | null };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -160,6 +161,7 @@ export default function AdminEventsPage() {
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [activityOptions, setActivityOptions] = useState<ActivityOption[]>([]);
+  const [menuCatalog, setMenuCatalog] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -218,6 +220,10 @@ export default function AdminEventsPage() {
       .then((r) => r.ok ? r.json() : [])
       .then((data: EquipmentCategory[]) => setEquipmentCategories(data))
       .catch(() => {});
+    fetch("/api/admin/menu-catalog")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: CatalogItem[]) => setMenuCatalog(data))
+      .catch(() => {});
   }, []);
 
   function resetForm() {
@@ -239,7 +245,7 @@ export default function AdminEventsPage() {
       mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter((k) => MEAL_EXTRAS.some((e) => e.key === k)) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
-      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "" })),
+      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "", stock: m.stock != null ? String(m.stock) : "", catalogId: m.catalogId ?? undefined })),
       consommations: ev.mealExtras
         ? ev.mealExtras.split(",").filter(Boolean).filter((k) => !MEAL_EXTRAS.some((e) => e.key === k)).map((k) => ({ label: DEPRECATED_EXTRA_LABELS[k] ?? k, included: true }))
         : [],
@@ -278,7 +284,7 @@ export default function AdminEventsPage() {
       ],
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
-      menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null })),
+      menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null, stock: m.stock !== "" ? Number(m.stock) : null, catalogId: m.catalogId ?? null })),
       boardGameIds: form.boardGameIds,
     };
 
@@ -327,6 +333,19 @@ export default function AdminEventsPage() {
   function updateMenu(index: number, field: keyof MenuFormItem, value: string) {
     const menus = [...form.menus];
     menus[index] = { ...menus[index], [field]: value };
+    setForm({ ...form, menus });
+  }
+
+  function selectCatalogMenu(index: number, catalogId: string) {
+    const menus = [...form.menus];
+    if (catalogId === "") {
+      menus[index] = { ...menus[index], label: "", catalogId: undefined, stock: "" };
+    } else {
+      const cat = menuCatalog.find((c) => c.id === catalogId);
+      if (cat) {
+        menus[index] = { ...menus[index], label: cat.label, catalogId: cat.id, stock: cat.stock != null ? String(cat.stock) : "" };
+      }
+    }
     setForm({ ...form, menus });
   }
 
@@ -1600,50 +1619,93 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300">
-                  Menus au choix (optionnel)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-300">
+                    Menus au choix (optionnel)
+                  </label>
+                  {menuCatalog.length === 0 && (
+                    <a href="/admin/menus" target="_blank" rel="noreferrer" className="text-xs text-sky-400 hover:underline">
+                      Gérer le catalogue →
+                    </a>
+                  )}
+                </div>
                 <div className="mt-2 space-y-2">
                   {form.menus.map((menu, i) => (
-                    <div key={i} className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        value={menu.label}
-                        onChange={(e) => updateMenu(i, "label", e.target.value)}
-                        placeholder="Ex: Merguez"
-                        className={inputClass}
-                      />
-                      <input
-                        type="number"
-                        min={1}
-                        value={menu.maxPerPerson}
-                        onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
-                        placeholder="Max/pers."
-                        title="Quantité maximale par personne"
-                        className={`${inputClass} sm:w-28`}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={menu.extraPrice}
-                        onChange={(e) => updateMenu(i, "extraPrice", e.target.value)}
-                        placeholder="Supplément €"
-                        title="Supplément payant en euros (laisser vide si aucun)"
-                        className={`${inputClass} sm:w-32`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeMenu(i)}
-                        className="rounded-md border border-primary-700 px-3 py-2 text-red-400 hover:bg-primary-900 sm:border-0 sm:py-0"
-                      >
-                        ✕ Supprimer
-                      </button>
+                    <div key={i} className="flex flex-col gap-2 rounded-lg border border-primary-800 bg-primary-950/60 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        {menuCatalog.length > 0 ? (
+                          <select
+                            value={menu.catalogId ?? ""}
+                            onChange={(e) => selectCatalogMenu(i, e.target.value)}
+                            className={`${inputClass} sm:flex-1`}
+                          >
+                            <option value="">— Libellé personnalisé —</option>
+                            {menuCatalog.map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.label}{cat.stock != null ? ` (${cat.stock} portions)` : ""}</option>
+                            ))}
+                          </select>
+                        ) : null}
+                        {(!menu.catalogId || menuCatalog.length === 0) && (
+                          <input
+                            value={menu.label}
+                            onChange={(e) => updateMenu(i, "label", e.target.value)}
+                            placeholder="Ex: Merguez"
+                            className={`${inputClass} sm:flex-1`}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeMenu(i)}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-red-400 hover:bg-primary-900 sm:border-0 sm:py-0 sm:self-end"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="text-xs text-slate-400">Stock total <span className="text-slate-500">(vide = illimité)</span></label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={menu.stock}
+                            onChange={(e) => updateMenu(i, "stock", e.target.value)}
+                            placeholder="Ex: 30"
+                            title="Nombre de portions disponibles au total"
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="w-28">
+                          <label className="text-xs text-slate-400">Max/pers.</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={menu.maxPerPerson}
+                            onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
+                            placeholder="∞"
+                            title="Quantité maximale par personne"
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="w-32">
+                          <label className="text-xs text-slate-400">Supplément €</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={menu.extraPrice}
+                            onChange={(e) => updateMenu(i, "extraPrice", e.target.value)}
+                            placeholder="0"
+                            title="Supplément payant en euros (laisser vide si aucun)"
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "", extraPrice: "" }] })}
+                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "", extraPrice: "", stock: "", catalogId: undefined }] })}
                   className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
                 >
                   + Ajouter un menu
