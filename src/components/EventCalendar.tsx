@@ -856,7 +856,18 @@ export default function EventCalendar() {
                       ? equipmentCategories
                       : [...new Set(equipmentList.map(eq => eq.category))].map(k => ({ key: k, label: k, emoji: "📦" }));
                     return cats.map((cat) => {
-                      const items = equipmentList.filter((eq) => eq.category === cat.key);
+                      const items = equipmentList.filter((eq) => {
+                        if (eq.category !== cat.key) return false;
+                        if (eq.status !== "DISPONIBLE") return false;
+                        const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
+                        if (Math.max(0, (eq.stock ?? 1) - takenQty) <= 0) return false;
+                        return !eq.associations.some((a) => {
+                          const item = equipmentList.find((e) => e.id === a.itemId);
+                          if (!item) return false;
+                          const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                          return a.quantity > Math.max(0, (item.stock ?? 1) - itemTaken);
+                        });
+                      });
                       if (items.length === 0) return null;
                       return (
                         <div key={cat.key} className="mt-4">
@@ -866,11 +877,9 @@ export default function EventCalendar() {
                           <div className="mt-2 grid gap-3 sm:grid-cols-2">
                             {items.map((eq) => {
                               const qty = selectedEquipment[eq.id] ?? 0;
-                              // Inclut les déductions virtuelles des répliques sélectionnées
                               const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
                               const available = Math.max(0, (eq.stock ?? 1) - takenQty);
                               const isFull = available <= 0;
-                              // Pour les répliques : vérifie si les éléments associés ont assez de stock
                               const insufficientAssoc = eq.associations.find((a) => {
                                 const item = equipmentList.find((e) => e.id === a.itemId);
                                 if (!item) return false;
@@ -1223,7 +1232,18 @@ export default function EventCalendar() {
                         ? equipmentCategories
                         : [...new Set(equipmentList.map((eq) => eq.category))].map((k) => ({ key: k, label: k, emoji: "📦" }));
                       return cats.map((cat) => {
-                        const items = equipmentList.filter((eq) => eq.category === cat.key);
+                        const items = equipmentList.filter((eq) => {
+                          if (eq.category !== cat.key) return false;
+                          if (eq.status !== "DISPONIBLE") return false;
+                          const takenQty = (taken.get(eq.id) ?? 0) + (virtualDeductions.get(eq.id) ?? 0);
+                          if (Math.max(0, (eq.stock ?? 1) - takenQty) <= 0) return false;
+                          return !eq.associations.some((a) => {
+                            const item = equipmentList.find((e) => e.id === a.itemId);
+                            if (!item) return false;
+                            const itemTaken = (taken.get(a.itemId) ?? 0) + (virtualDeductions.get(a.itemId) ?? 0);
+                            return a.quantity > Math.max(0, (item.stock ?? 1) - itemTaken);
+                          });
+                        });
                         if (items.length === 0) return null;
                         return (
                           <div key={cat.key} className="mt-4">
