@@ -129,6 +129,54 @@ export async function sendNewEventRegistrationToAdmin(params: {
   await sendMail(adminEmail, `Nouvelle inscription — ${memberName} à ${eventTitle}`, html);
 }
 
+export async function sendRegistrationModificationToAdmin(params: {
+  memberName: string;
+  memberEmail: string;
+  eventTitle: string;
+  startsAt: Date;
+  location: string;
+  modificationType: "matériel" | "repas";
+  detailsHtml: string;
+  eventUrl?: string;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
+  if (!adminEmail) return;
+
+  const { memberName, memberEmail, eventTitle, startsAt, location, modificationType, detailsHtml, eventUrl } = params;
+
+  const dateStr = startsAt.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  const eventLinkHtml = eventUrl
+    ? `<p style="margin-top:16px;"><a href="${eventUrl}" style="color:#6366f1;">Voir l'événement →</a></p>`
+    : "";
+
+  const html = wrapHtml(
+    `Modification d'inscription — ${modificationType}`,
+    `
+      <p>Le membre <strong>${memberName}</strong> (${memberEmail}) a modifié son inscription à :</p>
+      <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
+        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Événement</td><td style="padding: 6px 12px;">${eventTitle}</td></tr>
+        <tr style="background:#f9f9f9"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Date</td><td style="padding: 6px 12px;">${dateStr}</td></tr>
+        <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">Lieu</td><td style="padding: 6px 12px;"><a href="${mapsUrl}" style="color:#6366f1;">${location}</a></td></tr>
+      </table>
+      <p style="margin-top: 16px; font-weight: bold; color: #555;">Nouvelle sélection (${modificationType}) :</p>
+      ${detailsHtml}
+      <p style="margin-top: 16px;">Rendez-vous dans le panneau d'administration pour gérer cette inscription.</p>
+      ${eventLinkHtml}
+    `
+  );
+  await sendMail(adminEmail, `Modification inscription — ${memberName} à ${eventTitle}`, html);
+}
+
 export async function sendEventRegistrationApproved(params: {
   to: string;
   firstName: string;
