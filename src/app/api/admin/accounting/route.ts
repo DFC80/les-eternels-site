@@ -42,14 +42,14 @@ export async function GET() {
   });
 
   const eventSummaries = events.map((ev) => {
-    const mealIncome = ev.hasMeal ? ev.registrations.filter((r) => r.wantsMeal).length * ev.mealPrice : 0;
+    const mealIncome = ev.hasMeal ? ev.registrations.filter((r) => r.wantsMeal && r.mealPaid).length * ev.mealPrice : 0;
     const equipmentIncome = ev.registrations.reduce(
-      (sum, r) => sum + r.rentals.reduce((s, rental) => s + (rental.isFree ? 0 : rental.equipment.rentalCost * (rental.quantity ?? 1)), 0),
+      (sum, r) => sum + r.rentals.reduce((s, rental) => s + (rental.isFree || !rental.isPaid ? 0 : rental.equipment.rentalCost * (rental.quantity ?? 1)), 0),
       0
     );
     // participationFee stocké en centimes (500 = 5€) → converti en euros entiers
     const participationIncome = Math.round(
-      ev.registrations.reduce((sum, r) => sum + (r.participationFee ?? 0), 0) / 100
+      ev.registrations.reduce((sum, r) => sum + (r.participationPaid ? (r.participationFee ?? 0) : 0), 0) / 100
     );
     const income = mealIncome + equipmentIncome + participationIncome;
     const expensesTotal = ev.expenses.reduce((sum, e) => sum + e.amount, 0);
