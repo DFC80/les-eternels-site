@@ -110,6 +110,13 @@ export default function AdminParticipationsPage() {
             Liste des inscriptions par membre.
           </p>
         </div>
+        <Link
+          href={`/admin/participations/print${filterStatus !== "ALL" ? `?status=${filterStatus}` : ""}`}
+          target="_blank"
+          className="rounded-md border border-primary-700 px-4 py-2 text-sm font-medium text-primary-300 hover:bg-primary-800/60"
+        >
+          🖨️ Imprimer
+        </Link>
       </div>
 
       {/* Filtres */}
