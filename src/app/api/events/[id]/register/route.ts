@@ -268,6 +268,14 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     return NextResponse.json({ error: "Vous devez être connecté." }, { status: 401 });
   }
 
+  const event = await prisma.event.findUnique({ where: { id: params.id }, select: { startsAt: true } });
+  if (!event) {
+    return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
+  }
+  if (new Date(event.startsAt) < new Date()) {
+    return NextResponse.json({ error: "La date de cet événement est passée, vous ne pouvez plus vous désinscrire." }, { status: 400 });
+  }
+
   await prisma.eventRegistration.deleteMany({
     where: { eventId: params.id, userId: session.user.id },
   });
