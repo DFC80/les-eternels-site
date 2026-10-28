@@ -1463,6 +1463,12 @@ export default function EventCalendar() {
               </p>
             )}
 
+            {isRegistered(selected) && isEventPast(selected) && (
+              <p className="mt-4 text-sm text-slate-400">
+                Vous étiez inscrit à cet événement. La désinscription n&apos;est plus possible une fois la date passée.
+              </p>
+            )}
+
             {!isRegistrationClosed(selected) && !isEligible(selected) && !isRegistered(selected) && (
               <>
                 {getMembershipWarning(selected, membership, activityMeta)}
@@ -1661,7 +1667,7 @@ export default function EventCalendar() {
               >
                 Fermer
               </button>
-              {isRegistered(selected) ? (
+              {isRegistered(selected) && !isEventPast(selected) ? (
                 <button
                   onClick={() => handleRegister(selected)}
                   disabled={loadingAction}
@@ -1669,7 +1675,7 @@ export default function EventCalendar() {
                 >
                   Se désinscrire
                 </button>
-              ) : !showConfirmation && (
+              ) : !isRegistered(selected) && !showConfirmation && (
                 <button
                   onClick={() => setShowConfirmation(true)}
                   disabled={
