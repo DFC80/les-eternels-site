@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 
 type MenuInput = { id?: string; label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null; stock?: number | string | null; catalogId?: string | null };
+type DrinkInput = { id?: string; label: string; maxPerPerson?: number | string | null; stock?: number | string | null; catalogId?: string | null };
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -28,6 +29,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     mealExtras,
     mealPrice,
     menus,
+    hasDrinks,
+    drinks,
     registrationDeadline,
     boardGameIds,
   } = body as {
@@ -43,6 +46,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     mealExtras?: string[];
     mealPrice?: string | number | null;
     menus?: MenuInput[];
+    hasDrinks?: boolean;
+    drinks?: DrinkInput[];
     registrationDeadline?: string | null;
     boardGameIds?: string[];
   };
@@ -57,6 +62,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       catalogId: m.catalogId ?? null,
     }))
     .filter((m) => m.label);
+
+  const cleanedDrinks = (drinks ?? [])
+    .map((d) => ({
+      id: d.id || undefined,
+      label: d.label.trim(),
+      maxPerPerson: d.maxPerPerson ? Number(d.maxPerPerson) : null,
+      stock: d.stock != null && d.stock !== "" ? Number(d.stock) : null,
+      catalogId: d.catalogId ?? null,
+    }))
+    .filter((d) => d.label);
 
   if (hasMeal) {
     // Only delete menus that were removed; keep existing ones so MealOrderItem.menuId stays intact.
@@ -80,6 +95,27 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     await prisma.mealMenu.deleteMany({ where: { eventId: params.id } });
   }
 
+  if (hasDrinks) {
+    const keptDrinkIds = cleanedDrinks.filter((d) => d.id).map((d) => d.id as string);
+    await prisma.eventDrink.deleteMany({
+      where: { eventId: params.id, id: { notIn: keptDrinkIds } },
+    });
+    for (const d of cleanedDrinks) {
+      if (d.id) {
+        await prisma.eventDrink.update({
+          where: { id: d.id },
+          data: { label: d.label, maxPerPerson: d.maxPerPerson, stock: d.stock, catalogId: d.catalogId },
+        });
+      } else {
+        await prisma.eventDrink.create({
+          data: { eventId: params.id, label: d.label, maxPerPerson: d.maxPerPerson, stock: d.stock, catalogId: d.catalogId },
+        });
+      }
+    }
+  } else {
+    await prisma.eventDrink.deleteMany({ where: { eventId: params.id } });
+  }
+
   const event = await prisma.event.update({
     where: { id: params.id },
     data: {
@@ -94,12 +130,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       mealInfo: hasMeal ? mealInfo || null : null,
       mealExtras: hasMeal && Array.isArray(mealExtras) ? mealExtras.join(",") : "",
       mealPrice: mealPrice ? Number(mealPrice) : MEAL_PRICE,
+      hasDrinks: !!hasDrinks,
       registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
       boardGames: {
         set: activityType === "JEUX_DE_PLATEAU" && Array.isArray(boardGameIds) ? boardGameIds.map((id) => ({ id })) : [],
       },
     },
-    include: { menus: true, boardGames: true },
+    include: { menus: true, drinks: true, boardGames: true },
   });
 
   return NextResponse.json(event);
