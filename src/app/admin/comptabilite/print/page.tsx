@@ -32,6 +32,7 @@ export default async function PrintComptabilitePage() {
         include: { rentals: { where: { status: "APPROVED" }, include: { equipment: true } } },
       },
       expenses: { orderBy: { createdAt: "asc" } },
+      credits: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -60,6 +61,7 @@ export default async function PrintComptabilitePage() {
     );
     const income = mealIncome + equipmentIncome + participationIncome;
     const expensesTotal = ev.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const creditsTotal = ev.credits.reduce((sum, c) => sum + c.amount, 0);
     return {
       eventId: ev.id,
       title: ev.title,
@@ -69,19 +71,22 @@ export default async function PrintComptabilitePage() {
       participationIncome,
       income,
       expensesTotal,
-      profit: income - expensesTotal,
+      creditsTotal,
+      profit: income + creditsTotal - expensesTotal,
       expenses: ev.expenses,
+      credits: ev.credits,
     };
   });
 
   const totalMembershipIncome = paidMemberships.reduce((sum, m) => sum + m.amount, 0);
   const totalEventIncome = eventSummaries.reduce((sum, e) => sum + e.income, 0);
   const totalEventExpenses = eventSummaries.reduce((sum, e) => sum + e.expensesTotal, 0);
+  const totalEventCredits = eventSummaries.reduce((sum, e) => sum + e.creditsTotal, 0);
   const totalGeneralExpenses = generalExpenses.reduce((sum, e) => sum + e.amount, 0);
   const totalGeneralCredits = generalCredits.reduce((sum, c) => sum + c.amount, 0);
   const totalBalanceTopUps = balanceTopUps.reduce((sum, t) => sum + t.amount, 0);
   const netResultCents =
-    Math.round((totalMembershipIncome + totalEventIncome + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100) +
+    Math.round((totalMembershipIncome + totalEventIncome + totalEventCredits + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100) +
     totalBalanceTopUps;
 
   const printDate = fmtDate(new Date());
@@ -150,6 +155,10 @@ export default async function PrintComptabilitePage() {
           <div className="summary-card">
             <div className="label">Crédits divers</div>
             <div className="value positive">{fmtEuros(totalGeneralCredits)}</div>
+          </div>
+          <div className="summary-card">
+            <div className="label">Crédits événements</div>
+            <div className="value positive">{fmtEuros(totalEventCredits)}</div>
           </div>
           <div className="summary-card">
             <div className="label">Dépenses événements</div>
@@ -229,9 +238,9 @@ export default async function PrintComptabilitePage() {
           </>
         )}
 
-        {/* Détail par événement */}
+        {/* Détail par événement — résumé */}
         <h2>Détail par événement</h2>
-        {eventSummaries.filter((e) => e.income > 0 || e.expensesTotal > 0).length === 0 ? (
+        {eventSummaries.filter((e) => e.income > 0 || e.expensesTotal > 0 || e.creditsTotal > 0).length === 0 ? (
           <p className="meta">Aucun événement avec données financières.</p>
         ) : (
           <table>
@@ -242,14 +251,15 @@ export default async function PrintComptabilitePage() {
                 <th style={{ width: 55, textAlign: "right" }}>Repas</th>
                 <th style={{ width: 65, textAlign: "right" }}>Matériel</th>
                 <th style={{ width: 80, textAlign: "right" }}>Participations</th>
-                <th style={{ width: 70, textAlign: "right" }}>Gains</th>
-                <th style={{ width: 70, textAlign: "right" }}>Dépenses</th>
+                <th style={{ width: 60, textAlign: "right" }}>Gains</th>
+                <th style={{ width: 65, textAlign: "right" }}>Crédits</th>
+                <th style={{ width: 65, textAlign: "right" }}>Dépenses</th>
                 <th style={{ width: 70, textAlign: "right" }}>Résultat</th>
               </tr>
             </thead>
             <tbody>
               {eventSummaries
-                .filter((e) => e.income > 0 || e.expensesTotal > 0)
+                .filter((e) => e.income > 0 || e.expensesTotal > 0 || e.creditsTotal > 0)
                 .map((ev) => (
                   <tr key={ev.eventId}>
                     <td>{ev.title}</td>
@@ -257,26 +267,79 @@ export default async function PrintComptabilitePage() {
                     <td style={{ textAlign: "right", color: "#666" }}>{ev.mealIncome > 0 ? `${ev.mealIncome}€` : "—"}</td>
                     <td style={{ textAlign: "right", color: "#666" }}>{ev.equipmentIncome > 0 ? `${ev.equipmentIncome}€` : "—"}</td>
                     <td style={{ textAlign: "right", color: "#666" }}>{ev.participationIncome > 0 ? `${ev.participationIncome}€` : "—"}</td>
-                    <td style={{ textAlign: "right" }}>{ev.income}€</td>
-                    <td style={{ textAlign: "right" }}>{ev.expensesTotal > 0 ? `${ev.expensesTotal}€` : "—"}</td>
+                    <td style={{ textAlign: "right" }}>{ev.income > 0 ? `${ev.income}€` : "—"}</td>
+                    <td style={{ textAlign: "right", color: "#16a34a" }}>{ev.creditsTotal > 0 ? `+${fmtEuros(ev.creditsTotal)}` : "—"}</td>
+                    <td style={{ textAlign: "right", color: "#dc2626" }}>{ev.expensesTotal > 0 ? `−${ev.expensesTotal}€` : "—"}</td>
                     <td style={{ textAlign: "right", fontWeight: "bold" }}
                         className={ev.profit >= 0 ? "positive" : "negative"}>
-                      {ev.profit >= 0 ? "+" : ""}{ev.profit}€
+                      {ev.profit >= 0 ? "+" : ""}{fmtEuros(ev.profit)}
                     </td>
                   </tr>
                 ))}
               <tr className="total-row">
                 <td colSpan={5}>Total</td>
                 <td style={{ textAlign: "right" }}>{fmtEuros(totalEventIncome)}</td>
-                <td style={{ textAlign: "right" }}>{fmtEuros(totalEventExpenses)}</td>
+                <td style={{ textAlign: "right" }} className="positive">+{fmtEuros(totalEventCredits)}</td>
+                <td style={{ textAlign: "right" }} className="negative">−{fmtEuros(totalEventExpenses)}</td>
                 <td style={{ textAlign: "right" }}
-                    className={(totalEventIncome - totalEventExpenses) >= 0 ? "positive" : "negative"}>
-                  {(totalEventIncome - totalEventExpenses) >= 0 ? "+" : ""}
-                  {fmtEuros(totalEventIncome - totalEventExpenses)}
+                    className={(totalEventIncome + totalEventCredits - totalEventExpenses) >= 0 ? "positive" : "negative"}>
+                  {(totalEventIncome + totalEventCredits - totalEventExpenses) >= 0 ? "+" : ""}
+                  {fmtEuros(totalEventIncome + totalEventCredits - totalEventExpenses)}
                 </td>
               </tr>
             </tbody>
           </table>
+        )}
+
+        {/* Détail des dépenses et crédits par événement */}
+        {eventSummaries.some((e) => e.expenses.length > 0 || e.credits.length > 0) && (
+          <>
+            <h2>Dépenses et crédits par événement</h2>
+            {eventSummaries
+              .filter((e) => e.expenses.length > 0 || e.credits.length > 0)
+              .map((ev) => (
+                <div key={ev.eventId} className="section" style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: "bold", fontSize: 12, marginBottom: 4, color: "#1a1a1a" }}>
+                    {ev.title} — <span style={{ color: "#666", fontWeight: "normal" }}>{fmtDate(ev.startsAt)}</span>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Libellé</th>
+                        <th style={{ width: 90, textAlign: "right" }}>Type</th>
+                        <th style={{ width: 100, textAlign: "right" }}>Montant</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ev.expenses.map((exp) => (
+                        <tr key={exp.id}>
+                          <td>{exp.label}</td>
+                          <td style={{ textAlign: "right", color: "#666" }}>Dépense</td>
+                          <td style={{ textAlign: "right", color: "#dc2626" }}>−{exp.amount}€</td>
+                        </tr>
+                      ))}
+                      {ev.credits.map((cr) => (
+                        <tr key={cr.id}>
+                          <td>{cr.label}</td>
+                          <td style={{ textAlign: "right", color: "#666" }}>Crédit</td>
+                          <td style={{ textAlign: "right", color: "#16a34a" }}>+{fmtEuros(cr.amount)}</td>
+                        </tr>
+                      ))}
+                      {(ev.expenses.length > 0 || ev.credits.length > 0) && (
+                        <tr className="total-row">
+                          <td colSpan={2}>Sous-total ajustements</td>
+                          <td style={{ textAlign: "right" }}
+                              className={(ev.creditsTotal - ev.expensesTotal) >= 0 ? "positive" : "negative"}>
+                            {(ev.creditsTotal - ev.expensesTotal) >= 0 ? "+" : ""}
+                            {fmtEuros(ev.creditsTotal - ev.expensesTotal)}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+          </>
         )}
 
         {/* Dépenses générales */}
