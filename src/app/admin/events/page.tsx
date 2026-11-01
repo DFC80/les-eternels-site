@@ -6,6 +6,7 @@ import { getAllowedActivityTypes, sessionHasWriteAccess } from "@/lib/permission
 import DateInput from "@/components/DateInput";
 
 type MenuItem = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null; stock: number | null; catalogId: string | null };
+type DrinkItem = { id: string; label: string; maxPerPerson: number | null; stock: number | null; catalogId: string | null };
 
 type EventItem = {
   id: string;
@@ -20,10 +21,12 @@ type EventItem = {
   mealInfo: string | null;
   mealExtras: string;
   mealPrice: number;
+  hasDrinks: boolean;
   registrationDeadline: string | null;
   showOnHome: boolean;
   showOnCalendar: boolean;
   menus: MenuItem[];
+  drinks: DrinkItem[];
   boardGames: { id: string; name: string }[];
   registrations: {
     id: string;
@@ -46,6 +49,7 @@ type MealReport = {
 };
 
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
+type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
@@ -104,8 +108,10 @@ const EMPTY_FORM = {
   mealInfo: "",
   mealExtras: ["pain", "sauces", "assaisonnements"] as string[],
   mealPrice: "10",
+  hasDrinks: false,
   registrationDeadline: "",
   menus: [] as MenuFormItem[],
+  drinks: [] as DrinkFormItem[],
   consommations: [] as ConsommationItem[],
   boardGameIds: [] as string[],
 };
@@ -162,6 +168,7 @@ export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [activityOptions, setActivityOptions] = useState<ActivityOption[]>([]);
   const [menuCatalog, setMenuCatalog] = useState<CatalogItem[]>([]);
+  const [drinkCatalog, setDrinkCatalog] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -224,6 +231,10 @@ export default function AdminEventsPage() {
       .then((r) => r.ok ? r.json() : [])
       .then((data: CatalogItem[]) => setMenuCatalog(data))
       .catch(() => {});
+    fetch("/api/admin/drink-catalog")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: CatalogItem[]) => setDrinkCatalog(data))
+      .catch(() => {});
   }, []);
 
   function resetForm() {
@@ -246,6 +257,8 @@ export default function AdminEventsPage() {
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
       menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "", stock: m.stock != null ? String(m.stock) : "", catalogId: m.catalogId ?? undefined })),
+      hasDrinks: ev.hasDrinks ?? false,
+      drinks: (ev.drinks ?? []).map((d) => ({ id: d.id, label: d.label, maxPerPerson: d.maxPerPerson ? String(d.maxPerPerson) : "", stock: d.stock != null ? String(d.stock) : "", catalogId: d.catalogId ?? undefined })),
       consommations: ev.mealExtras
         ? ev.mealExtras.split(",").filter(Boolean).filter((k) => !MEAL_EXTRAS.some((e) => e.key === k)).map((k) => ({ label: DEPRECATED_EXTRA_LABELS[k] ?? k, included: true }))
         : [],
@@ -285,6 +298,8 @@ export default function AdminEventsPage() {
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
       menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null, stock: m.stock !== "" ? Number(m.stock) : null, catalogId: m.catalogId ?? null })),
+      hasDrinks: form.hasDrinks,
+      drinks: form.drinks.map((d) => ({ id: d.id || undefined, label: d.label, maxPerPerson: d.maxPerPerson || null, stock: d.stock !== "" ? Number(d.stock) : null, catalogId: d.catalogId ?? null })),
       boardGameIds: form.boardGameIds,
     };
 
@@ -351,6 +366,29 @@ export default function AdminEventsPage() {
 
   function removeMenu(index: number) {
     setForm({ ...form, menus: form.menus.filter((_, i) => i !== index) });
+  }
+
+  function updateDrink(index: number, field: keyof DrinkFormItem, value: string) {
+    const drinks = [...form.drinks];
+    drinks[index] = { ...drinks[index], [field]: value };
+    setForm({ ...form, drinks });
+  }
+
+  function selectCatalogDrink(index: number, catalogId: string) {
+    const drinks = [...form.drinks];
+    if (catalogId === "") {
+      drinks[index] = { ...drinks[index], label: "", catalogId: undefined, stock: "" };
+    } else {
+      const cat = drinkCatalog.find((c) => c.id === catalogId);
+      if (cat) {
+        drinks[index] = { ...drinks[index], label: cat.label, catalogId: cat.id, stock: cat.stock != null ? String(cat.stock) : "" };
+      }
+    }
+    setForm({ ...form, drinks });
+  }
+
+  function removeDrink(index: number) {
+    setForm({ ...form, drinks: form.drinks.filter((_, i) => i !== index) });
   }
 
   async function toggleMealReport(eventId: string) {
@@ -1773,6 +1811,103 @@ export default function AdminEventsPage() {
                   className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
                 >
                   + Consommations
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="col-span-full rounded-lg border border-primary-700 bg-primary-950/60 p-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-200">
+            <input
+              type="checkbox"
+              checked={form.hasDrinks}
+              onChange={(e) => setForm({ ...form, hasDrinks: e.target.checked, drinks: e.target.checked ? form.drinks : [] })}
+              className={checkboxClass}
+            />
+            🥤 Des boissons sont proposées pour cet événement
+          </label>
+
+          {form.hasDrinks && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-300">
+                    Boissons au choix (optionnel)
+                  </label>
+                  {drinkCatalog.length === 0 && (
+                    <a href="/admin/menus" target="_blank" rel="noreferrer" className="text-xs text-sky-400 hover:underline">
+                      Gérer le catalogue →
+                    </a>
+                  )}
+                </div>
+                <div className="mt-2 space-y-2">
+                  {form.drinks.map((drink, i) => (
+                    <div key={i} className="flex flex-col gap-2 rounded-lg border border-primary-800 bg-primary-950/60 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        {drinkCatalog.length > 0 ? (
+                          <select
+                            value={drink.catalogId ?? ""}
+                            onChange={(e) => selectCatalogDrink(i, e.target.value)}
+                            className={`${inputClass} sm:flex-1`}
+                          >
+                            <option value="">— Libellé personnalisé —</option>
+                            {drinkCatalog.map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.label}{cat.stock != null ? ` (${cat.stock} unités)` : ""}</option>
+                            ))}
+                          </select>
+                        ) : null}
+                        {(!drink.catalogId || drinkCatalog.length === 0) && (
+                          <input
+                            value={drink.label}
+                            onChange={(e) => updateDrink(i, "label", e.target.value)}
+                            placeholder="Ex: Coca-Cola"
+                            className={`${inputClass} sm:flex-1`}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeDrink(i)}
+                          className="rounded-md border border-primary-700 px-3 py-2 text-red-400 hover:bg-primary-900 sm:border-0 sm:py-0 sm:self-end"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="text-xs text-slate-400">Stock total <span className="text-slate-500">(vide = illimité)</span></label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={drink.stock}
+                            onChange={(e) => updateDrink(i, "stock", e.target.value)}
+                            placeholder="Ex: 24"
+                            title="Nombre d'unités disponibles au total"
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="w-28">
+                          <label className="text-xs text-slate-400">Max/pers.</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={drink.maxPerPerson}
+                            onChange={(e) => updateDrink(i, "maxPerPerson", e.target.value)}
+                            placeholder="∞"
+                            title="Quantité maximale par personne"
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, drinks: [...form.drinks, { label: "", maxPerPerson: "", stock: "", catalogId: undefined }] })}
+                  className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
+                >
+                  + Ajouter une boisson
                 </button>
               </div>
             </div>

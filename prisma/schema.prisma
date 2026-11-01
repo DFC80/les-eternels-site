@@ -125,12 +125,14 @@ model Event {
   mealInfo             String?
   mealExtras           String    @default("")
   mealPrice            Int       @default(10)
+  hasDrinks            Boolean   @default(false)
   registrationDeadline DateTime?
   showOnHome           Boolean   @default(false)
   showOnCalendar       Boolean   @default(false)
 
   registrations   EventRegistration[]
   menus           MealMenu[]
+  drinks          EventDrink[]
   expenses        EventExpense[]
   boardGames      BoardGame[]
   assocDocuments  EventAssocDocument[]
@@ -192,6 +194,28 @@ model MenuCatalog {
   createdAt DateTime   @default(now())
 
   menus MealMenu[]
+}
+
+model DrinkCatalog {
+  id        String       @id @default(cuid())
+  label     String
+  stock     Int?
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  drinks EventDrink[]
+}
+
+model EventDrink {
+  id           String @id @default(cuid())
+  eventId      String
+  label        String
+  maxPerPerson Int?
+  stock        Int?
+  catalogId    String?
+
+  event   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  catalog DrinkCatalog? @relation(fields: [catalogId], references: [id], onDelete: SetNull)
 }
 
 model MealMenu {

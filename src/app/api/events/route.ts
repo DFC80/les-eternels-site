@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { MEAL_PRICE } from "@/lib/meals";
 
 type MenuInput = { label: string; maxPerPerson?: number | string | null; extraPrice?: number | string | null; stock?: number | string | null; catalogId?: string | null };
+type DrinkInput = { label: string; maxPerPerson?: number | string | null; stock?: number | string | null; catalogId?: string | null };
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -29,6 +30,7 @@ export async function GET() {
     include: {
       registrations: { include: { mealOrders: true, rentals: { include: { equipment: true } } } },
       menus: true,
+      drinks: true,
       boardGames: true,
     },
   });
@@ -56,6 +58,8 @@ export async function POST(request: Request) {
     mealExtras,
     mealPrice,
     menus,
+    hasDrinks,
+    drinks,
     registrationDeadline,
     boardGameIds,
   } = body as {
@@ -71,6 +75,8 @@ export async function POST(request: Request) {
     mealExtras?: string[];
     mealPrice?: string | number | null;
     menus?: MenuInput[];
+    hasDrinks?: boolean;
+    drinks?: DrinkInput[];
     registrationDeadline?: string | null;
     boardGameIds?: string[];
   };
@@ -89,6 +95,15 @@ export async function POST(request: Request) {
     }))
     .filter((m) => m.label);
 
+  const cleanedDrinks = (drinks ?? [])
+    .map((d) => ({
+      label: d.label.trim(),
+      maxPerPerson: d.maxPerPerson ? Number(d.maxPerPerson) : null,
+      stock: d.stock != null && d.stock !== "" ? Number(d.stock) : null,
+      catalogId: d.catalogId ?? null,
+    }))
+    .filter((d) => d.label);
+
   const event = await prisma.event.create({
     data: {
       title,
@@ -102,14 +117,16 @@ export async function POST(request: Request) {
       mealInfo: hasMeal ? mealInfo || null : null,
       mealExtras: hasMeal && Array.isArray(mealExtras) ? mealExtras.join(",") : "",
       mealPrice: mealPrice ? Number(mealPrice) : MEAL_PRICE,
+      hasDrinks: !!hasDrinks,
       registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
       menus: hasMeal && cleanedMenus.length > 0 ? { create: cleanedMenus } : undefined,
+      drinks: hasDrinks && cleanedDrinks.length > 0 ? { create: cleanedDrinks } : undefined,
       boardGames:
         activityType === "JEUX_DE_PLATEAU" && Array.isArray(boardGameIds) && boardGameIds.length > 0
           ? { connect: boardGameIds.map((id) => ({ id })) }
           : undefined,
     },
-    include: { menus: true, boardGames: true },
+    include: { menus: true, drinks: true, boardGames: true },
   });
 
   return NextResponse.json(event, { status: 201 });

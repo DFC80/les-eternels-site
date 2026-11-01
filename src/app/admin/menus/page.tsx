@@ -11,11 +11,25 @@ const EMPTY_FORM = { id: "", label: "", stock: "" };
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
-export default function AdminMenusPage() {
-  const { data: session } = useSession();
-  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
-  const canWrite = sessionHasWriteAccess(sessionUser, "events");
-
+function CatalogSection({
+  title,
+  subtitle,
+  apiBase,
+  stockLabel,
+  stockPlaceholder,
+  addLabel,
+  unitLabel,
+  canWrite,
+}: {
+  title: string;
+  subtitle: string;
+  apiBase: string;
+  stockLabel: string;
+  stockPlaceholder: string;
+  addLabel: string;
+  unitLabel: string;
+  canWrite: boolean;
+}) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -23,11 +37,11 @@ export default function AdminMenusPage() {
   const formRef = useRef<HTMLFormElement>(null);
 
   async function load() {
-    const res = await fetch("/api/admin/menu-catalog");
+    const res = await fetch(apiBase);
     if (res.ok) setItems(await res.json());
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(item: CatalogItem) {
     setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "" });
@@ -50,8 +64,8 @@ export default function AdminMenusPage() {
       stock: form.stock !== "" ? Number(form.stock) : null,
     };
     const res = form.id
-      ? await fetch(`/api/admin/menu-catalog/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      : await fetch("/api/admin/menu-catalog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      ? await fetch(`${apiBase}/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      : await fetch(apiBase, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setSaving(false);
     if (!res.ok) { const d = await res.json(); setError(d.error ?? "Erreur"); return; }
     await load();
@@ -60,7 +74,7 @@ export default function AdminMenusPage() {
 
   async function handleDelete(item: CatalogItem) {
     if (!confirm(`Supprimer "${item.label}" du catalogue ?`)) return;
-    await fetch(`/api/admin/menu-catalog/${item.id}`, { method: "DELETE" });
+    await fetch(`${apiBase}/${item.id}`, { method: "DELETE" });
     await load();
     if (form.id === item.id) resetForm();
   }
@@ -70,24 +84,21 @@ export default function AdminMenusPage() {
     const swap = items[idx + dir];
     if (!swap) return;
     await Promise.all([
-      fetch(`/api/admin/menu-catalog/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: swap.order }) }),
-      fetch(`/api/admin/menu-catalog/${swap.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: item.order }) }),
+      fetch(`${apiBase}/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: swap.order }) }),
+      fetch(`${apiBase}/${swap.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: item.order }) }),
     ]);
     await load();
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="font-display text-2xl text-silver-100">Catalogue des menus repas</h1>
-      <p className="mt-1 text-sm text-slate-400">
-        Gérez les libellés disponibles lors de la création d&apos;un événement avec repas.
-        Le stock indique le nombre de portions proposé par défaut.
-      </p>
+    <section className="mt-10">
+      <h2 className="font-display text-xl text-silver-100">{title}</h2>
+      <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
 
       {/* Liste */}
-      <div className="mt-6 overflow-hidden rounded-xl border border-primary-800">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary-800">
         {items.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-slate-400">Aucun menu dans le catalogue.</p>
+          <p className="px-4 py-6 text-sm text-slate-400">Aucun élément dans ce catalogue.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -110,7 +121,7 @@ export default function AdminMenusPage() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                        {item.stock} portions
+                        {item.stock} {unitLabel}
                       </span>
                     )}
                   </td>
@@ -149,10 +160,10 @@ export default function AdminMenusPage() {
 
       {/* Formulaire */}
       {canWrite && (
-        <form ref={formRef} onSubmit={handleSubmit} className="mt-8 rounded-xl border border-primary-800 bg-primary-900/40 p-6">
-          <h2 className="font-display text-lg text-silver-100">
-            {form.id ? "Modifier un menu" : "Ajouter un menu"}
-          </h2>
+        <form ref={formRef} onSubmit={handleSubmit} className="mt-6 rounded-xl border border-primary-800 bg-primary-900/40 p-6">
+          <h3 className="font-display text-base text-silver-100">
+            {form.id ? `Modifier` : addLabel}
+          </h3>
 
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
 
@@ -162,14 +173,14 @@ export default function AdminMenusPage() {
               <input
                 value={form.label}
                 onChange={(e) => setForm({ ...form, label: e.target.value })}
-                placeholder="Ex: Merguez grillées"
+                placeholder={stockPlaceholder}
                 className={inputClass}
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300">
-                Stock par défaut <span className="text-slate-500">(laisser vide = illimité)</span>
+                {stockLabel} <span className="text-slate-500">(laisser vide = illimité)</span>
               </label>
               <input
                 type="number"
@@ -202,6 +213,44 @@ export default function AdminMenusPage() {
           </div>
         </form>
       )}
+    </section>
+  );
+}
+
+export default function AdminMenusPage() {
+  const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
+  const canWrite = sessionHasWriteAccess(sessionUser, "events");
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="font-display text-2xl text-silver-100">Catalogue menus &amp; boissons</h1>
+      <p className="mt-1 text-sm text-slate-400">
+        Gérez les libellés disponibles lors de la création d&apos;un événement avec repas.
+        Le stock indique le nombre de portions/unités proposé par défaut.
+      </p>
+
+      <CatalogSection
+        title="🍽️ Menus repas"
+        subtitle="Plats proposés au choix lors des repas d'événements."
+        apiBase="/api/admin/menu-catalog"
+        stockLabel="Stock par défaut"
+        stockPlaceholder="Ex: Merguez grillées"
+        addLabel="Ajouter un menu"
+        unitLabel="portions"
+        canWrite={canWrite}
+      />
+
+      <CatalogSection
+        title="🥤 Boissons"
+        subtitle="Boissons proposées au choix lors des repas d'événements."
+        apiBase="/api/admin/drink-catalog"
+        stockLabel="Stock par défaut"
+        stockPlaceholder="Ex: Coca-Cola"
+        addLabel="Ajouter une boisson"
+        unitLabel="unités"
+        canWrite={canWrite}
+      />
     </div>
   );
 }
