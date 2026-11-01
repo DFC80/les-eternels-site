@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(_request: Request, { params }: { params: { id: string; expenseId: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasWriteAccess(session.user, "events")) {
+  if (!session || (!sessionHasWriteAccess(session.user, "events") && !sessionHasWriteAccess(session.user, "comptabilite"))) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
 

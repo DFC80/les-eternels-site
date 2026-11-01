@@ -18,6 +18,7 @@ export async function GET() {
         include: { rentals: { where: { status: "APPROVED" }, include: { equipment: true } } },
       },
       expenses: true,
+      credits: true,
     },
   });
 
@@ -53,6 +54,7 @@ export async function GET() {
     );
     const income = mealIncome + equipmentIncome + participationIncome;
     const expensesTotal = ev.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const creditsTotal = ev.credits.reduce((sum, c) => sum + c.amount, 0);
     return {
       eventId: ev.id,
       title: ev.title,
@@ -62,8 +64,10 @@ export async function GET() {
       participationIncome,
       income,
       expensesTotal,
-      profit: income - expensesTotal,
+      creditsTotal,
+      profit: income + creditsTotal - expensesTotal,
       expenses: ev.expenses,
+      credits: ev.credits,
     };
   });
 
@@ -94,6 +98,7 @@ export async function GET() {
 
   const totalEventIncome = eventSummaries.reduce((sum, e) => sum + e.income, 0);
   const totalEventExpenses = eventSummaries.reduce((sum, e) => sum + e.expensesTotal, 0);
+  const totalEventCredits = eventSummaries.reduce((sum, e) => sum + e.creditsTotal, 0);
   const totalGeneralExpenses = generalExpenses.reduce((sum, e) => sum + e.amount, 0);
   const totalGeneralCredits = generalCredits.reduce((sum, c) => sum + c.amount, 0);
   const totalMembershipIncome = membershipSummaries.reduce((sum, m) => sum + m.amount, 0);
@@ -102,7 +107,7 @@ export async function GET() {
   // Les ventes comptoir (totalSnackIncome) ne sont PAS comptées : elles débitent le solde
   // adhérent déjà encaissé via les recharges (totalBalanceTopUps). Les compter serait un double-compte.
   const netResultCents =
-    Math.round((totalMembershipIncome + totalEventIncome + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100) +
+    Math.round((totalMembershipIncome + totalEventIncome + totalEventCredits + totalGeneralCredits - totalEventExpenses - totalGeneralExpenses) * 100) +
     totalBalanceTopUps;
 
   // Total encaissé en ligne (informatif : déjà inclus dans les catégories ci-dessus —
@@ -120,6 +125,7 @@ export async function GET() {
       totalMembershipIncome,
       totalEventIncome,
       totalEventExpenses,
+      totalEventCredits,
       totalGeneralExpenses,
       totalGeneralCredits,
       totalBalanceTopUps,

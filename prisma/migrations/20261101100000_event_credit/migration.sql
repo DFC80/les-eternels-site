@@ -1,0 +1,8 @@
+CREATE TABLE "EventCredit" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "eventId" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "amount" REAL NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "EventCredit_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

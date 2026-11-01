@@ -134,6 +134,7 @@ model Event {
   menus           MealMenu[]
   drinks          EventDrink[]
   expenses        EventExpense[]
+  credits         EventCredit[]
   boardGames      BoardGame[]
   assocDocuments  EventAssocDocument[]
 }
@@ -165,6 +166,16 @@ model EventExpense {
   eventId   String
   label     String
   amount    Int
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventCredit {
+  id        String   @id @default(cuid())
+  eventId   String
+  label     String
+  amount    Float
   createdAt DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)

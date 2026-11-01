@@ -15,8 +15,10 @@ type EventSummary = {
   participationIncome: number;
   income: number;
   expensesTotal: number;
+  creditsTotal: number;
   profit: number;
   expenses: { id: string; label: string; amount: number }[];
+  credits: { id: string; label: string; amount: number }[];
 };
 
 type GeneralExpense = { id: string; label: string; amount: number; date: string };
@@ -58,6 +60,7 @@ type Accounting = {
     totalMembershipIncome: number;
     totalEventIncome: number;
     totalEventExpenses: number;
+    totalEventCredits: number;
     totalGeneralExpenses: number;
     totalGeneralCredits: number;
     totalBalanceTopUps: number;
@@ -94,6 +97,13 @@ export default function ComptabilitePage() {
   const [creditAmount, setCreditAmount] = useState("");
   const [creditDate, setCreditDate] = useState(new Date().toISOString().slice(0, 10));
   const [creditError, setCreditError] = useState<string | null>(null);
+
+  const [adjEventId, setAdjEventId] = useState("");
+  const [adjType, setAdjType] = useState<"debit" | "credit">("debit");
+  const [adjLabel, setAdjLabel] = useState("");
+  const [adjAmount, setAdjAmount] = useState("");
+  const [adjError, setAdjError] = useState<string | null>(null);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/accounting");
@@ -157,6 +167,39 @@ export default function ComptabilitePage() {
 
   async function removeGeneralCredit(id: string) {
     const res = await fetch(`/api/admin/credits/${id}`, { method: "DELETE" });
+    if (res.ok) await load();
+  }
+
+  async function addEventAdjustment(e: React.FormEvent, eventId: string) {
+    e.preventDefault();
+    setAdjError(null);
+    if (!adjLabel || !adjAmount) return;
+    const url = adjType === "debit"
+      ? `/api/admin/events/${eventId}/expenses`
+      : `/api/admin/events/${eventId}/credits`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: adjLabel, amount: adjAmount }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setAdjError(body.error ?? "Erreur lors de l'enregistrement.");
+      return;
+    }
+    setAdjLabel("");
+    setAdjAmount("");
+    setAdjEventId("");
+    await load();
+  }
+
+  async function removeEventExpense(eventId: string, expenseId: string) {
+    const res = await fetch(`/api/admin/events/${eventId}/expenses/${expenseId}`, { method: "DELETE" });
+    if (res.ok) await load();
+  }
+
+  async function removeEventCredit(eventId: string, creditId: string) {
+    const res = await fetch(`/api/admin/events/${eventId}/credits/${creditId}`, { method: "DELETE" });
     if (res.ok) await load();
   }
 
@@ -344,6 +387,7 @@ export default function ComptabilitePage() {
       </div>
 
       <h2 className="mt-10 font-display text-xl text-silver-100">Détail par événement</h2>
+      <p className="mt-1 text-sm text-slate-400">Cliquez sur un événement pour voir le détail et ajouter des ajustements.</p>
       <div className="mt-4 overflow-x-auto rounded-xl border border-primary-800 bg-primary-900/40">
         <table className="w-full text-sm">
           <thead className="bg-primary-950/60 text-left text-slate-400">
@@ -355,31 +399,126 @@ export default function ComptabilitePage() {
               <th className="px-4 py-3">Participations</th>
               <th className="px-4 py-3">Total gains</th>
               <th className="px-4 py-3">Dépenses</th>
+              <th className="px-4 py-3 text-emerald-400/80">Crédits</th>
               <th className="px-4 py-3">Résultat</th>
             </tr>
           </thead>
           <tbody>
             {data.events.map((ev) => (
-              <tr key={ev.eventId} className="border-t border-primary-800 text-slate-200">
-                <td className="px-4 py-3 font-medium">{ev.title}</td>
-                <td className="px-4 py-3 text-slate-400">
-                  {new Date(ev.startsAt).toLocaleDateString("fr-FR")}
-                </td>
-                <td className="px-4 py-3 text-slate-400">{ev.mealIncome}€</td>
-                <td className="px-4 py-3 text-slate-400">{ev.equipmentIncome}€</td>
-                <td className="px-4 py-3 text-slate-400">
-                  {ev.participationIncome > 0 ? `${ev.participationIncome}€` : "—"}
-                </td>
-                <td className="px-4 py-3">{ev.income}€</td>
-                <td className="px-4 py-3">{ev.expensesTotal}€</td>
-                <td
-                  className={`px-4 py-3 font-semibold ${
-                    ev.profit >= 0 ? "text-emerald-400" : "text-red-400"
-                  }`}
+              <>
+                <tr
+                  key={ev.eventId}
+                  className="border-t border-primary-800 text-slate-200 cursor-pointer hover:bg-primary-800/40"
+                  onClick={() => setExpandedEvent(expandedEvent === ev.eventId ? null : ev.eventId)}
                 >
-                  {ev.profit}€
-                </td>
-              </tr>
+                  <td className="px-4 py-3 font-medium">
+                    <span className="mr-1 text-slate-500 text-xs">{expandedEvent === ev.eventId ? "▼" : "▶"}</span>
+                    {ev.title}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">
+                    {new Date(ev.startsAt).toLocaleDateString("fr-FR")}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">{ev.mealIncome}€</td>
+                  <td className="px-4 py-3 text-slate-400">{ev.equipmentIncome}€</td>
+                  <td className="px-4 py-3 text-slate-400">
+                    {ev.participationIncome > 0 ? `${ev.participationIncome}€` : "—"}
+                  </td>
+                  <td className="px-4 py-3">{ev.income}€</td>
+                  <td className="px-4 py-3 text-red-400">{ev.expensesTotal > 0 ? `-${ev.expensesTotal}€` : "—"}</td>
+                  <td className="px-4 py-3 text-emerald-400">{ev.creditsTotal > 0 ? `+${formatEuros(ev.creditsTotal)}` : "—"}</td>
+                  <td
+                    className={`px-4 py-3 font-semibold ${
+                      ev.profit >= 0 ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    {ev.profit}€
+                  </td>
+                </tr>
+                {expandedEvent === ev.eventId && (
+                  <tr key={`${ev.eventId}-detail`} className="border-t border-primary-700 bg-primary-950/60">
+                    <td colSpan={9} className="px-4 py-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-red-400 mb-2">Dépenses</p>
+                          {ev.expenses.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucune dépense.</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {ev.expenses.map((exp) => (
+                                <div key={exp.id} className="flex items-center justify-between text-xs text-slate-300">
+                                  <span>{exp.label} — <span className="text-red-400">{exp.amount}€</span></span>
+                                  {canWrite && (
+                                    <button onClick={() => removeEventExpense(ev.eventId, exp.id)} className="ml-2 text-red-500 hover:underline">✕</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2">Crédits</p>
+                          {ev.credits.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun crédit.</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {ev.credits.map((cr) => (
+                                <div key={cr.id} className="flex items-center justify-between text-xs text-slate-300">
+                                  <span>{cr.label} — <span className="text-emerald-400">+{formatEuros(cr.amount)}</span></span>
+                                  {canWrite && (
+                                    <button onClick={() => removeEventCredit(ev.eventId, cr.id)} className="ml-2 text-red-500 hover:underline">✕</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {canWrite && (
+                        <form
+                          onSubmit={(e) => addEventAdjustment(e, ev.eventId)}
+                          className="mt-4 flex flex-wrap gap-2 items-end border-t border-primary-700 pt-3"
+                        >
+                          <select
+                            value={adjEventId === ev.eventId ? adjType : "debit"}
+                            onChange={(e) => { setAdjEventId(ev.eventId); setAdjType(e.target.value as "debit" | "credit"); }}
+                            onFocus={() => setAdjEventId(ev.eventId)}
+                            className="rounded-md border border-primary-700 bg-primary-950 px-2 py-1.5 text-xs text-slate-100"
+                          >
+                            <option value="debit">Débit (dépense)</option>
+                            <option value="credit">Crédit</option>
+                          </select>
+                          <input
+                            value={adjEventId === ev.eventId ? adjLabel : ""}
+                            onChange={(e) => { setAdjEventId(ev.eventId); setAdjLabel(e.target.value); }}
+                            onFocus={() => setAdjEventId(ev.eventId)}
+                            placeholder="Libellé"
+                            className="flex-1 min-w-[140px] rounded-md border border-primary-700 bg-primary-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={adjEventId === ev.eventId ? adjAmount : ""}
+                            onChange={(e) => { setAdjEventId(ev.eventId); setAdjAmount(e.target.value); }}
+                            onFocus={() => setAdjEventId(ev.eventId)}
+                            placeholder="Montant €"
+                            className="w-28 rounded-md border border-primary-700 bg-primary-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-500"
+                          >
+                            Ajouter
+                          </button>
+                          {adjEventId === ev.eventId && adjError && (
+                            <p className="w-full text-xs text-red-400">{adjError}</p>
+                          )}
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>
