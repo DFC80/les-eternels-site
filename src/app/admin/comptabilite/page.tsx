@@ -437,7 +437,39 @@ export default function ComptabilitePage() {
                 {expandedEvent === ev.eventId && (
                   <tr key={`${ev.eventId}-detail`} className="border-t border-primary-700 bg-primary-950/60">
                     <td colSpan={9} className="px-4 py-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300 mb-2">Gains</p>
+                          <div className="space-y-1">
+                            {ev.mealIncome > 0 && (
+                              <div className="flex justify-between text-xs text-slate-300">
+                                <span>Repas</span>
+                                <span className="text-emerald-400">{ev.mealIncome}€</span>
+                              </div>
+                            )}
+                            {ev.equipmentIncome > 0 && (
+                              <div className="flex justify-between text-xs text-slate-300">
+                                <span>Matériel</span>
+                                <span className="text-emerald-400">{ev.equipmentIncome}€</span>
+                              </div>
+                            )}
+                            {ev.participationIncome > 0 && (
+                              <div className="flex justify-between text-xs text-slate-300">
+                                <span>Participations</span>
+                                <span className="text-emerald-400">{ev.participationIncome}€</span>
+                              </div>
+                            )}
+                            {ev.mealIncome === 0 && ev.equipmentIncome === 0 && ev.participationIncome === 0 && (
+                              <p className="text-xs text-slate-500">Aucun gain.</p>
+                            )}
+                            {ev.income > 0 && (
+                              <div className="flex justify-between text-xs font-semibold border-t border-primary-700 pt-1 mt-1 text-slate-200">
+                                <span>Total gains</span>
+                                <span className="text-emerald-400">{ev.income}€</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-red-400 mb-2">Dépenses</p>
                           {ev.expenses.length === 0 ? (
