@@ -25,7 +25,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !sessionHasWriteAccess(session.user, "events")) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+  const canWrite = session && (sessionHasWriteAccess(session.user, "events") || sessionHasWriteAccess(session.user, "comptabilite"));
+  if (!canWrite) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
 
   const body = await request.json();
   const { label, amount } = body as { label?: string; amount?: string | number };
