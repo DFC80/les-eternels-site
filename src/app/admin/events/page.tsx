@@ -1916,6 +1916,16 @@ export default function AdminEventsPage() {
 
         {error && <p className="col-span-full text-sm text-red-400">{error}</p>}
 
+        {!form.id && (
+          <div className="col-span-full rounded-md border border-primary-700 bg-primary-900/60 px-4 py-3 text-sm text-slate-300">
+            <p className="font-semibold text-slate-200 mb-1">ℹ️ Avant de créer l'événement</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-400">
+              <li>L'événement <span className="text-slate-200 font-medium">ne sera pas publié automatiquement</span> — vous pourrez le publier depuis la liste des événements.</li>
+              <li>L'e-mail de notification aux membres <span className="text-slate-200 font-medium">ne sera pas envoyé automatiquement</span> — vous pourrez l'envoyer manuellement depuis la fiche de l'événement.</li>
+            </ul>
+          </div>
+        )}
+
         <div className="col-span-full flex gap-3">
           <button
             type="submit"
