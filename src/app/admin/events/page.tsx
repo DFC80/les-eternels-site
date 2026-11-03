@@ -708,7 +708,7 @@ export default function AdminEventsPage() {
           )}
           {ev.notificationSentAt && (
             <span
-              className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-500"
+              className={`rounded-full px-2 py-0.5 text-xs ${isPast ? "bg-slate-800/40 text-slate-600" : "bg-slate-800 text-slate-500"}`}
               title={`Membres notifiés le ${new Date(ev.notificationSentAt).toLocaleString("fr-FR")}`}
             >
               📧 Membres notifiés
@@ -716,7 +716,7 @@ export default function AdminEventsPage() {
           )}
           {ev.adminNotificationSentAt && (
             <span
-              className="rounded-full bg-amber-900/30 px-2 py-0.5 text-xs text-amber-500"
+              className={`rounded-full px-2 py-0.5 text-xs ${isPast ? "bg-slate-800/40 text-slate-600" : "bg-amber-900/30 text-amber-500"}`}
               title={`Admin notifié le ${new Date(ev.adminNotificationSentAt).toLocaleString("fr-FR")}`}
             >
               📧 Admin notifié
@@ -804,22 +804,28 @@ export default function AdminEventsPage() {
             <>
               <button
                 type="button"
-                onClick={() => toggleShowOnHome(ev.id, !ev.showOnHome)}
+                onClick={() => !isPast && toggleShowOnHome(ev.id, !ev.showOnHome)}
+                disabled={isPast}
                 className={`rounded-md border px-3 py-1.5 transition ${
-                  ev.showOnHome
-                    ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                    : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
+                  isPast
+                    ? "border-slate-700/50 text-slate-600 cursor-not-allowed opacity-50"
+                    : ev.showOnHome
+                      ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
+                      : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
                 }`}
               >
                 {ev.showOnHome ? "🏠 Sur l'accueil" : "Publier accueil"}
               </button>
               <button
                 type="button"
-                onClick={() => toggleShowOnCalendar(ev.id, !ev.showOnCalendar)}
+                onClick={() => !isPast && toggleShowOnCalendar(ev.id, !ev.showOnCalendar)}
+                disabled={isPast}
                 className={`rounded-md border px-3 py-1.5 transition ${
-                  ev.showOnCalendar
-                    ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
-                    : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
+                  isPast
+                    ? "border-slate-700/50 text-slate-600 cursor-not-allowed opacity-50"
+                    : ev.showOnCalendar
+                      ? "border-primary-500 bg-primary-950/60 text-primary-300 hover:bg-primary-900"
+                      : "border-primary-700 text-slate-500 hover:border-primary-500 hover:text-primary-300"
                 }`}
               >
                 {ev.showOnCalendar ? "📅 Sur le calendrier" : "Publier calendrier"}
