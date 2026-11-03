@@ -30,7 +30,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
   const eventUrl = `${baseUrl}/calendar?event=${event.id}`;
 
-  await Promise.all(
+  await Promise.allSettled(
     allUsers.map((user) =>
       sendNewEventNotification({
         to: user.email,
@@ -44,6 +44,8 @@ export async function POST(_request: Request, { params }: { params: { id: string
       })
     )
   );
+
+  await prisma.event.update({ where: { id: params.id }, data: { notificationSentAt: new Date() } });
 
   return NextResponse.json({ sent: allUsers.length });
 }
