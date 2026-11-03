@@ -40,5 +40,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     eventUrl,
   });
 
+  await prisma.event.update({ where: { id: params.id }, data: { adminNotificationSentAt: new Date() } });
+
   return NextResponse.json({ sent: 1 });
 }

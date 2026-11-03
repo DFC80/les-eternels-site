@@ -126,9 +126,11 @@ model Event {
   mealExtras           String    @default("")
   mealPrice            Int       @default(10)
   hasDrinks            Boolean   @default(false)
-  registrationDeadline DateTime?
-  showOnHome           Boolean   @default(false)
-  showOnCalendar       Boolean   @default(false)
+  registrationDeadline      DateTime?
+  showOnHome                Boolean   @default(false)
+  showOnCalendar            Boolean   @default(false)
+  notificationSentAt        DateTime?
+  adminNotificationSentAt   DateTime?
 
   registrations   EventRegistration[]
   menus           MealMenu[]

@@ -25,6 +25,8 @@ type EventItem = {
   registrationDeadline: string | null;
   showOnHome: boolean;
   showOnCalendar: boolean;
+  notificationSentAt: string | null;
+  adminNotificationSentAt: string | null;
   menus: MenuItem[];
   drinks: DrinkItem[];
   boardGames: { id: string; name: string }[];
@@ -201,9 +203,9 @@ export default function AdminEventsPage() {
   const [docError, setDocError] = useState<string | null>(null);
   const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
   const [notifyingFor, setNotifyingFor] = useState<string | null>(null);
-  const [notifySuccess, setNotifySuccess] = useState<Record<string, number>>({});
+  const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
   const [notifyingAdminFor, setNotifyingAdminFor] = useState<string | null>(null);
-  const [notifyAdminSuccess, setNotifyAdminSuccess] = useState<Record<string, boolean>>({});
+  const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
 
   async function load() {
     const res = await fetch("/api/events");
@@ -594,23 +596,30 @@ export default function AdminEventsPage() {
   async function sendNotification(eventId: string) {
     if (!confirm("Envoyer un email de notification à tous les membres actifs ?")) return;
     setNotifyingFor(eventId);
+    setNotifyResult((prev) => ({ ...prev, [eventId]: "" }));
     const res = await fetch(`/api/admin/events/${eventId}/notify`, { method: "POST" });
     setNotifyingFor(null);
+    const d = await res.json().catch(() => ({}));
     if (res.ok) {
-      const data = await res.json();
-      setNotifySuccess((prev) => ({ ...prev, [eventId]: data.sent }));
-      setTimeout(() => setNotifySuccess((prev) => { const next = { ...prev }; delete next[eventId]; return next; }), 5000);
+      setNotifyResult((prev) => ({ ...prev, [eventId]: `✓ Email envoyé à ${d.sent} utilisateur${d.sent !== 1 ? "s" : ""}` }));
+      await load();
+    } else {
+      setNotifyResult((prev) => ({ ...prev, [eventId]: `Erreur : ${d.error ?? "inconnue"}` }));
     }
   }
 
   async function sendAdminNotification(eventId: string) {
     if (!confirm("Envoyer un email de notification à l'admin ?")) return;
     setNotifyingAdminFor(eventId);
+    setNotifyAdminResult((prev) => ({ ...prev, [eventId]: "" }));
     const res = await fetch(`/api/admin/events/${eventId}/notify-admin`, { method: "POST" });
     setNotifyingAdminFor(null);
+    const d = await res.json().catch(() => ({}));
     if (res.ok) {
-      setNotifyAdminSuccess((prev) => ({ ...prev, [eventId]: true }));
-      setTimeout(() => setNotifyAdminSuccess((prev) => { const next = { ...prev }; delete next[eventId]; return next; }), 5000);
+      setNotifyAdminResult((prev) => ({ ...prev, [eventId]: "✓ Email envoyé à l'admin" }));
+      await load();
+    } else {
+      setNotifyAdminResult((prev) => ({ ...prev, [eventId]: `Erreur : ${d.error ?? "inconnue"}` }));
     }
   }
 
@@ -696,6 +705,22 @@ export default function AdminEventsPage() {
           )}
           {isPast && (
             <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-400">Terminé</span>
+          )}
+          {ev.notificationSentAt && (
+            <span
+              className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-500"
+              title={`Membres notifiés le ${new Date(ev.notificationSentAt).toLocaleString("fr-FR")}`}
+            >
+              📧 Membres notifiés
+            </span>
+          )}
+          {ev.adminNotificationSentAt && (
+            <span
+              className="rounded-full bg-amber-900/30 px-2 py-0.5 text-xs text-amber-500"
+              title={`Admin notifié le ${new Date(ev.adminNotificationSentAt).toLocaleString("fr-FR")}`}
+            >
+              📧 Admin notifié
+            </span>
           )}
         </div>
 
@@ -801,32 +826,24 @@ export default function AdminEventsPage() {
               </button>
             </>
           )}
-          {canWrite && !isPast && (
+          {canWrite && (
             <button
               type="button"
               onClick={() => sendNotification(ev.id)}
               disabled={notifyingFor === ev.id}
-              className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60 disabled:opacity-50"
+              className="rounded-md border border-primary-600 px-3 py-1.5 text-xs text-primary-300 hover:bg-primary-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {notifyingFor === ev.id
-                ? "Envoi…"
-                : notifySuccess[ev.id] !== undefined
-                  ? `✅ ${notifySuccess[ev.id]} emails envoyés`
-                  : "📣 Notifier les membres"}
+              {notifyingFor === ev.id ? "Envoi…" : "📣 Notifier les membres"}
             </button>
           )}
-          {canWrite && !isPast && (
+          {canWrite && (
             <button
               type="button"
               onClick={() => sendAdminNotification(ev.id)}
               disabled={notifyingAdminFor === ev.id}
-              className="rounded-md border border-primary-700 px-3 py-1.5 text-primary-300 hover:bg-primary-800/60 disabled:opacity-50"
+              className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {notifyingAdminFor === ev.id
-                ? "Envoi…"
-                : notifyAdminSuccess[ev.id]
-                  ? "✅ Email admin envoyé"
-                  : "📣 Notifier l'admin"}
+              {notifyingAdminFor === ev.id ? "Envoi…" : "📣 Notifier l'admin"}
             </button>
           )}
           {canWrite && (
@@ -838,6 +855,16 @@ export default function AdminEventsPage() {
             </button>
           )}
         </div>
+        {notifyResult[ev.id] && (
+          <p className={`mt-2 text-xs ${notifyResult[ev.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+            {notifyResult[ev.id]}
+          </p>
+        )}
+        {notifyAdminResult[ev.id] && (
+          <p className={`mt-1 text-xs ${notifyAdminResult[ev.id].startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+            {notifyAdminResult[ev.id]}
+          </p>
+        )}
 
         {registrationsFor === ev.id && (
           <div className="mt-4 rounded-lg border border-primary-700 bg-primary-950/60 p-4 text-sm">
