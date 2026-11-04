@@ -15,6 +15,7 @@ type Card = {
 const CARDS: Card[] = [
   { href: "/admin/members",      icon: "👥", title: "Membres",                section: "members",      description: "Voir la liste des membres, gérer les rôles et l'activation des comptes." },
   { href: "/admin/events",       icon: "📅", title: "Événements",             section: "events",       description: "Créer, modifier ou supprimer des événements du calendrier." },
+  { href: "/admin/event-templates", icon: "📋", title: "Modèles d'événements",    section: "events",       description: "Gérer les titres et descriptions prédéfinis proposés lors de la création d'un événement." },
   { href: "/admin/menus",        icon: "🍽️", title: "Catalogue menus repas",  section: "events",       description: "Gérer les libellés et stocks de menus disponibles pour les repas d'événements." },
   { href: "/admin/participations", icon: "📋", title: "Participations",          section: "events",       description: "Consulter la liste des participations aux événements par membre." },
   { href: "/admin/comptabilite", icon: "💶", title: "Comptabilité",           section: "comptabilite", description: "Suivre les gains et dépenses des événements et les dépenses générales." },

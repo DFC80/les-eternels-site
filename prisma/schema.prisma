@@ -765,6 +765,16 @@ model ShopOrderItem {
   shopItem ShopItem? @relation(fields: [shopItemId], references: [id], onDelete: SetNull)
 }
 
+model EventTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  activityKey String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model GameLocation {
   id          String   @id @default(cuid())
   title       String
