@@ -78,7 +78,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: `📊 Nouveau sondage${label} : **${poll.question}** — Rendez-vous sur le site pour voter !`,
+        content: `📊 Nouveau sondage${label} : **${poll.question}** — Rendez-vous sur le site pour voter !\n${pollUrl}`,
       }),
     }).catch(() => null);
   }
