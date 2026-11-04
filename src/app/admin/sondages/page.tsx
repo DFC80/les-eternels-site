@@ -49,6 +49,7 @@ export default function AdminSondagesPage() {
   const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
   const [notifyingAdmin, setNotifyingAdmin] = useState<string | null>(null);
   const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
+  const [notifyAdminConfirm, setNotifyAdminConfirm] = useState<string | null>(null);
   const [votersOpen, setVotersOpen] = useState<string | null>(null);
   const [votersData, setVotersData] = useState<Record<string, PollVoterOption[]>>({});
   const [votersLoading, setVotersLoading] = useState(false);
@@ -198,17 +199,22 @@ export default function AdminSondagesPage() {
     }
   }
 
-  async function renotifyAdmin(p: Poll) {
-    if (!confirm("Envoyer l'email du sondage à l'admin ?")) return;
-    setNotifyingAdmin(p.id);
-    setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "" }));
+  async function confirmNotifyAdmin(pollId: string, sendDiscord: boolean) {
+    setNotifyAdminConfirm(null);
+    setNotifyingAdmin(pollId);
+    setNotifyAdminResult((prev) => ({ ...prev, [pollId]: "" }));
     try {
-      const res = await fetch(`/api/admin/polls/${p.id}/notify-admin`, { method: "POST" });
+      const res = await fetch(`/api/admin/polls/${pollId}/notify-admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sendDiscord }),
+      });
       const d = await res.json();
       if (res.ok) {
-        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: "✓ Email envoyé à l'admin" }));
+        const discordNote = sendDiscord ? " + Discord" : "";
+        setNotifyAdminResult((prev) => ({ ...prev, [pollId]: `✓ Email envoyé à l'admin${discordNote}` }));
       } else {
-        setNotifyAdminResult((prev) => ({ ...prev, [p.id]: `Erreur : ${d.error}` }));
+        setNotifyAdminResult((prev) => ({ ...prev, [pollId]: `Erreur : ${d.error}` }));
       }
     } finally {
       setNotifyingAdmin(null);
@@ -464,10 +470,22 @@ export default function AdminSondagesPage() {
                     {notifying === p.id ? "Envoi…" : "📣 Notifier les membres"}
                   </button>
                 )}
-                <button onClick={() => !isClosed && renotifyAdmin(p)} disabled={!!isClosed || notifyingAdmin === p.id}
-                  className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
-                  {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
-                </button>
+                {notifyAdminConfirm !== p.id ? (
+                  <button onClick={() => { if (!isClosed) setNotifyAdminConfirm(p.id); }} disabled={!!isClosed || notifyingAdmin === p.id}
+                    className="rounded-md border border-amber-700 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40">
+                    {notifyingAdmin === p.id ? "Envoi…" : "📣 Notifier l'admin"}
+                  </button>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-1.5 rounded-md border border-amber-700 bg-amber-950/40 px-3 py-1.5 text-xs text-amber-200">
+                    Envoyer aussi sur Discord ?
+                    <button onClick={() => confirmNotifyAdmin(p.id, false)}
+                      className="rounded border border-amber-700 px-2 py-0.5 hover:bg-amber-900">Email seul</button>
+                    <button onClick={() => confirmNotifyAdmin(p.id, true)}
+                      className="rounded border border-indigo-600 bg-indigo-950/60 px-2 py-0.5 text-indigo-300 hover:bg-indigo-900">Email + Discord</button>
+                    <button onClick={() => setNotifyAdminConfirm(null)}
+                      className="rounded border border-slate-600 px-2 py-0.5 text-slate-400 hover:bg-slate-800">Annuler</button>
+                  </span>
+                )}
                 <button onClick={() => !isClosed && editPoll(p)} disabled={!!isClosed}
                   className="rounded-md border border-primary-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-40">
                   Modifier
