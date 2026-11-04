@@ -1599,17 +1599,6 @@ export default function AdminEventsPage() {
           />
         </div>
 
-        {/* 4 — Lieu */}
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Lieu</label>
-          <input
-            required
-            value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })}
-            className={inputClass}
-          />
-        </div>
-
         {/* 5 — Bouton auto-remplissage */}
         {(() => {
           const tpl = eventTemplates.find((t) => t.id === selectedTemplateId);
@@ -1687,6 +1676,17 @@ export default function AdminEventsPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className={inputClass}
             rows={3}
+          />
+        </div>
+
+        {/* 8 — Lieu */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Lieu</label>
+          <input
+            required
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            className={inputClass}
           />
         </div>
 
