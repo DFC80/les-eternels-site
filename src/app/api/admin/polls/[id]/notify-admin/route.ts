@@ -41,5 +41,17 @@ export async function POST(_request: Request, { params }: { params: { id: string
     coverImage,
   });
 
+  const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+  if (discordWebhook) {
+    const label = activityLabel ? ` (${activityLabel})` : "";
+    await fetch(discordWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `📊 Nouveau sondage${label} : **${poll.question}** — Rendez-vous sur le site pour voter !\n${pollUrl}`,
+      }),
+    }).catch(() => null);
+  }
+
   return NextResponse.json({ ok: true, sent: 1 });
 }
