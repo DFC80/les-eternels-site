@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session || !sessionHasWriteAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
-  const { label, stock, order } = await request.json();
+  const { label, stock, seasons, order } = await request.json();
   if (label !== undefined && !label?.trim()) {
     return NextResponse.json({ error: "Le libellé est requis." }, { status: 400 });
   }
@@ -19,6 +19,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     data: {
       ...(label !== undefined ? { label: label.trim() } : {}),
       ...(stock !== undefined ? { stock: stock !== "" && stock != null ? Number(stock) : null } : {}),
+      ...(seasons !== undefined ? { seasons: Array.isArray(seasons) && seasons.length > 0 ? JSON.stringify(seasons) : null } : {}),
       ...(order !== undefined ? { order: Number(order) } : {}),
     },
   });

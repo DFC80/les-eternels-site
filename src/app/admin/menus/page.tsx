@@ -4,9 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { sessionHasWriteAccess } from "@/lib/permissions";
 
-type CatalogItem = { id: string; label: string; stock: number | null; order: number };
+type CatalogItem = { id: string; label: string; stock: number | null; seasons: string | null; order: number };
 
-const EMPTY_FORM = { id: "", label: "", stock: "" };
+type SeasonKey = "PRINTEMPS" | "ETE" | "AUTOMNE" | "HIVER";
+const SEASONS: { key: SeasonKey; label: string; emoji: string }[] = [
+  { key: "PRINTEMPS", label: "Printemps", emoji: "🌸" },
+  { key: "ETE", label: "Été", emoji: "☀️" },
+  { key: "AUTOMNE", label: "Automne", emoji: "🍂" },
+  { key: "HIVER", label: "Hiver", emoji: "❄️" },
+];
+
+function parseSeasons(raw: string | null): SeasonKey[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw) as SeasonKey[]; } catch { return []; }
+}
+
+const EMPTY_FORM = { id: "", label: "", stock: "", seasons: [] as SeasonKey[] };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -31,7 +44,7 @@ function CatalogSection({
   canWrite: boolean;
 }) {
   const [items, setItems] = useState<CatalogItem[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<{ id: string; label: string; stock: string; seasons: SeasonKey[] }>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -44,7 +57,7 @@ function CatalogSection({
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(item: CatalogItem) {
-    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "" });
+    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "", seasons: parseSeasons(item.seasons) });
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -52,6 +65,13 @@ function CatalogSection({
   function resetForm() {
     setForm(EMPTY_FORM);
     setError(null);
+  }
+
+  function toggleSeason(key: SeasonKey) {
+    setForm((prev) => ({
+      ...prev,
+      seasons: prev.seasons.includes(key) ? prev.seasons.filter((s) => s !== key) : [...prev.seasons, key],
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,6 +82,7 @@ function CatalogSection({
     const body = {
       label: form.label.trim(),
       stock: form.stock !== "" ? Number(form.stock) : null,
+      seasons: form.seasons.length > 0 ? form.seasons : null,
     };
     const res = form.id
       ? await fetch(`${apiBase}/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -105,6 +126,7 @@ function CatalogSection({
               <tr className="border-b border-primary-800 bg-primary-900/60">
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Libellé</th>
                 <th className="px-4 py-2 text-center font-medium text-slate-300">Stock</th>
+                <th className="px-4 py-2 text-center font-medium text-slate-300">Saisons</th>
                 {canWrite && <th className="px-4 py-2 text-right font-medium text-slate-300">Actions</th>}
               </tr>
             </thead>
@@ -122,6 +144,15 @@ function CatalogSection({
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-md bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-300">
                         {item.stock} {unitLabel}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {parseSeasons(item.seasons).length === 0 ? (
+                      <span className="text-xs text-slate-500">Toutes</span>
+                    ) : (
+                      <span className="text-sm">
+                        {parseSeasons(item.seasons).map((s) => SEASONS.find((x) => x.key === s)?.emoji).join(" ")}
                       </span>
                     )}
                   </td>
@@ -190,6 +221,25 @@ function CatalogSection({
                 placeholder="Ex: 30"
                 className={inputClass}
               />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300">
+              Saisons <span className="text-slate-500">(laisser vide = disponible toute l&apos;année)</span>
+            </label>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {SEASONS.map((s) => (
+                <label key={s.key} className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm hover:bg-primary-900">
+                  <input
+                    type="checkbox"
+                    checked={form.seasons.includes(s.key)}
+                    onChange={() => toggleSeason(s.key)}
+                    className="accent-primary-400"
+                  />
+                  <span>{s.emoji} {s.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 
