@@ -68,6 +68,8 @@ export default function AdminReunionsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [notifying, setNotifying] = useState<string | null>(null);
   const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
+  const [addingToCalendar, setAddingToCalendar] = useState<string | null>(null);
+  const [calendarResult, setCalendarResult] = useState<Record<string, string>>({});
 
   async function load() {
     const res = await fetch("/api/admin/meetings");
@@ -144,6 +146,19 @@ export default function AdminReunionsPage() {
       [id]: res.ok ? `Rappel envoyé à ${body.sent} membre(s).` : body.error ?? "Erreur d'envoi.",
     }));
     setNotifying(null);
+  }
+
+  async function addToCalendar(id: string) {
+    setAddingToCalendar(id);
+    setCalendarResult((prev) => ({ ...prev, [id]: "" }));
+    const res = await fetch(`/api/admin/meetings/${id}/add-to-calendar`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setCalendarResult((prev) => ({
+      ...prev,
+      [id]: res.ok ? "📅 Ajouté au calendrier." : body.error ?? "Erreur.",
+    }));
+    setAddingToCalendar(null);
+    if (res.ok) await load();
   }
 
   async function togglePublished(m: Meeting) {
@@ -304,6 +319,9 @@ export default function AdminReunionsPage() {
         notifying={notifying}
         notifyResult={notifyResult}
         onSendReminder={sendReminder}
+        addingToCalendar={addingToCalendar}
+        calendarResult={calendarResult}
+        onAddToCalendar={addToCalendar}
       />
 
       <MeetingSection
@@ -319,6 +337,9 @@ export default function AdminReunionsPage() {
         notifying={notifying}
         notifyResult={notifyResult}
         onSendReminder={sendReminder}
+        addingToCalendar={addingToCalendar}
+        calendarResult={calendarResult}
+        onAddToCalendar={addToCalendar}
       />
     </div>
   );
@@ -337,6 +358,9 @@ function MeetingSection({
   notifying,
   notifyResult,
   onSendReminder,
+  addingToCalendar,
+  calendarResult,
+  onAddToCalendar,
 }: {
   title: string;
   emoji: string;
@@ -350,6 +374,9 @@ function MeetingSection({
   notifying: string | null;
   notifyResult: Record<string, string>;
   onSendReminder: (id: string) => void;
+  addingToCalendar: string | null;
+  calendarResult: Record<string, string>;
+  onAddToCalendar: (id: string) => void;
 }) {
   return (
     <div className="mt-10">
@@ -428,6 +455,15 @@ function MeetingSection({
                             : "📧 Notifier les membres"}
                         </button>
                       )}
+                      {!m.linkedEventId && (
+                        <button
+                          onClick={() => onAddToCalendar(m.id)}
+                          disabled={addingToCalendar === m.id}
+                          className="text-blue-400 hover:underline disabled:opacity-50"
+                        >
+                          {addingToCalendar === m.id ? "Ajout…" : "📅 Ajouter au calendrier"}
+                        </button>
+                      )}
                       <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">
                         Supprimer
                       </button>
@@ -439,6 +475,11 @@ function MeetingSection({
               {notifyResult[m.id] && (
                 <p className={`mt-2 text-xs ${notifyResult[m.id].startsWith("Rappel") ? "text-emerald-400" : "text-red-400"}`}>
                   {notifyResult[m.id]}
+                </p>
+              )}
+              {calendarResult[m.id] && (
+                <p className={`mt-2 text-xs ${calendarResult[m.id].startsWith("📅") ? "text-blue-400" : "text-red-400"}`}>
+                  {calendarResult[m.id]}
                 </p>
               )}
 
