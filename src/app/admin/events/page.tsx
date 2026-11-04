@@ -53,7 +53,7 @@ type MealReport = {
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null };
-type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; order: number };
+type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -1614,11 +1614,20 @@ export default function AdminEventsPage() {
             const newDescription = effectiveLocation
               ? `📍 ${effectiveLocation}\n\n${tpl.description}`
               : tpl.description;
+            const datePart = (dt: string) => dt.slice(0, 10);
+            const newStartsAt = tpl.startTime
+              ? `${datePart(form.startsAt)}T${tpl.startTime}`
+              : form.startsAt;
+            const newEndsAt = tpl.endTime
+              ? `${datePart(form.endsAt || form.startsAt)}T${tpl.endTime}`
+              : form.endsAt;
             setForm((prev) => ({
               ...prev,
               title: newTitle,
               description: newDescription,
               location: prev.location || tpl.location || "",
+              startsAt: newStartsAt,
+              endsAt: newEndsAt,
             }));
           };
           return (
@@ -1628,7 +1637,7 @@ export default function AdminEventsPage() {
                 onClick={applyTemplate}
                 className="rounded-md border border-primary-600 bg-primary-800/60 px-4 py-2 text-sm font-medium text-primary-200 hover:bg-primary-700 hover:text-white transition"
               >
-                ✨ Remplir le titre et la description depuis le modèle
+                ✨ Remplir depuis le modèle
               </button>
             </div>
           );

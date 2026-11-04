@@ -10,6 +10,8 @@ type EventTemplate = {
   description: string;
   activityKey: string | null;
   location: string | null;
+  startTime: string | null;
+  endTime: string | null;
   order: number;
 };
 
@@ -21,7 +23,7 @@ const ACTIVITIES = [
   { key: "AUTRE", label: "Autre" },
 ];
 
-const EMPTY_FORM = { id: "", title: "", description: "", activityKey: "", location: "" };
+const EMPTY_FORM = { id: "", title: "", description: "", activityKey: "", location: "", startTime: "", endTime: "" };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -45,7 +47,7 @@ export default function AdminEventTemplatesPage() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(t: EventTemplate) {
-    setForm({ id: t.id, title: t.title, description: t.description, activityKey: t.activityKey ?? "", location: t.location ?? "" });
+    setForm({ id: t.id, title: t.title, description: t.description, activityKey: t.activityKey ?? "", location: t.location ?? "", startTime: t.startTime ?? "", endTime: t.endTime ?? "" });
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -66,6 +68,8 @@ export default function AdminEventTemplatesPage() {
       description: form.description.trim(),
       activityKey: form.activityKey || null,
       location: form.location.trim() || null,
+      startTime: form.startTime.trim() || null,
+      endTime: form.endTime.trim() || null,
     };
     const res = form.id
       ? await fetch(`/api/admin/event-templates/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -112,6 +116,7 @@ export default function AdminEventTemplatesPage() {
               <tr className="border-b border-primary-800 bg-primary-900/60">
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Titre</th>
                 <th className="hidden px-4 py-2 text-left font-medium text-slate-300 md:table-cell">Lieu</th>
+                <th className="hidden px-4 py-2 text-left font-medium text-slate-300 lg:table-cell">Horaires</th>
                 <th className="hidden px-4 py-2 text-left font-medium text-slate-300 sm:table-cell">Description</th>
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Activité</th>
                 {canWrite && <th className="px-4 py-2 text-right font-medium text-slate-300">Actions</th>}
@@ -126,6 +131,15 @@ export default function AdminEventTemplatesPage() {
                     <td className="hidden max-w-[160px] px-4 py-3 text-slate-400 md:table-cell">
                       {t.location ? (
                         <span className="line-clamp-1">📍 {t.location}</span>
+                      ) : (
+                        <span className="text-xs text-slate-500">—</span>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">
+                      {t.startTime || t.endTime ? (
+                        <span className="text-xs">
+                          🕐 {t.startTime || "—"}{t.endTime ? ` → ${t.endTime}` : ""}
+                        </span>
                       ) : (
                         <span className="text-xs text-slate-500">—</span>
                       )}
@@ -222,6 +236,31 @@ export default function AdminEventTemplatesPage() {
               placeholder="Ex: Salle des fêtes de Saint-Loup"
               className={inputClass}
             />
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-300">
+                Heure de début <span className="text-slate-500">(optionnel)</span>
+              </label>
+              <input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300">
+                Heure de fin <span className="text-slate-500">(optionnel)</span>
+              </label>
+              <input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                className={inputClass}
+              />
+            </div>
           </div>
 
           <div className="mt-4">
