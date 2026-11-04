@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const isClosed = poll.closedAt && new Date(poll.closedAt) < new Date();
   if (isClosed) return NextResponse.json({ error: "Ce sondage est clôturé." }, { status: 400 });
 
-  if (poll.activityKey) {
+  if (poll.activityKey && poll.restrictToActivity) {
     const canVote = await userHasActivity(session.user.id, poll.activityKey);
     if (!canVote) {
       return NextResponse.json(
