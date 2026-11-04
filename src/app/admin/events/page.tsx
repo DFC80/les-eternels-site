@@ -1762,7 +1762,19 @@ export default function AdminEventsPage() {
                 const autoMenus: MenuFormItem[] = checked && form.menus.length === 0
                   ? catalogItemsForMonth(menuCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: "", extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
                   : checked ? form.menus : [];
-                setForm({ ...form, hasMeal: checked, menus: autoMenus });
+                let autoMealInfo = form.mealInfo;
+                let autoMealPrice = form.mealPrice;
+                if (checked && form.startsAt) {
+                  const month = new Date(form.startsAt).getMonth() + 1;
+                  if ([1, 2, 3, 4, 10, 11, 12].includes(month)) {
+                    autoMealInfo = "Sandwich composé par le joueur.";
+                    autoMealPrice = "8";
+                  } else if ([5, 6, 7, 8, 9].includes(month)) {
+                    autoMealInfo = "Barbecue préparé sur place.";
+                    autoMealPrice = "10";
+                  }
+                }
+                setForm({ ...form, hasMeal: checked, menus: autoMenus, mealInfo: autoMealInfo, mealPrice: autoMealPrice });
               }}
               className={checkboxClass}
             />
