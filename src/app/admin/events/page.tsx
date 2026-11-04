@@ -52,7 +52,7 @@ type MealReport = {
 
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
-type CatalogItem = { id: string; label: string; stock: number | null };
+type CatalogItem = { id: string; label: string; stock: number | null; months: string | null };
 type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; seasonTimes: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
@@ -353,6 +353,15 @@ export default function AdminEventsPage() {
       body: JSON.stringify({ showOnCalendar: value }),
     });
     if (res.ok) await load();
+  }
+
+  function catalogItemsForMonth<T extends CatalogItem>(catalog: T[], startsAt: string): T[] {
+    if (!startsAt) return catalog;
+    const month = new Date(startsAt).getMonth() + 1; // 1-12
+    return catalog.filter((item) => {
+      if (!item.months) return true;
+      try { return (JSON.parse(item.months) as number[]).includes(month); } catch { return true; }
+    });
   }
 
   function updateMenu(index: number, field: keyof MenuFormItem, value: string) {
@@ -1748,7 +1757,13 @@ export default function AdminEventsPage() {
             <input
               type="checkbox"
               checked={form.hasMeal}
-              onChange={(e) => setForm({ ...form, hasMeal: e.target.checked, menus: e.target.checked ? form.menus : [] })}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                const autoMenus: MenuFormItem[] = checked && form.menus.length === 0
+                  ? catalogItemsForMonth(menuCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: "", extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
+                  : checked ? form.menus : [];
+                setForm({ ...form, hasMeal: checked, menus: autoMenus });
+              }}
               className={checkboxClass}
             />
             🍽️ Un repas est proposé pour cet événement (réglé sur place)
@@ -1950,7 +1965,13 @@ export default function AdminEventsPage() {
             <input
               type="checkbox"
               checked={form.hasDrinks}
-              onChange={(e) => setForm({ ...form, hasDrinks: e.target.checked, drinks: e.target.checked ? form.drinks : [] })}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                const autoDrinks: DrinkFormItem[] = checked && form.drinks.length === 0
+                  ? catalogItemsForMonth(drinkCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
+                  : checked ? form.drinks : [];
+                setForm({ ...form, hasDrinks: checked, drinks: autoDrinks });
+              }}
               className={checkboxClass}
             />
             🥤 Des boissons sont proposées pour cet événement
