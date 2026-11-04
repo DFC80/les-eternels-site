@@ -35,6 +35,7 @@ services:
       SMTP_FROM:              ${SMTP_FROM:-}
       STRIPE_SECRET_KEY:      ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET:  ${STRIPE_WEBHOOK_SECRET:-}
+      DISCORD_WEBHOOK_URL:    ${DISCORD_WEBHOOK_URL:-}
     volumes:
       - uploads:/app/public/uploads
       - docs_uploads:/app/uploads
