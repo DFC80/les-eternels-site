@@ -53,7 +53,7 @@ type MealReport = {
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null };
-type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; order: number };
+type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -1610,10 +1610,16 @@ export default function AdminEventsPage() {
             const monthYear = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
             const capitalised = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
             const newTitle = `${tpl.title} — ${capitalised}`;
-            const newDescription = form.location
-              ? `📍 ${form.location}\n\n${tpl.description}`
+            const effectiveLocation = form.location || tpl.location || "";
+            const newDescription = effectiveLocation
+              ? `📍 ${effectiveLocation}\n\n${tpl.description}`
               : tpl.description;
-            setForm((prev) => ({ ...prev, title: newTitle, description: newDescription }));
+            setForm((prev) => ({
+              ...prev,
+              title: newTitle,
+              description: newDescription,
+              location: prev.location || tpl.location || "",
+            }));
           };
           return (
             <div className="sm:col-span-2">

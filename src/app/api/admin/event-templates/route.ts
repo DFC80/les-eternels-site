@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   if (!session || !sessionHasWriteAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
-  const { title, description, activityKey } = await request.json();
+  const { title, description, activityKey, location } = await request.json();
   if (!title?.trim()) {
     return NextResponse.json({ error: "Le titre est requis." }, { status: 400 });
   }
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       title: title.trim(),
       description: description.trim(),
       activityKey: activityKey?.trim() || null,
+      location: location?.trim() || null,
       order: (last?.order ?? 0) + 1,
     },
   });

@@ -9,6 +9,7 @@ type EventTemplate = {
   title: string;
   description: string;
   activityKey: string | null;
+  location: string | null;
   order: number;
 };
 
@@ -20,7 +21,7 @@ const ACTIVITIES = [
   { key: "AUTRE", label: "Autre" },
 ];
 
-const EMPTY_FORM = { id: "", title: "", description: "", activityKey: "" };
+const EMPTY_FORM = { id: "", title: "", description: "", activityKey: "", location: "" };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -44,7 +45,7 @@ export default function AdminEventTemplatesPage() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(t: EventTemplate) {
-    setForm({ id: t.id, title: t.title, description: t.description, activityKey: t.activityKey ?? "" });
+    setForm({ id: t.id, title: t.title, description: t.description, activityKey: t.activityKey ?? "", location: t.location ?? "" });
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -64,6 +65,7 @@ export default function AdminEventTemplatesPage() {
       title: form.title.trim(),
       description: form.description.trim(),
       activityKey: form.activityKey || null,
+      location: form.location.trim() || null,
     };
     const res = form.id
       ? await fetch(`/api/admin/event-templates/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -96,7 +98,7 @@ export default function AdminEventTemplatesPage() {
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="font-display text-2xl text-silver-100">Modèles d&apos;événements</h1>
       <p className="mt-1 text-sm text-slate-400">
-        Gérez les titres et descriptions prédéfinis proposés lors de la création d&apos;un événement.
+        Gérez les titres, lieux et descriptions prédéfinis proposés lors de la création d&apos;un événement.
         Associez optionnellement un modèle à une activité pour le filtrer lors de la saisie.
       </p>
 
@@ -109,6 +111,7 @@ export default function AdminEventTemplatesPage() {
             <thead>
               <tr className="border-b border-primary-800 bg-primary-900/60">
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Titre</th>
+                <th className="hidden px-4 py-2 text-left font-medium text-slate-300 md:table-cell">Lieu</th>
                 <th className="hidden px-4 py-2 text-left font-medium text-slate-300 sm:table-cell">Description</th>
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Activité</th>
                 {canWrite && <th className="px-4 py-2 text-right font-medium text-slate-300">Actions</th>}
@@ -120,6 +123,13 @@ export default function AdminEventTemplatesPage() {
                 return (
                   <tr key={t.id} className="border-b border-primary-800/50 last:border-0 hover:bg-primary-900/30">
                     <td className="px-4 py-3 font-medium text-slate-100">{t.title}</td>
+                    <td className="hidden max-w-[160px] px-4 py-3 text-slate-400 md:table-cell">
+                      {t.location ? (
+                        <span className="line-clamp-1">📍 {t.location}</span>
+                      ) : (
+                        <span className="text-xs text-slate-500">—</span>
+                      )}
+                    </td>
                     <td className="hidden max-w-xs px-4 py-3 text-slate-400 sm:table-cell">
                       <span className="line-clamp-2">{t.description}</span>
                     </td>
@@ -200,6 +210,18 @@ export default function AdminEventTemplatesPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300">
+              Lieu <span className="text-slate-500">(optionnel)</span>
+            </label>
+            <input
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              placeholder="Ex: Salle des fêtes de Saint-Loup"
+              className={inputClass}
+            />
           </div>
 
           <div className="mt-4">
