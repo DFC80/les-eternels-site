@@ -53,6 +53,7 @@ type MealReport = {
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null };
+type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -206,6 +207,8 @@ export default function AdminEventsPage() {
   const [notifyResult, setNotifyResult] = useState<Record<string, string>>({});
   const [notifyingAdminFor, setNotifyingAdminFor] = useState<string | null>(null);
   const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
+  const [eventTemplates, setEventTemplates] = useState<EventTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   async function load() {
     const res = await fetch("/api/events");
@@ -237,10 +240,15 @@ export default function AdminEventsPage() {
       .then((r) => r.ok ? r.json() : [])
       .then((data: CatalogItem[]) => setDrinkCatalog(data))
       .catch(() => {});
+    fetch("/api/admin/event-templates")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: EventTemplate[]) => setEventTemplates(data))
+      .catch(() => {});
   }, []);
 
   function resetForm() {
     setForm(EMPTY_FORM);
+    setSelectedTemplateId("");
   }
 
   function editEvent(ev: EventItem) {
@@ -1512,32 +1520,12 @@ export default function AdminEventsPage() {
           {form.id ? "Modifier l'événement" : "Créer un événement"}
         </h2>
 
+        {/* 1 — Activité */}
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Titre</label>
-          <input
-            required
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className={inputClass}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Description</label>
-          <textarea
-            required
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className={inputClass}
-            rows={3}
-          />
-        </div>
-
-        <div>
           <label className="block text-sm font-medium text-slate-300">Type d'activité</label>
           <select
             value={form.activityType}
-            onChange={(e) => setForm({ ...form, activityType: e.target.value, boardGameIds: [] })}
+            onChange={(e) => { setForm({ ...form, activityType: e.target.value, boardGameIds: [] }); setSelectedTemplateId(""); }}
             className={inputClass}
           >
             {visibleActivityOptions.map((a) => (
@@ -1554,16 +1542,32 @@ export default function AdminEventsPage() {
           })()}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-300">Lieu</label>
-          <input
-            required
-            value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })}
-            className={inputClass}
-          />
-        </div>
+        {/* 2 — Modèle d'événement */}
+        {(() => {
+          const filteredTemplates = eventTemplates.filter(
+            (t) => !t.activityKey || t.activityKey === form.activityType
+          );
+          if (filteredTemplates.length === 0) return null;
+          return (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Modèle d&apos;événement <span className="text-slate-500">(optionnel)</span>
+              </label>
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— Choisir un modèle —</option>
+                {filteredTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+          );
+        })()}
 
+        {/* 3 — Dates */}
         <div>
           <label className="block text-sm font-medium text-slate-300">Début</label>
           <DateInput
@@ -1586,6 +1590,67 @@ export default function AdminEventsPage() {
           />
         </div>
 
+        {/* 4 — Lieu */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Lieu</label>
+          <input
+            required
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+
+        {/* 5 — Bouton auto-remplissage */}
+        {(() => {
+          const tpl = eventTemplates.find((t) => t.id === selectedTemplateId);
+          if (!tpl || !form.startsAt) return null;
+          const applyTemplate = () => {
+            const d = new Date(form.startsAt);
+            const monthYear = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+            const capitalised = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
+            const newTitle = `${tpl.title} — ${capitalised}`;
+            const newDescription = form.location
+              ? `📍 ${form.location}\n\n${tpl.description}`
+              : tpl.description;
+            setForm((prev) => ({ ...prev, title: newTitle, description: newDescription }));
+          };
+          return (
+            <div className="sm:col-span-2">
+              <button
+                type="button"
+                onClick={applyTemplate}
+                className="rounded-md border border-primary-600 bg-primary-800/60 px-4 py-2 text-sm font-medium text-primary-200 hover:bg-primary-700 hover:text-white transition"
+              >
+                ✨ Remplir le titre et la description depuis le modèle
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* 6 — Titre */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Titre</label>
+          <input
+            required
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+
+        {/* 7 — Description */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Description</label>
+          <textarea
+            required
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className={inputClass}
+            rows={3}
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-300">Capacité (optionnel)</label>
           <input
@@ -1599,7 +1664,7 @@ export default function AdminEventsPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">
-            Date limite d'inscription (optionnel)
+            Date limite d&apos;inscription (optionnel)
           </label>
           <DateInput
             type="datetime-local"
