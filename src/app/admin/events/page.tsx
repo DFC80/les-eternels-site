@@ -1769,7 +1769,7 @@ export default function AdminEventsPage() {
                   if ([1, 2, 3, 4, 10, 11, 12].includes(month)) {
                     autoMealInfo = "Sandwich composé par le joueur.";
                     autoMealPrice = "8";
-                  } else if ([5, 6, 7, 8].includes(month)) {
+                  } else if ([5, 6, 7, 8, 9].includes(month)) {
                     autoMealInfo = "Barbecue préparé sur place.";
                     autoMealPrice = "10";
                   }
