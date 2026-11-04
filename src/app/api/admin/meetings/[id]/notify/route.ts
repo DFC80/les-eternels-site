@@ -15,6 +15,10 @@ export async function POST(_request: Request, { params }: { params: { id: string
   const meeting = await prisma.meeting.findUnique({ where: { id: params.id } });
   if (!meeting) return NextResponse.json({ error: "Introuvable." }, { status: 404 });
 
+  const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost";
+  const dateStr = meeting.date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
   if (meeting.type === "BUREAU") {
     const bureauUsers = await prisma.user.findMany({
       where: { bureauRoles: { some: {} }, isActive: true },
@@ -46,6 +50,15 @@ export async function POST(_request: Request, { params }: { params: { id: string
       location: meeting.location,
       agenda: meeting.agenda,
     });
+    if (discordWebhook) {
+      await fetch(discordWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `🏛️ **Assemblée Générale** — ${dateStr}${meeting.location ? `\n📍 ${meeting.location}` : ""}\n${baseUrl}`,
+        }),
+      }).catch(() => null);
+    }
     return NextResponse.json({ sent: members.length });
   }
 
