@@ -770,6 +770,7 @@ model EventTemplate {
   title       String
   description String
   activityKey String?
+  location    String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
