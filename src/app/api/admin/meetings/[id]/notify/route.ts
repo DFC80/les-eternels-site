@@ -33,15 +33,6 @@ export async function POST(_request: Request, { params }: { params: { id: string
       location: meeting.location,
       agenda: meeting.agenda,
     });
-    if (discordWebhook) {
-      await fetch(discordWebhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: `📋 **Réunion de bureau** — ${dateStr}${meeting.location ? `\n📍 ${meeting.location}` : ""}\n${baseUrl}`,
-        }),
-      }).catch(() => null);
-    }
     return NextResponse.json({ sent: bureauUsers.length });
   }
 
