@@ -24,7 +24,7 @@ const ADMIN_SECTION_MAP: { prefix: string; section: AdminSection; fullAdminOnly?
 ];
 
 // Routes qui nécessitent une session active
-const AUTH_REQUIRED_PREFIXES = ["/admin", "/mon-compte", "/comptoir"];
+const AUTH_REQUIRED_PREFIXES = ["/admin", "/mon-compte", "/comptoir", "/sondages"];
 
 export default withAuth(
   function middleware(req) {
@@ -81,6 +81,7 @@ export const config = {
     "/profil/:path*",
     "/comptoir/:path*",
     "/comptoir",
+    "/sondages",
     "/sondages/:path*",
     "/activites/:path*",
     "/",

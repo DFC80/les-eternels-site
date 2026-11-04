@@ -12,9 +12,15 @@ async function requireAdmin() {
   return session;
 }
 
-export async function POST(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
+
+  let sendDiscord = false;
+  try {
+    const body = await request.json();
+    sendDiscord = body?.sendDiscord === true;
+  } catch { /* body vide ou non-JSON */ }
 
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_FROM;
   if (!adminEmail) return NextResponse.json({ error: "Email admin non configuré." }, { status: 500 });
@@ -42,7 +48,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   });
 
   const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
-  if (discordWebhook) {
+  if (sendDiscord && discordWebhook) {
     const label = activityLabel ? ` (${activityLabel})` : "";
     await fetch(discordWebhook, {
       method: "POST",
