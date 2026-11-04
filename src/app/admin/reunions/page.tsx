@@ -25,6 +25,7 @@ const EMPTY_FORM = {
   agenda: "",
   notes: "",
   isPublished: false,
+  addToCalendar: false,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -89,6 +90,7 @@ export default function AdminReunionsPage() {
       agenda: m.agenda ?? "",
       notes: m.notes ?? "",
       isPublished: m.isPublished,
+      addToCalendar: false,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -105,6 +107,7 @@ export default function AdminReunionsPage() {
       agenda: form.agenda || null,
       notes: form.notes || null,
       isPublished: form.isPublished,
+      addToCalendar: form.addToCalendar,
     };
 
     const res = await fetch(form.id ? `/api/admin/meetings/${form.id}` : "/api/admin/meetings", {
@@ -175,11 +178,6 @@ export default function AdminReunionsPage() {
           {form.id ? "Modifier la réunion" : "Nouvelle réunion"}
         </h2>
 
-        {!form.id && form.type === "ASSEMBLEE_GENERALE" && (
-          <p className="rounded-md border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-400">
-            📅 L&apos;assemblée sera automatiquement ajoutée au calendrier des événements.
-          </p>
-        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -239,6 +237,21 @@ export default function AdminReunionsPage() {
             />
           </div>
 
+          {!form.id && (
+            <div className="sm:col-span-2 flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="addToCalendar"
+                checked={form.addToCalendar}
+                onChange={(e) => setForm({ ...form, addToCalendar: e.target.checked })}
+                className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
+              />
+              <label htmlFor="addToCalendar" className="text-sm text-slate-300 cursor-pointer">
+                📅 Ajouter au calendrier des événements
+              </label>
+            </div>
+          )}
+
           {form.type === "ASSEMBLEE_GENERALE" && (
             <div className="sm:col-span-2 flex items-center gap-3">
               <input
@@ -249,7 +262,7 @@ export default function AdminReunionsPage() {
                 className="h-4 w-4 rounded border-primary-600 bg-primary-950 accent-primary-400"
               />
               <label htmlFor="isPublished" className="text-sm text-slate-300 cursor-pointer">
-                Afficher le résumé sur la page d'accueil
+                Afficher le résumé sur la page d&apos;accueil
               </label>
             </div>
           )}

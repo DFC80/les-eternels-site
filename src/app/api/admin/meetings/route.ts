@@ -26,13 +26,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { type, date, location, agenda, notes, isPublished } = body as {
+  const { type, date, location, agenda, notes, isPublished, addToCalendar } = body as {
     type?: string;
     date?: string;
     location?: string;
     agenda?: string;
     notes?: string;
     isPublished?: boolean;
+    addToCalendar?: boolean;
   };
 
   if (!type || !["BUREAU", "ASSEMBLEE_GENERALE"].includes(type)) {
@@ -46,35 +47,37 @@ export async function POST(request: Request) {
 
   let linkedEventId: string | null = null;
 
-  if (type === "ASSEMBLEE_GENERALE") {
-    const year = meetingDate.getFullYear();
-    const event = await prisma.event.create({
-      data: {
-        title: `Assemblée Générale ${year}`,
-        description: agenda || "Assemblée générale annuelle de l'association Les Éternels.",
-        activityType: "AUTRE",
-        location: location || "",
-        startsAt: meetingDate,
-        endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
-        capacity: null,
-        bureauOnly: false,
-      },
-    });
-    linkedEventId = event.id;
-  } else if (type === "BUREAU") {
-    const event = await prisma.event.create({
-      data: {
-        title: `Réunion de bureau — ${meetingDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}`,
-        description: agenda || "Réunion interne du bureau de l'association.",
-        activityType: "AUTRE",
-        location: location || "",
-        startsAt: meetingDate,
-        endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
-        capacity: null,
-        bureauOnly: true,
-      },
-    });
-    linkedEventId = event.id;
+  if (addToCalendar) {
+    if (type === "ASSEMBLEE_GENERALE") {
+      const year = meetingDate.getFullYear();
+      const event = await prisma.event.create({
+        data: {
+          title: `Assemblée Générale ${year}`,
+          description: agenda || "Assemblée générale annuelle de l'association Les Éternels.",
+          activityType: "AUTRE",
+          location: location || "",
+          startsAt: meetingDate,
+          endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+          capacity: null,
+          bureauOnly: false,
+        },
+      });
+      linkedEventId = event.id;
+    } else if (type === "BUREAU") {
+      const event = await prisma.event.create({
+        data: {
+          title: `Réunion de bureau — ${meetingDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}`,
+          description: agenda || "Réunion interne du bureau de l'association.",
+          activityType: "AUTRE",
+          location: location || "",
+          startsAt: meetingDate,
+          endsAt: new Date(meetingDate.getTime() + 3 * 60 * 60 * 1000),
+          capacity: null,
+          bureauOnly: true,
+        },
+      });
+      linkedEventId = event.id;
+    }
   }
 
   const meeting = await prisma.meeting.create({
