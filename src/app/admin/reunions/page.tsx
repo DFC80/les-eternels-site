@@ -175,14 +175,9 @@ export default function AdminReunionsPage() {
           {form.id ? "Modifier la réunion" : "Nouvelle réunion"}
         </h2>
 
-        {!form.id && form.type === "BUREAU" && (
-          <p className="rounded-md border border-primary-700 bg-primary-900/60 px-3 py-2 text-sm text-slate-400">
-            📧 Un email sera automatiquement envoyé à tous les membres du bureau.
-          </p>
-        )}
         {!form.id && form.type === "ASSEMBLEE_GENERALE" && (
           <p className="rounded-md border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-400">
-            📅 L'assemblée sera automatiquement ajoutée au calendrier des événements.
+            📅 L&apos;assemblée sera automatiquement ajoutée au calendrier des événements.
           </p>
         )}
 
@@ -407,13 +402,17 @@ function MeetingSection({
                           {m.isPublished ? "Retirer de l'accueil" : "Afficher sur l'accueil"}
                         </button>
                       )}
-                      {m.type === "BUREAU" && (
+                      {(m.type === "BUREAU" || m.type === "ASSEMBLEE_GENERALE") && (
                         <button
                           onClick={() => onSendReminder(m.id)}
                           disabled={notifying === m.id}
                           className="text-sky-400 hover:underline disabled:opacity-50"
                         >
-                          {notifying === m.id ? "Envoi…" : "Envoyer un rappel"}
+                          {notifying === m.id
+                            ? "Envoi…"
+                            : m.type === "BUREAU"
+                            ? "📧 Notifier le bureau"
+                            : "📧 Notifier les membres"}
                         </button>
                       )}
                       <button onClick={() => onDelete(m)} className="text-red-400 hover:underline">

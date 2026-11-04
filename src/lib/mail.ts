@@ -981,6 +981,60 @@ export async function sendBureauMeetingNotification(params: {
   );
 }
 
+export async function sendAGMeetingNotification(params: {
+  recipients: { email: string; firstName: string }[];
+  date: Date;
+  location: string;
+  agenda: string | null;
+}) {
+  const { recipients, date, location, agenda } = params;
+
+  const dateStr = date.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mapsUrl = location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
+    : null;
+
+  const agendaHtml = agenda
+    ? `<p style="margin-top:16px;font-weight:bold;color:#555;">Ordre du jour :</p>
+       <div style="margin:8px 0;padding:12px 16px;background:#f9fafb;border-left:4px solid #d97706;white-space:pre-wrap;">${agenda}</div>`
+    : "";
+
+  await Promise.allSettled(
+    recipients.map(({ email, firstName }) => {
+      const html = wrapHtml(
+        "🏛️ Assemblée Générale",
+        `
+          <p>Bonjour ${firstName},</p>
+          <p>Une assemblée générale est organisée :</p>
+          <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+            <tr>
+              <td style="padding:6px 12px;font-weight:bold;color:#555;">Date</td>
+              <td style="padding:6px 12px;">${dateStr}</td>
+            </tr>
+            ${location ? `<tr style="background:#f9f9f9"><td style="padding:6px 12px;font-weight:bold;color:#555;">Lieu</td><td style="padding:6px 12px;"><a href="${mapsUrl}" style="color:#d97706;">${location}</a></td></tr>` : ""}
+          </table>
+          ${agendaHtml}
+          <p style="margin-top:20px;">À bientôt !</p>
+        `
+      );
+      return sendMail(
+        email,
+        `Assemblée Générale — ${date.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" })}`,
+        html
+      );
+    })
+  );
+}
+
 export async function sendShopOrderNotificationToAdmin(params: {
   memberName: string;
   memberEmail: string;

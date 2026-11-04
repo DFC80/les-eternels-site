@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sessionHasAccess, sessionHasWriteAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { sendBureauMeetingNotification } from "@/lib/mail";
+
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -88,21 +88,6 @@ export async function POST(request: Request) {
       linkedEventId,
     },
   });
-
-  if (type === "BUREAU") {
-    const bureauUsers = await prisma.user.findMany({
-      where: { bureauRoles: { some: {} }, isActive: true },
-      select: { email: true, firstName: true },
-    });
-    if (bureauUsers.length > 0) {
-      sendBureauMeetingNotification({
-        recipients: bureauUsers,
-        date: meetingDate,
-        location: location || "",
-        agenda: agenda || null,
-      }).catch((err) => console.error("[meeting] Erreur envoi emails bureau :", err));
-    }
-  }
 
   return NextResponse.json(meeting, { status: 201 });
 }
