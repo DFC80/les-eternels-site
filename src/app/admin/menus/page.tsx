@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { sessionHasWriteAccess } from "@/lib/permissions";
 
-type CatalogItem = { id: string; label: string; stock: number | null; seasons: string | null; order: number };
+type CatalogItem = { id: string; label: string; stock: number | null; seasons: string | null; months: string | null; order: number };
 
 type SeasonKey = "PRINTEMPS" | "ETE" | "AUTOMNE" | "HIVER";
 const SEASONS: { key: SeasonKey; label: string; emoji: string }[] = [
@@ -14,12 +14,32 @@ const SEASONS: { key: SeasonKey; label: string; emoji: string }[] = [
   { key: "HIVER", label: "Hiver", emoji: "❄️" },
 ];
 
+const MONTHS: { num: number; short: string; long: string }[] = [
+  { num: 1,  short: "Jan", long: "Janvier" },
+  { num: 2,  short: "Fév", long: "Février" },
+  { num: 3,  short: "Mar", long: "Mars" },
+  { num: 4,  short: "Avr", long: "Avril" },
+  { num: 5,  short: "Mai", long: "Mai" },
+  { num: 6,  short: "Jun", long: "Juin" },
+  { num: 7,  short: "Jul", long: "Juillet" },
+  { num: 8,  short: "Aoû", long: "Août" },
+  { num: 9,  short: "Sep", long: "Septembre" },
+  { num: 10, short: "Oct", long: "Octobre" },
+  { num: 11, short: "Nov", long: "Novembre" },
+  { num: 12, short: "Déc", long: "Décembre" },
+];
+
 function parseSeasons(raw: string | null): SeasonKey[] {
   if (!raw) return [];
   try { return JSON.parse(raw) as SeasonKey[]; } catch { return []; }
 }
 
-const EMPTY_FORM = { id: "", label: "", stock: "", seasons: [] as SeasonKey[] };
+function parseMonths(raw: string | null): number[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw) as number[]; } catch { return []; }
+}
+
+const EMPTY_FORM = { id: "", label: "", stock: "", seasons: [] as SeasonKey[], months: [] as number[] };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -44,7 +64,7 @@ function CatalogSection({
   canWrite: boolean;
 }) {
   const [items, setItems] = useState<CatalogItem[]>([]);
-  const [form, setForm] = useState<{ id: string; label: string; stock: string; seasons: SeasonKey[] }>(EMPTY_FORM);
+  const [form, setForm] = useState<{ id: string; label: string; stock: string; seasons: SeasonKey[]; months: number[] }>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -57,7 +77,7 @@ function CatalogSection({
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(item: CatalogItem) {
-    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "", seasons: parseSeasons(item.seasons) });
+    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "", seasons: parseSeasons(item.seasons), months: parseMonths(item.months) });
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -74,6 +94,13 @@ function CatalogSection({
     }));
   }
 
+  function toggleMonth(num: number) {
+    setForm((prev) => ({
+      ...prev,
+      months: prev.months.includes(num) ? prev.months.filter((m) => m !== num) : [...prev.months, num].sort((a, b) => a - b),
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.label.trim()) { setError("Le libellé est requis."); return; }
@@ -83,6 +110,7 @@ function CatalogSection({
       label: form.label.trim(),
       stock: form.stock !== "" ? Number(form.stock) : null,
       seasons: form.seasons.length > 0 ? form.seasons : null,
+      months: form.months.length > 0 ? form.months : null,
     };
     const res = form.id
       ? await fetch(`${apiBase}/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -127,6 +155,7 @@ function CatalogSection({
                 <th className="px-4 py-2 text-left font-medium text-slate-300">Libellé</th>
                 <th className="px-4 py-2 text-center font-medium text-slate-300">Stock</th>
                 <th className="px-4 py-2 text-center font-medium text-slate-300">Saisons</th>
+                <th className="px-4 py-2 text-center font-medium text-slate-300">Mois</th>
                 {canWrite && <th className="px-4 py-2 text-right font-medium text-slate-300">Actions</th>}
               </tr>
             </thead>
@@ -153,6 +182,15 @@ function CatalogSection({
                     ) : (
                       <span className="text-sm">
                         {parseSeasons(item.seasons).map((s) => SEASONS.find((x) => x.key === s)?.emoji).join(" ")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {parseMonths(item.months).length === 0 ? (
+                      <span className="text-xs text-slate-500">Tous</span>
+                    ) : (
+                      <span className="text-xs text-slate-300">
+                        {parseMonths(item.months).map((n) => MONTHS.find((m) => m.num === n)?.short).join(", ")}
                       </span>
                     )}
                   </td>
@@ -238,6 +276,25 @@ function CatalogSection({
                     className="accent-primary-400"
                   />
                   <span>{s.emoji} {s.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300">
+              Mois <span className="text-slate-500">(laisser vide = disponible toute l&apos;année)</span>
+            </label>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {MONTHS.map((m) => (
+                <label key={m.num} className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm hover:bg-primary-900">
+                  <input
+                    type="checkbox"
+                    checked={form.months.includes(m.num)}
+                    onChange={() => toggleMonth(m.num)}
+                    className="accent-primary-400"
+                  />
+                  <span>{m.long}</span>
                 </label>
               ))}
             </div>
