@@ -12,7 +12,26 @@ type EventTemplate = {
   location: string | null;
   startTime: string | null;
   endTime: string | null;
+  seasonTimes: string | null;
   order: number;
+};
+
+type SeasonKey = "PRINTEMPS" | "ETE" | "AUTOMNE" | "HIVER";
+type SeasonTime = { startTime: string; endTime: string };
+type SeasonTimesMap = Record<SeasonKey, SeasonTime>;
+
+const SEASONS: { key: SeasonKey; label: string; emoji: string }[] = [
+  { key: "PRINTEMPS", label: "Printemps", emoji: "🌸" },
+  { key: "ETE", label: "Été", emoji: "☀️" },
+  { key: "AUTOMNE", label: "Automne", emoji: "🍂" },
+  { key: "HIVER", label: "Hiver", emoji: "❄️" },
+];
+
+const EMPTY_SEASON_TIMES: SeasonTimesMap = {
+  PRINTEMPS: { startTime: "", endTime: "" },
+  ETE: { startTime: "", endTime: "" },
+  AUTOMNE: { startTime: "", endTime: "" },
+  HIVER: { startTime: "", endTime: "" },
 };
 
 const ACTIVITIES = [
@@ -28,6 +47,21 @@ const EMPTY_FORM = { id: "", title: "", description: "", activityKey: "", locati
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
 
+function parseSeasonTimes(raw: string | null): SeasonTimesMap {
+  if (!raw) return { ...EMPTY_SEASON_TIMES };
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      PRINTEMPS: { startTime: parsed.PRINTEMPS?.startTime ?? "", endTime: parsed.PRINTEMPS?.endTime ?? "" },
+      ETE: { startTime: parsed.ETE?.startTime ?? "", endTime: parsed.ETE?.endTime ?? "" },
+      AUTOMNE: { startTime: parsed.AUTOMNE?.startTime ?? "", endTime: parsed.AUTOMNE?.endTime ?? "" },
+      HIVER: { startTime: parsed.HIVER?.startTime ?? "", endTime: parsed.HIVER?.endTime ?? "" },
+    };
+  } catch {
+    return { ...EMPTY_SEASON_TIMES };
+  }
+}
+
 export default function AdminEventTemplatesPage() {
   const { data: session } = useSession();
   const sessionUser = session?.user as { role?: string; allowedSections?: string[] | null } | undefined;
@@ -35,6 +69,7 @@ export default function AdminEventTemplatesPage() {
 
   const [templates, setTemplates] = useState<EventTemplate[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [seasonTimes, setSeasonTimes] = useState<SeasonTimesMap>({ ...EMPTY_SEASON_TIMES });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -48,13 +83,19 @@ export default function AdminEventTemplatesPage() {
 
   function openEdit(t: EventTemplate) {
     setForm({ id: t.id, title: t.title, description: t.description, activityKey: t.activityKey ?? "", location: t.location ?? "", startTime: t.startTime ?? "", endTime: t.endTime ?? "" });
+    setSeasonTimes(parseSeasonTimes(t.seasonTimes));
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
   function resetForm() {
     setForm(EMPTY_FORM);
+    setSeasonTimes({ ...EMPTY_SEASON_TIMES });
     setError(null);
+  }
+
+  function updateSeasonTime(key: SeasonKey, field: "startTime" | "endTime", value: string) {
+    setSeasonTimes((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -63,13 +104,16 @@ export default function AdminEventTemplatesPage() {
     if (!form.description.trim()) { setError("La description est requise."); return; }
     setSaving(true);
     setError(null);
+    const isAirsoft = form.activityKey === "AIRSOFT";
+    const hasSeasonTimes = isAirsoft && SEASONS.some(({ key }) => seasonTimes[key].startTime || seasonTimes[key].endTime);
     const body = {
       title: form.title.trim(),
       description: form.description.trim(),
       activityKey: form.activityKey || null,
       location: form.location.trim() || null,
-      startTime: form.startTime.trim() || null,
-      endTime: form.endTime.trim() || null,
+      startTime: !isAirsoft ? form.startTime.trim() || null : null,
+      endTime: !isAirsoft ? form.endTime.trim() || null : null,
+      seasonTimes: hasSeasonTimes ? seasonTimes : null,
     };
     const res = form.id
       ? await fetch(`/api/admin/event-templates/${form.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -125,6 +169,7 @@ export default function AdminEventTemplatesPage() {
             <tbody>
               {templates.map((t, idx) => {
                 const activity = ACTIVITIES.find((a) => a.key === (t.activityKey ?? ""));
+                const st = t.seasonTimes ? parseSeasonTimes(t.seasonTimes) : null;
                 return (
                   <tr key={t.id} className="border-b border-primary-800/50 last:border-0 hover:bg-primary-900/30">
                     <td className="px-4 py-3 font-medium text-slate-100">{t.title}</td>
@@ -136,10 +181,18 @@ export default function AdminEventTemplatesPage() {
                       )}
                     </td>
                     <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">
-                      {t.startTime || t.endTime ? (
-                        <span className="text-xs">
-                          🕐 {t.startTime || "—"}{t.endTime ? ` → ${t.endTime}` : ""}
-                        </span>
+                      {st ? (
+                        <div className="space-y-0.5 text-xs">
+                          {SEASONS.map(({ key, emoji }) => {
+                            const s = st[key];
+                            if (!s.startTime && !s.endTime) return null;
+                            return (
+                              <div key={key}>{emoji} {s.startTime || "—"}{s.endTime ? ` → ${s.endTime}` : ""}</div>
+                            );
+                          })}
+                        </div>
+                      ) : t.startTime || t.endTime ? (
+                        <span className="text-xs">🕐 {t.startTime || "—"}{t.endTime ? ` → ${t.endTime}` : ""}</span>
                       ) : (
                         <span className="text-xs text-slate-500">—</span>
                       )}
@@ -238,30 +291,65 @@ export default function AdminEventTemplatesPage() {
             />
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-300">
-                Heure de début <span className="text-slate-500">(optionnel)</span>
-              </label>
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                className={inputClass}
-              />
+          {form.activityKey === "AIRSOFT" ? (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-slate-300">
+                Horaires par saison <span className="text-slate-500">(optionnel)</span>
+              </p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                {SEASONS.map(({ key, label, emoji }) => (
+                  <div key={key} className="rounded-lg border border-primary-700/50 bg-primary-900/40 p-3">
+                    <p className="mb-2 text-xs font-semibold text-slate-300">{emoji} {label}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-slate-500">Début</label>
+                        <input
+                          type="time"
+                          value={seasonTimes[key].startTime}
+                          onChange={(e) => updateSeasonTime(key, "startTime", e.target.value)}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500">Fin</label>
+                        <input
+                          type="time"
+                          value={seasonTimes[key].endTime}
+                          onChange={(e) => updateSeasonTime(key, "endTime", e.target.value)}
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300">
-                Heure de fin <span className="text-slate-500">(optionnel)</span>
-              </label>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                className={inputClass}
-              />
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-300">
+                  Heure de début <span className="text-slate-500">(optionnel)</span>
+                </label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300">
+                  Heure de fin <span className="text-slate-500">(optionnel)</span>
+                </label>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-4">
             <label className="block text-sm font-medium text-slate-300">Description *</label>

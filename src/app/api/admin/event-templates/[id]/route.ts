@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session || !sessionHasWriteAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
-  const { title, description, activityKey, location, startTime, endTime, order } = await request.json();
+  const { title, description, activityKey, location, startTime, endTime, seasonTimes, order } = await request.json();
   const data: Record<string, unknown> = {};
   if (title !== undefined) {
     if (!title?.trim()) return NextResponse.json({ error: "Le titre est requis." }, { status: 400 });
@@ -24,6 +24,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (location !== undefined) data.location = location?.trim() || null;
   if (startTime !== undefined) data.startTime = startTime?.trim() || null;
   if (endTime !== undefined) data.endTime = endTime?.trim() || null;
+  if (seasonTimes !== undefined) data.seasonTimes = seasonTimes ? JSON.stringify(seasonTimes) : null;
   if (order !== undefined) data.order = Number(order);
 
   const template = await prisma.eventTemplate.update({ where: { id: params.id }, data });

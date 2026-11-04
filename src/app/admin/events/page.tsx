@@ -53,7 +53,7 @@ type MealReport = {
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null };
-type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; order: number };
+type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; seasonTimes: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
 
@@ -1615,11 +1615,26 @@ export default function AdminEventsPage() {
               ? `📍 ${effectiveLocation}\n\n${tpl.description}`
               : tpl.description;
             const datePart = (dt: string) => dt.slice(0, 10);
-            const newStartsAt = tpl.startTime
-              ? `${datePart(form.startsAt)}T${tpl.startTime}`
+            let tplStartTime = tpl.startTime;
+            let tplEndTime = tpl.endTime;
+            if (tpl.seasonTimes) {
+              try {
+                const st = JSON.parse(tpl.seasonTimes);
+                const month = d.getMonth();
+                const seasonKey =
+                  month <= 1 || month === 11 ? "HIVER"
+                  : month <= 4 ? "PRINTEMPS"
+                  : month <= 7 ? "ETE"
+                  : "AUTOMNE";
+                tplStartTime = st[seasonKey]?.startTime || tpl.startTime;
+                tplEndTime = st[seasonKey]?.endTime || tpl.endTime;
+              } catch { /* keep original */ }
+            }
+            const newStartsAt = tplStartTime
+              ? `${datePart(form.startsAt)}T${tplStartTime}`
               : form.startsAt;
-            const newEndsAt = tpl.endTime
-              ? `${datePart(form.endsAt || form.startsAt)}T${tpl.endTime}`
+            const newEndsAt = tplEndTime
+              ? `${datePart(form.endsAt || form.startsAt)}T${tplEndTime}`
               : form.endsAt;
             setForm((prev) => ({
               ...prev,
