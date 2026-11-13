@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-type MealMenu = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null };
+type MealMenu = { id: string; label: string; maxPerPerson: number | null; showQuantity: boolean; extraPrice: number | null };
 type DrinkItem = { id: string; label: string; maxPerPerson: number | null };
 type MealOrder = { id: string; menuId: string | null; quantity: number };
 
@@ -762,8 +762,8 @@ export default function EventCalendar() {
                         </p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           {(selected.menus.length > 0
-                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
-                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
+                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, showQuantity: m.showQuantity, extraPrice: m.extraPrice }))
+                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, showQuantity: true, extraPrice: null as number | null }]
                           ).map((item) => {
                             const qty = quantities[item.key] ?? 0;
                             const atMax = item.max != null && qty >= item.max;
@@ -780,27 +780,41 @@ export default function EventCalendar() {
                                 {item.extraPrice != null && item.extraPrice > 0 && (
                                   <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
                                 )}
-                                {item.max != null && (
-                                  <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                {item.showQuantity ? (
+                                  <>
+                                    {item.max != null && (
+                                      <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                    )}
+                                    <div className="mt-3 flex items-center justify-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => setQuantity(item.key, qty - 1)}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800"
+                                      >
+                                        −
+                                      </button>
+                                      <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => !atMax && setQuantity(item.key, qty + 1)}
+                                        disabled={atMax}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={qty > 0}
+                                      onChange={(e) => setQuantity(item.key, e.target.checked ? 1 : 0)}
+                                      className="h-5 w-5 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                                    />
+                                    <span className="text-sm text-slate-300">Sélectionner</span>
+                                  </label>
                                 )}
-                                <div className="mt-3 flex items-center justify-center gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => setQuantity(item.key, qty - 1)}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800"
-                                  >
-                                    −
-                                  </button>
-                                  <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => !atMax && setQuantity(item.key, qty + 1)}
-                                    disabled={atMax}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
-                                  >
-                                    +
-                                  </button>
-                                </div>
                               </div>
                             );
                           })}
@@ -1096,8 +1110,8 @@ export default function EventCalendar() {
                         ) : (
                           <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             {(selected.menus.length > 0
-                              ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
-                              : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
+                              ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, showQuantity: m.showQuantity, extraPrice: m.extraPrice }))
+                              : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, showQuantity: true, extraPrice: null as number | null }]
                             ).map((item) => {
                               const qty = quantities[item.key] ?? 0;
                               const atMax = item.max != null && qty >= item.max;
@@ -1112,16 +1126,30 @@ export default function EventCalendar() {
                                   {item.extraPrice != null && item.extraPrice > 0 && (
                                     <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
                                   )}
-                                  {item.max != null && (
-                                    <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                  {item.showQuantity ? (
+                                    <>
+                                      {item.max != null && (
+                                        <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                      )}
+                                      <div className="mt-3 flex items-center justify-center gap-3">
+                                        <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
+                                          className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
+                                        <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                        <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
+                                          className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <label className="mt-3 flex cursor-pointer items-center justify-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={qty > 0}
+                                        onChange={(e) => setQuantity(item.key, e.target.checked ? 1 : 0)}
+                                        className="h-5 w-5 rounded border-primary-600 bg-primary-950 accent-primary-400"
+                                      />
+                                      <span className="text-sm text-slate-300">Sélectionner</span>
+                                    </label>
                                   )}
-                                  <div className="mt-3 flex items-center justify-center gap-3">
-                                    <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
-                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
-                                    <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
-                                    <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
-                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
-                                  </div>
                                 </div>
                               );
                             })}

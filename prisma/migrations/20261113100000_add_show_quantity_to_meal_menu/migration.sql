@@ -1,0 +1,1 @@
+ALTER TABLE "MealMenu" ADD COLUMN "showQuantity" BOOLEAN NOT NULL DEFAULT true;
