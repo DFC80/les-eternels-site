@@ -42,5 +42,17 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
   await prisma.event.update({ where: { id: params.id }, data: { adminNotificationSentAt: new Date() } });
 
+  const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+  if (discordWebhook) {
+    const dateStr = event.startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    await fetch(discordWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `📅 Nouvel événement : **${event.title}** — ${dateStr}${event.location ? `\n📍 ${event.location}` : ""}\n🔗 S'inscrire : ${eventUrl}`,
+      }),
+    }).catch(() => null);
+  }
+
   return NextResponse.json({ sent: 1 });
 }
