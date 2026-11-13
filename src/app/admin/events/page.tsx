@@ -1806,30 +1806,6 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300">Le repas comprend également</label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {MEAL_EXTRAS.map((extra) => (
-                    <label key={extra.key} className="flex items-center gap-2 rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={form.mealExtras.includes(extra.key)}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            mealExtras: e.target.checked
-                              ? [...form.mealExtras, extra.key]
-                              : form.mealExtras.filter((k) => k !== extra.key),
-                          })
-                        }
-                        className={checkboxClass}
-                      />
-                      {extra.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-slate-300">
                     Menus au choix (optionnel)
