@@ -237,12 +237,13 @@ model EventDrink {
 }
 
 model MealMenu {
-  id            String @id @default(cuid())
+  id            String  @id @default(cuid())
   eventId       String
   label         String
   maxPerPerson  Int?
-  extraPrice    Int?   // centimes, supplément optionnel en plus du prix de base du repas
-  stock         Int?   // total portions disponibles pour cet événement (null = illimité)
+  showQuantity  Boolean @default(true)
+  extraPrice    Int?    // centimes, supplément optionnel en plus du prix de base du repas
+  stock         Int?    // total portions disponibles pour cet événement (null = illimité)
   catalogId     String?
 
   event      Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)

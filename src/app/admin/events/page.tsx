@@ -50,7 +50,7 @@ type MealReport = {
   diners: { name: string; items: { label: string; quantity: number }[]; notes: string | null }[];
 };
 
-type MenuFormItem = { id?: string; label: string; maxPerPerson: string; extraPrice: string; stock: string; catalogId?: string };
+type MenuFormItem = { id?: string; label: string; maxPerPerson: string; showQuantity: boolean; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
 type CatalogItem = { id: string; label: string; stock: number | null; maxPerPerson: number | null; months: string | null };
 type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; seasonTimes: string | null; order: number };
@@ -266,7 +266,7 @@ export default function AdminEventsPage() {
       mealExtras: ev.mealExtras ? ev.mealExtras.split(",").filter((k) => MEAL_EXTRAS.some((e) => e.key === k)) : [],
       mealPrice: String(ev.mealPrice ?? 10),
       registrationDeadline: ev.registrationDeadline ? toInputDateTime(ev.registrationDeadline) : "",
-      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "", stock: m.stock != null ? String(m.stock) : "", catalogId: m.catalogId ?? undefined })),
+      menus: ev.menus.map((m) => ({ id: m.id, label: m.label, maxPerPerson: m.maxPerPerson ? String(m.maxPerPerson) : "", showQuantity: m.showQuantity ?? true, extraPrice: m.extraPrice ? String(m.extraPrice / 100) : "", stock: m.stock != null ? String(m.stock) : "", catalogId: m.catalogId ?? undefined })),
       hasDrinks: ev.hasDrinks ?? false,
       drinks: (ev.drinks ?? []).map((d) => ({ id: d.id, label: d.label, maxPerPerson: d.maxPerPerson ? String(d.maxPerPerson) : "", stock: d.stock != null ? String(d.stock) : "", catalogId: d.catalogId ?? undefined })),
       consommations: ev.mealExtras
@@ -307,7 +307,7 @@ export default function AdminEventsPage() {
       ],
       mealPrice: form.mealPrice || "10",
       registrationDeadline: form.registrationDeadline || null,
-      menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null, stock: m.stock !== "" ? Number(m.stock) : null, catalogId: m.catalogId ?? null })),
+      menus: form.menus.map((m) => ({ id: m.id || undefined, label: m.label, maxPerPerson: m.maxPerPerson || null, showQuantity: m.showQuantity, extraPrice: m.extraPrice ? Math.round(parseFloat(m.extraPrice) * 100) : null, stock: m.stock !== "" ? Number(m.stock) : null, catalogId: m.catalogId ?? null })),
       hasDrinks: form.hasDrinks,
       drinks: form.drinks.map((d) => ({ id: d.id || undefined, label: d.label, maxPerPerson: d.maxPerPerson || null, stock: d.stock !== "" ? Number(d.stock) : null, catalogId: d.catalogId ?? null })),
       boardGameIds: form.boardGameIds,
@@ -364,7 +364,7 @@ export default function AdminEventsPage() {
     });
   }
 
-  function updateMenu(index: number, field: keyof MenuFormItem, value: string) {
+  function updateMenu(index: number, field: keyof MenuFormItem, value: string | boolean) {
     const menus = [...form.menus];
     menus[index] = { ...menus[index], [field]: value };
     setForm({ ...form, menus });
@@ -377,7 +377,7 @@ export default function AdminEventsPage() {
     } else {
       const cat = menuCatalog.find((c) => c.id === catalogId);
       if (cat) {
-        menus[index] = { ...menus[index], label: cat.label, catalogId: cat.id, stock: cat.stock != null ? String(cat.stock) : "", maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "" };
+        menus[index] = { ...menus[index], label: cat.label, catalogId: cat.id, stock: cat.stock != null ? String(cat.stock) : "", maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "", showQuantity: cat.maxPerPerson != null ? true : menus[index].showQuantity };
       }
     }
     setForm({ ...form, menus });
@@ -1760,7 +1760,7 @@ export default function AdminEventsPage() {
               onChange={(e) => {
                 const checked = e.target.checked;
                 const autoMenus: MenuFormItem[] = checked && form.menus.length === 0
-                  ? catalogItemsForMonth(menuCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "", extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
+                  ? catalogItemsForMonth(menuCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "", showQuantity: cat.maxPerPerson != null, extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
                   : checked ? form.menus : [];
                 let autoMealInfo = form.mealInfo;
                 let autoMealPrice = form.mealPrice;
@@ -1866,41 +1866,27 @@ export default function AdminEventsPage() {
                             <span className="self-end pb-2 text-xs text-slate-400">(max {menu.maxPerPerson}/pers.)</span>
                           ) : null
                         ) : (
-                          <div className="w-36">
-                            {menu.maxPerPerson === "" ? (
+                          <div className="w-40">
+                            <label className="text-xs text-slate-400">Quantité</label>
+                            <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900">
+                              <input
+                                type="checkbox"
+                                checked={menu.showQuantity}
+                                onChange={(e) => updateMenu(i, "showQuantity", e.target.checked)}
+                                className={checkboxClass}
+                              />
+                              Afficher quantité
+                            </label>
+                            {menu.showQuantity && (
                               <>
-                                <label className="text-xs text-slate-400">Type de sélection</label>
-                                <label
-                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
-                                  title="Sélection simple : cliquer pour définir un maximum par personne"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked
-                                    onChange={() => updateMenu(i, "maxPerPerson", "1")}
-                                    className={checkboxClass}
-                                  />
-                                  Sélection
-                                </label>
-                              </>
-                            ) : (
-                              <>
-                                <label className="flex items-center gap-1 text-xs text-slate-400">
-                                  Max/pers.
-                                  <button
-                                    type="button"
-                                    onClick={() => updateMenu(i, "maxPerPerson", "")}
-                                    className="ml-1 text-slate-500 hover:text-slate-300"
-                                    title="Revenir en sélection simple"
-                                  >✕</button>
-                                </label>
+                                <label className="mt-2 text-xs text-slate-400">Max/pers. (opt.)</label>
                                 <input
                                   type="number"
                                   min={1}
                                   value={menu.maxPerPerson}
                                   onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
-                                  placeholder="Ex: 2"
-                                  title="Quantité maximale par personne"
+                                  placeholder="Illimité"
+                                  title="Quantité maximale par personne (laisser vide = pas de limite)"
                                   className={inputClass}
                                 />
                               </>
@@ -1926,7 +1912,7 @@ export default function AdminEventsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "", extraPrice: "", stock: "", catalogId: undefined }] })}
+                  onClick={() => setForm({ ...form, menus: [...form.menus, { label: "", maxPerPerson: "", showQuantity: false, extraPrice: "", stock: "", catalogId: undefined }] })}
                   className="mt-2 rounded-md border border-primary-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-primary-900"
                 >
                   + Ajouter un menu
