@@ -19,7 +19,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     data: {
       ...(label !== undefined ? { label: label.trim() } : {}),
       ...(stock !== undefined ? { stock: stock !== "" && stock != null ? Number(stock) : null } : {}),
-      ...(mealType !== undefined ? { mealType: mealType?.trim() || null } : {}),
+      ...(mealType !== undefined ? { mealType: Array.isArray(mealType) && mealType.length > 0 ? JSON.stringify(mealType) : null } : {}),
       ...(seasons !== undefined ? { seasons: Array.isArray(seasons) && seasons.length > 0 ? JSON.stringify(seasons) : null } : {}),
       ...(months !== undefined ? { months: Array.isArray(months) && months.length > 0 ? JSON.stringify(months) : null } : {}),
       ...(order !== undefined ? { order: Number(order) } : {}),
