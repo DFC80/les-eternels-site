@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!session || !sessionHasWriteAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
-  const { label, stock, maxPerPerson, seasons, months, order } = await request.json();
+  const { label, stock, maxPerPerson, mealType, seasons, months, order } = await request.json();
   if (label !== undefined && !label?.trim()) {
     return NextResponse.json({ error: "Le libellé est requis." }, { status: 400 });
   }
@@ -20,6 +20,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       ...(label !== undefined ? { label: label.trim() } : {}),
       ...(stock !== undefined ? { stock: stock !== "" && stock != null ? Number(stock) : null } : {}),
       ...(maxPerPerson !== undefined ? { maxPerPerson: maxPerPerson !== "" && maxPerPerson != null ? Number(maxPerPerson) : null } : {}),
+      ...(mealType !== undefined ? { mealType: mealType?.trim() || null } : {}),
       ...(seasons !== undefined ? { seasons: Array.isArray(seasons) && seasons.length > 0 ? JSON.stringify(seasons) : null } : {}),
       ...(months !== undefined ? { months: Array.isArray(months) && months.length > 0 ? JSON.stringify(months) : null } : {}),
       ...(order !== undefined ? { order: Number(order) } : {}),
