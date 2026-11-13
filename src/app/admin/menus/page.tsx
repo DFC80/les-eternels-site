@@ -41,7 +41,23 @@ function parseMonths(raw: string | null): number[] {
   try { return JSON.parse(raw) as number[]; } catch { return []; }
 }
 
-const EMPTY_FORM = { id: "", label: "", stock: "", maxPerPerson: "", mealType: "", mealTypeCustom: "", seasons: [] as SeasonKey[], months: [] as number[] };
+function parseMealTypes(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    if (Array.isArray(v)) return v as string[];
+    if (typeof v === "string" && v) return [v];
+    return [];
+  } catch { return raw ? [raw] : []; }
+}
+
+function mealTypeBadgeClass(t: string) {
+  if (t === "Barbecue") return "bg-orange-900/40 text-orange-300";
+  if (t === "Sandwich") return "bg-yellow-900/40 text-yellow-300";
+  return "bg-slate-800 text-slate-300";
+}
+
+const EMPTY_FORM = { id: "", label: "", stock: "", maxPerPerson: "", mealTypes: [] as string[], mealTypeCustom: "", seasons: [] as SeasonKey[], months: [] as number[] };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
@@ -68,7 +84,7 @@ function CatalogSection({
   canWrite: boolean;
 }) {
   const [items, setItems] = useState<CatalogItem[]>([]);
-  const [form, setForm] = useState<{ id: string; label: string; stock: string; maxPerPerson: string; mealType: string; mealTypeCustom: string; seasons: SeasonKey[]; months: number[] }>(EMPTY_FORM);
+  const [form, setForm] = useState<{ id: string; label: string; stock: string; maxPerPerson: string; mealTypes: string[]; mealTypeCustom: string; seasons: SeasonKey[]; months: number[] }>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -81,8 +97,7 @@ function CatalogSection({
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openEdit(item: CatalogItem) {
-    const isPreset = item.mealType == null || MEAL_TYPE_PRESETS.includes(item.mealType as typeof MEAL_TYPE_PRESETS[number]);
-    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "", maxPerPerson: item.maxPerPerson != null ? String(item.maxPerPerson) : "", mealType: isPreset ? (item.mealType ?? "") : "__custom__", mealTypeCustom: isPreset ? "" : (item.mealType ?? ""), seasons: parseSeasons(item.seasons), months: parseMonths(item.months) });
+    setForm({ id: item.id, label: item.label, stock: item.stock != null ? String(item.stock) : "", maxPerPerson: item.maxPerPerson != null ? String(item.maxPerPerson) : "", mealTypes: parseMealTypes(item.mealType), mealTypeCustom: "", seasons: parseSeasons(item.seasons), months: parseMonths(item.months) });
     setError(null);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
@@ -111,12 +126,11 @@ function CatalogSection({
     if (!form.label.trim()) { setError("Le libellé est requis."); return; }
     setSaving(true);
     setError(null);
-    const resolvedMealType = form.mealType === "__custom__" ? form.mealTypeCustom.trim() : form.mealType;
     const body = {
       label: form.label.trim(),
       stock: form.stock !== "" ? Number(form.stock) : null,
       maxPerPerson: form.maxPerPerson !== "" ? Number(form.maxPerPerson) : null,
-      mealType: resolvedMealType || null,
+      mealType: form.mealTypes.length > 0 ? form.mealTypes : null,
       seasons: form.seasons.length > 0 ? form.seasons : null,
       months: form.months.length > 0 ? form.months : null,
     };
@@ -174,14 +188,14 @@ function CatalogSection({
                 <tr key={item.id} className="border-b border-primary-800/50 last:border-0 hover:bg-primary-900/30">
                   <td className="px-4 py-3 text-slate-100">{item.label}</td>
                   <td className="px-4 py-3 text-center">
-                    {item.mealType ? (
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-                        item.mealType === "Barbecue" ? "bg-orange-900/40 text-orange-300" :
-                        item.mealType === "Sandwich" ? "bg-yellow-900/40 text-yellow-300" :
-                        "bg-slate-800 text-slate-300"
-                      }`}>{item.mealType}</span>
-                    ) : (
+                    {parseMealTypes(item.mealType).length === 0 ? (
                       <span className="text-xs text-slate-500">—</span>
+                    ) : (
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {parseMealTypes(item.mealType).map((t) => (
+                          <span key={t} className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${mealTypeBadgeClass(t)}`}>{t}</span>
+                        ))}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center text-slate-300">
@@ -280,26 +294,49 @@ function CatalogSection({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300">Type de repas</label>
-              <select
-                value={form.mealType}
-                onChange={(e) => setForm({ ...form, mealType: e.target.value, mealTypeCustom: "" })}
-                className={inputClass}
-              >
-                <option value="">— Non défini —</option>
+              <label className="block text-sm font-medium text-slate-300">Types de repas</label>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {MEAL_TYPE_PRESETS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <label key={p} className="flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm hover:bg-primary-900">
+                    <input
+                      type="checkbox"
+                      checked={form.mealTypes.includes(p)}
+                      onChange={() => setForm((prev) => ({ ...prev, mealTypes: prev.mealTypes.includes(p) ? prev.mealTypes.filter((t) => t !== p) : [...prev.mealTypes, p] }))}
+                      className="accent-primary-400"
+                    />
+                    <span>{p}</span>
+                  </label>
                 ))}
-                <option value="__custom__">Personnalisé…</option>
-              </select>
-              {form.mealType === "__custom__" && (
+              </div>
+              {form.mealTypes.filter((t) => !MEAL_TYPE_PRESETS.includes(t as typeof MEAL_TYPE_PRESETS[number])).map((t) => (
+                <span key={t} className="mt-2 mr-1 inline-flex items-center gap-1 rounded-md bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                  {t}
+                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, mealTypes: prev.mealTypes.filter((x) => x !== t) }))} className="ml-0.5 text-slate-400 hover:text-red-400">×</button>
+                </span>
+              ))}
+              <div className="mt-2 flex gap-2">
                 <input
                   value={form.mealTypeCustom}
                   onChange={(e) => setForm({ ...form, mealTypeCustom: e.target.value })}
-                  placeholder="Ex: Raclette"
-                  className={`${inputClass} mt-2`}
+                  placeholder="Type personnalisé… (Ex: Raclette)"
+                  className="flex-1 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = form.mealTypeCustom.trim();
+                      if (v && !form.mealTypes.includes(v)) setForm((prev) => ({ ...prev, mealTypes: [...prev.mealTypes, v], mealTypeCustom: "" }));
+                    }
+                  }}
                 />
-              )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = form.mealTypeCustom.trim();
+                    if (v && !form.mealTypes.includes(v)) setForm((prev) => ({ ...prev, mealTypes: [...prev.mealTypes, v], mealTypeCustom: "" }));
+                  }}
+                  className="rounded-md border border-primary-700 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
+                >Ajouter</button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300">

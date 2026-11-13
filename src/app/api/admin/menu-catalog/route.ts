@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       label: label.trim(),
       stock: stock != null && stock !== "" ? Number(stock) : null,
       maxPerPerson: maxPerPerson != null && maxPerPerson !== "" ? Number(maxPerPerson) : null,
-      mealType: mealType?.trim() || null,
+      mealType: Array.isArray(mealType) && mealType.length > 0 ? JSON.stringify(mealType) : null,
       seasons: Array.isArray(seasons) && seasons.length > 0 ? JSON.stringify(seasons) : null,
       months: Array.isArray(months) && months.length > 0 ? JSON.stringify(months) : null,
       order: (last?.order ?? 0) + 1,
