@@ -204,6 +204,7 @@ model MenuCatalog {
   label        String
   stock        Int?       // portions par défaut proposées lors de l'ajout à un événement
   maxPerPerson Int?       // quantité max par personne (null = sélection simple)
+  mealType     String?
   seasons      String?
   months       String?
   order        Int        @default(0)
@@ -216,6 +217,7 @@ model DrinkCatalog {
   id        String       @id @default(cuid())
   label     String
   stock     Int?
+  mealType  String?
   seasons   String?
   months    String?
   order     Int          @default(0)

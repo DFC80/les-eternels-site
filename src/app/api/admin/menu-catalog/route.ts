@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (!session || !sessionHasWriteAccess(session.user, "events")) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 403 });
   }
-  const { label, stock, maxPerPerson, seasons, months } = await request.json();
+  const { label, stock, maxPerPerson, mealType, seasons, months } = await request.json();
   if (!label?.trim()) {
     return NextResponse.json({ error: "Le libellé est requis." }, { status: 400 });
   }
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       label: label.trim(),
       stock: stock != null && stock !== "" ? Number(stock) : null,
       maxPerPerson: maxPerPerson != null && maxPerPerson !== "" ? Number(maxPerPerson) : null,
+      mealType: mealType?.trim() || null,
       seasons: Array.isArray(seasons) && seasons.length > 0 ? JSON.stringify(seasons) : null,
       months: Array.isArray(months) && months.length > 0 ? JSON.stringify(months) : null,
       order: (last?.order ?? 0) + 1,
