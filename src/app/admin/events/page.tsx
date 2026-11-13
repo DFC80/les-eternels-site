@@ -1885,46 +1885,52 @@ export default function AdminEventsPage() {
                             className={inputClass}
                           />
                         </div>
-                        <div className="w-36">
-                          {menu.maxPerPerson === "" ? (
-                            <>
-                              <label className="text-xs text-slate-400">Type de sélection</label>
-                              <label
-                                className="mt-1 flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
-                                title="Sélection simple : cliquer pour définir un maximum par personne"
-                              >
+                        {form.mealInfo?.toLowerCase().includes("sandwich") ? (
+                          menu.maxPerPerson ? (
+                            <span className="self-end pb-2 text-xs text-slate-400">(max {menu.maxPerPerson}/pers.)</span>
+                          ) : null
+                        ) : (
+                          <div className="w-36">
+                            {menu.maxPerPerson === "" ? (
+                              <>
+                                <label className="text-xs text-slate-400">Type de sélection</label>
+                                <label
+                                  className="mt-1 flex cursor-pointer items-center gap-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-slate-300 hover:bg-primary-900"
+                                  title="Sélection simple : cliquer pour définir un maximum par personne"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked
+                                    onChange={() => updateMenu(i, "maxPerPerson", "1")}
+                                    className={checkboxClass}
+                                  />
+                                  Sélection
+                                </label>
+                              </>
+                            ) : (
+                              <>
+                                <label className="flex items-center gap-1 text-xs text-slate-400">
+                                  Max/pers.
+                                  <button
+                                    type="button"
+                                    onClick={() => updateMenu(i, "maxPerPerson", "")}
+                                    className="ml-1 text-slate-500 hover:text-slate-300"
+                                    title="Revenir en sélection simple"
+                                  >✕</button>
+                                </label>
                                 <input
-                                  type="checkbox"
-                                  checked
-                                  onChange={() => updateMenu(i, "maxPerPerson", "1")}
-                                  className={checkboxClass}
+                                  type="number"
+                                  min={1}
+                                  value={menu.maxPerPerson}
+                                  onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
+                                  placeholder="Ex: 2"
+                                  title="Quantité maximale par personne"
+                                  className={inputClass}
                                 />
-                                Sélection
-                              </label>
-                            </>
-                          ) : (
-                            <>
-                              <label className="flex items-center gap-1 text-xs text-slate-400">
-                                Max/pers.
-                                <button
-                                  type="button"
-                                  onClick={() => updateMenu(i, "maxPerPerson", "")}
-                                  className="ml-1 text-slate-500 hover:text-slate-300"
-                                  title="Revenir en sélection simple"
-                                >✕</button>
-                              </label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={menu.maxPerPerson}
-                                onChange={(e) => updateMenu(i, "maxPerPerson", e.target.value)}
-                                placeholder="Ex: 2"
-                                title="Quantité maximale par personne"
-                                className={inputClass}
-                              />
-                            </>
-                          )}
-                        </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                         <div className="w-32">
                           <label className="text-xs text-slate-400">Supplément €</label>
                           <input
@@ -2075,18 +2081,9 @@ export default function AdminEventsPage() {
                             className={inputClass}
                           />
                         </div>
-                        <div className="w-28">
-                          <label className="text-xs text-slate-400">Max/pers.</label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={drink.maxPerPerson}
-                            onChange={(e) => updateDrink(i, "maxPerPerson", e.target.value)}
-                            placeholder="∞"
-                            title="Quantité maximale par personne"
-                            className={inputClass}
-                          />
-                        </div>
+                        {drink.maxPerPerson ? (
+                          <span className="self-end pb-2 text-xs text-slate-400">(max {drink.maxPerPerson}/pers.)</span>
+                        ) : null}
                       </div>
                     </div>
                   ))}
