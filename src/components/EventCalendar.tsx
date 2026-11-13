@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 type MealMenu = { id: string; label: string; maxPerPerson: number | null; extraPrice: number | null };
+type DrinkItem = { id: string; label: string; maxPerPerson: number | null };
 type MealOrder = { id: string; menuId: string | null; quantity: number };
 
 type Equipment = {
@@ -61,6 +62,8 @@ type CalendarEvent = {
   registrationDeadline: string | null;
   bureauOnly: boolean;
   menus: MealMenu[];
+  hasDrinks: boolean;
+  drinks: DrinkItem[];
   boardGames: { id: string; name: string }[];
   registrations: EventRegistration[];
 };
@@ -431,7 +434,8 @@ export default function EventCalendar() {
     .reduce((sum, eq) => sum + eq.rentalCost * (selectedEquipment[eq.id] ?? 0), 0);
 
   async function handleUpdateMeal(ev: CalendarEvent) {
-    if (wantsMeal && totalMealQuantity <= 0) {
+    const isSandwich = ev.mealInfo?.toLowerCase().includes("sandwich");
+    if (wantsMeal && !isSandwich && totalMealQuantity <= 0) {
       setActionError("Veuillez indiquer au moins un repas (quantité supérieure à 0).");
       return;
     }
@@ -492,7 +496,8 @@ export default function EventCalendar() {
     }
     const registered = isRegistered(ev);
 
-    if (!registered && ev.hasMeal && wantsMeal && totalMealQuantity <= 0) {
+    const isSandwich = ev.mealInfo?.toLowerCase().includes("sandwich");
+    if (!registered && ev.hasMeal && wantsMeal && !isSandwich && totalMealQuantity <= 0) {
       setActionError("Veuillez indiquer au moins un repas (quantité supérieure à 0).");
       return;
     }
@@ -755,56 +760,86 @@ export default function EventCalendar() {
 
                 {wantsMeal && (
                   <>
-                    <p className="mt-3 text-xs text-slate-400">
-                      Composez votre repas en choisissant une ou plusieurs portions ci-dessous — le
-                      prix reste fixé à {selected.mealPrice}€, quel que soit le nombre de portions
-                      choisies.
-                    </p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {(selected.menus.length > 0
-                        ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
-                        : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
-                      ).map((item) => {
-                        const qty = quantities[item.key] ?? 0;
-                        const atMax = item.max != null && qty >= item.max;
-                        return (
-                          <div
-                            key={item.key}
-                            className={`rounded-xl border-2 p-4 text-center transition ${
-                              qty > 0
-                                ? "border-primary-400 bg-primary-800/50"
-                                : "border-primary-800 bg-primary-950/60"
-                            }`}
-                          >
-                            <p className="font-medium text-silver-100">{item.label}</p>
-                            {item.extraPrice != null && item.extraPrice > 0 && (
-                              <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
-                            )}
-                            {item.max != null && (
-                              <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
-                            )}
-                            <div className="mt-3 flex items-center justify-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setQuantity(item.key, qty - 1)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800"
-                              >
-                                −
-                              </button>
-                              <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
-                              <button
-                                type="button"
-                                onClick={() => !atMax && setQuantity(item.key, qty + 1)}
-                                disabled={atMax}
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
-                              >
-                                +
-                              </button>
-                            </div>
+                    {selected.mealInfo?.toLowerCase().includes("sandwich") ? (
+                      selected.menus.length > 0 && (
+                        <>
+                          <p className="mt-3 text-xs text-slate-400">Menu inclus dans le forfait repas :</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selected.menus.map((m) => (
+                              <span key={m.id} className="rounded-full border border-primary-700 bg-primary-900/60 px-3 py-1 text-sm text-slate-200">
+                                {m.label}{m.maxPerPerson ? ` (max ${m.maxPerPerson}/pers.)` : ""}
+                              </span>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <p className="mt-3 text-xs text-slate-400">
+                          Composez votre repas en choisissant une ou plusieurs portions ci-dessous — le
+                          prix reste fixé à {selected.mealPrice}€, quel que soit le nombre de portions
+                          choisies.
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {(selected.menus.length > 0
+                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
+                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
+                          ).map((item) => {
+                            const qty = quantities[item.key] ?? 0;
+                            const atMax = item.max != null && qty >= item.max;
+                            return (
+                              <div
+                                key={item.key}
+                                className={`rounded-xl border-2 p-4 text-center transition ${
+                                  qty > 0
+                                    ? "border-primary-400 bg-primary-800/50"
+                                    : "border-primary-800 bg-primary-950/60"
+                                }`}
+                              >
+                                <p className="font-medium text-silver-100">{item.label}</p>
+                                {item.extraPrice != null && item.extraPrice > 0 && (
+                                  <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
+                                )}
+                                {item.max != null && (
+                                  <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                )}
+                                <div className="mt-3 flex items-center justify-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuantity(item.key, qty - 1)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800"
+                                  >
+                                    −
+                                  </button>
+                                  <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => !atMax && setQuantity(item.key, qty + 1)}
+                                    disabled={atMax}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {selected.hasDrinks && selected.drinks.length > 0 && (
+                      <>
+                        <p className="mt-3 text-xs text-slate-400">🥤 Boissons proposées :</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {selected.drinks.map((d) => (
+                            <span key={d.id} className="rounded-full border border-primary-700 bg-primary-900/60 px-3 py-1 text-sm text-slate-200">
+                              {d.label}{d.maxPerPerson ? ` (max ${d.maxPerPerson}/pers.)` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
 
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-slate-300">
@@ -1065,38 +1100,67 @@ export default function EventCalendar() {
                     </label>
                     {wantsMeal && (
                       <>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          {(selected.menus.length > 0
-                            ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
-                            : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
-                          ).map((item) => {
-                            const qty = quantities[item.key] ?? 0;
-                            const atMax = item.max != null && qty >= item.max;
-                            return (
-                              <div
-                                key={item.key}
-                                className={`rounded-xl border-2 p-4 text-center transition ${
-                                  qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
-                                }`}
-                              >
-                                <p className="font-medium text-silver-100">{item.label}</p>
-                                {item.extraPrice != null && item.extraPrice > 0 && (
-                                  <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
-                                )}
-                                {item.max != null && (
-                                  <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
-                                )}
-                                <div className="mt-3 flex items-center justify-center gap-3">
-                                  <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
-                                  <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
-                                  <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
-                                </div>
+                        {selected.mealInfo?.toLowerCase().includes("sandwich") ? (
+                          selected.menus.length > 0 && (
+                            <>
+                              <p className="mt-3 text-xs text-slate-400">Menu inclus dans le forfait repas :</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {selected.menus.map((m) => (
+                                  <span key={m.id} className="rounded-full border border-primary-700 bg-primary-900/60 px-3 py-1 text-sm text-slate-200">
+                                    {m.label}{m.maxPerPerson ? ` (max ${m.maxPerPerson}/pers.)` : ""}
+                                  </span>
+                                ))}
                               </div>
-                            );
-                          })}
-                        </div>
+                            </>
+                          )
+                        ) : (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            {(selected.menus.length > 0
+                              ? selected.menus.map((m) => ({ key: m.id, label: m.label, max: m.maxPerPerson, extraPrice: m.extraPrice }))
+                              : [{ key: GENERIC_MEAL_KEY, label: "Repas", max: null as number | null, extraPrice: null as number | null }]
+                            ).map((item) => {
+                              const qty = quantities[item.key] ?? 0;
+                              const atMax = item.max != null && qty >= item.max;
+                              return (
+                                <div
+                                  key={item.key}
+                                  className={`rounded-xl border-2 p-4 text-center transition ${
+                                    qty > 0 ? "border-primary-400 bg-primary-800/50" : "border-primary-800 bg-primary-950/60"
+                                  }`}
+                                >
+                                  <p className="font-medium text-silver-100">{item.label}</p>
+                                  {item.extraPrice != null && item.extraPrice > 0 && (
+                                    <p className="mt-0.5 text-xs font-medium text-amber-400">+{(item.extraPrice / 100).toFixed(2).replace(".", ",")}€ supplément</p>
+                                  )}
+                                  {item.max != null && (
+                                    <p className="mt-0.5 text-xs text-slate-500">Max {item.max}/pers.</p>
+                                  )}
+                                  <div className="mt-3 flex items-center justify-center gap-3">
+                                    <button type="button" onClick={() => setQuantity(item.key, qty - 1)}
+                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800">−</button>
+                                    <span className="w-8 font-display text-xl text-silver-100">{qty}</span>
+                                    <button type="button" onClick={() => !atMax && setQuantity(item.key, qty + 1)} disabled={atMax}
+                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-600 text-lg text-slate-200 hover:bg-primary-800 disabled:opacity-40">+</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {selected.hasDrinks && selected.drinks.length > 0 && (
+                          <>
+                            <p className="mt-3 text-xs text-slate-400">🥤 Boissons proposées :</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {selected.drinks.map((d) => (
+                                <span key={d.id} className="rounded-full border border-primary-700 bg-primary-900/60 px-3 py-1 text-sm text-slate-200">
+                                  {d.label}{d.maxPerPerson ? ` (max ${d.maxPerPerson}/pers.)` : ""}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+
                         <textarea
                           value={mealNotes}
                           onChange={(e) => setMealNotes(e.target.value)}
@@ -1127,7 +1191,26 @@ export default function EventCalendar() {
                     const myReg = selected.registrations.find((r) => r.userId === session?.user.id);
                     return (
                       <>
-                        {!myReg?.wantsMeal || myReg.mealOrders.length === 0 ? (
+                        {!myReg?.wantsMeal ? (
+                          <p>Vous n'avez pas commandé de repas pour cet événement.</p>
+                        ) : myReg.mealOrders.length === 0 && selected.mealInfo?.toLowerCase().includes("sandwich") ? (
+                          <>
+                            <p className="font-medium text-silver-100">🍽️ Votre commande repas</p>
+                            <p className="mt-1 text-sm text-slate-300">✅ Repas prévu (forfait {selected.mealPrice}€ à régler sur place)</p>
+                            {selected.menus.length > 0 && (
+                              <>
+                                <p className="mt-2 text-xs text-slate-400">Menu inclus :</p>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  {selected.menus.map((m) => (
+                                    <span key={m.id} className="rounded-full border border-primary-700 bg-primary-900/60 px-3 py-1 text-sm text-slate-200">
+                                      {m.label}{m.maxPerPerson ? ` (max ${m.maxPerPerson}/pers.)` : ""}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </>
+                        ) : myReg.mealOrders.length === 0 ? (
                           <p>Vous n'avez pas commandé de repas pour cet événement.</p>
                         ) : (
                           <>
@@ -1543,7 +1626,7 @@ export default function EventCalendar() {
                   )}
                   {wantsMeal && (
                     <li>🍽️ Repas : <strong className="text-white">{selected.mealPrice}€ forfait</strong> à régler sur place
-                      {Object.entries(quantities).filter(([, q]) => q > 0).map(([key, qty]) => {
+                      {!selected.mealInfo?.toLowerCase().includes("sandwich") && Object.entries(quantities).filter(([, q]) => q > 0).map(([key, qty]) => {
                         const label = key === GENERIC_MEAL_KEY ? "Repas" : selected.menus.find((m) => m.id === key)?.label ?? "Menu";
                         return <span key={key} className="ml-1 text-slate-400">({qty}× {label})</span>;
                       })}
