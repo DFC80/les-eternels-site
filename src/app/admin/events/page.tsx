@@ -52,7 +52,12 @@ type MealReport = {
 
 type MenuFormItem = { id?: string; label: string; maxPerPerson: string; showQuantity: boolean; extraPrice: string; stock: string; catalogId?: string };
 type DrinkFormItem = { id?: string; label: string; maxPerPerson: string; stock: string; catalogId?: string };
-type CatalogItem = { id: string; label: string; stock: number | null; maxPerPerson: number | null; months: string | null };
+type CatalogItem = { id: string; label: string; stock: number | null; maxPerPerson: number | null; months: string | null; mealType: string | null };
+
+function parseMealTypes(raw: string | null): string[] {
+  if (!raw) return [];
+  try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [String(p)]; } catch { return [raw]; }
+}
 type EventTemplate = { id: string; title: string; description: string; activityKey: string | null; location: string | null; startTime: string | null; endTime: string | null; seasonTimes: string | null; order: number };
 
 type Expense = { id: string; label: string; amount: number; createdAt: string };
@@ -209,6 +214,7 @@ export default function AdminEventsPage() {
   const [notifyAdminResult, setNotifyAdminResult] = useState<Record<string, string>>({});
   const [eventTemplates, setEventTemplates] = useState<EventTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedMealType, setSelectedMealType] = useState("");
 
   async function load() {
     const res = await fetch("/api/events");
@@ -249,6 +255,7 @@ export default function AdminEventsPage() {
   function resetForm() {
     setForm(EMPTY_FORM);
     setSelectedTemplateId("");
+    setSelectedMealType("");
   }
 
   function editEvent(ev: EventItem) {
@@ -362,6 +369,17 @@ export default function AdminEventsPage() {
       if (!item.months) return true;
       try { return (JSON.parse(item.months) as number[]).includes(month); } catch { return true; }
     });
+  }
+
+  function catalogItemsForMealType<T extends CatalogItem>(catalog: T[], mealType: string): T[] {
+    if (!mealType) return catalog;
+    return catalog.filter((item) => parseMealTypes(item.mealType).includes(mealType));
+  }
+
+  function mealInfoForType(mealType: string): { mealInfo: string; mealPrice: string } {
+    if (mealType === "Barbecue") return { mealInfo: "Barbecue préparé sur place.", mealPrice: "10" };
+    if (mealType === "Sandwich") return { mealInfo: "Sandwich composé par le joueur.", mealPrice: "8" };
+    return { mealInfo: mealType, mealPrice: "" };
   }
 
   function updateMenu(index: number, field: keyof MenuFormItem, value: string | boolean) {
@@ -1576,6 +1594,31 @@ export default function AdminEventsPage() {
           );
         })()}
 
+        {/* 2b — Type de repas */}
+        {(() => {
+          const allTypes = Array.from(new Set(
+            [...menuCatalog, ...drinkCatalog].flatMap(item => parseMealTypes(item.mealType))
+          )).sort();
+          if (allTypes.length === 0) return null;
+          return (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Type de repas <span className="text-slate-500">(optionnel)</span>
+              </label>
+              <select
+                value={selectedMealType}
+                onChange={(e) => setSelectedMealType(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— Tous les menus —</option>
+                {allTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          );
+        })()}
+
         {/* 3 — Dates */}
         <div>
           <label className="block text-sm font-medium text-slate-300">Début</label>
@@ -1634,6 +1677,18 @@ export default function AdminEventsPage() {
             const newEndsAt = tplEndTime
               ? `${datePart(form.endsAt || form.startsAt)}T${tplEndTime}`
               : form.endsAt;
+            const mealFields = selectedMealType ? (() => {
+              const { mealInfo, mealPrice } = mealInfoForType(selectedMealType);
+              const menus = catalogItemsForMealType(menuCatalog, selectedMealType).map((cat) => ({
+                label: cat.label,
+                maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "",
+                showQuantity: cat.maxPerPerson != null,
+                extraPrice: "",
+                stock: cat.stock != null ? String(cat.stock) : "",
+                catalogId: cat.id,
+              }));
+              return { hasMeal: true, menus, mealInfo, mealPrice };
+            })() : {};
             setForm((prev) => ({
               ...prev,
               title: newTitle,
@@ -1641,6 +1696,7 @@ export default function AdminEventsPage() {
               location: prev.location || tpl.location || "",
               startsAt: newStartsAt,
               endsAt: newEndsAt,
+              ...mealFields,
             }));
           };
           return (
@@ -1759,20 +1815,16 @@ export default function AdminEventsPage() {
               checked={form.hasMeal}
               onChange={(e) => {
                 const checked = e.target.checked;
+                const filteredCatalog = catalogItemsForMealType(menuCatalog, selectedMealType);
                 const autoMenus: MenuFormItem[] = checked && form.menus.length === 0
-                  ? catalogItemsForMonth(menuCatalog, form.startsAt).map((cat) => ({ label: cat.label, maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "", showQuantity: cat.maxPerPerson != null, extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
+                  ? filteredCatalog.map((cat) => ({ label: cat.label, maxPerPerson: cat.maxPerPerson != null ? String(cat.maxPerPerson) : "", showQuantity: cat.maxPerPerson != null, extraPrice: "", stock: cat.stock != null ? String(cat.stock) : "", catalogId: cat.id }))
                   : checked ? form.menus : [];
                 let autoMealInfo = form.mealInfo;
                 let autoMealPrice = form.mealPrice;
-                if (checked && form.startsAt) {
-                  const month = new Date(form.startsAt).getMonth() + 1;
-                  if ([1, 2, 3, 4, 10, 11, 12].includes(month)) {
-                    autoMealInfo = "Sandwich composé par le joueur.";
-                    autoMealPrice = "8";
-                  } else if ([5, 6, 7, 8, 9].includes(month)) {
-                    autoMealInfo = "Barbecue préparé sur place.";
-                    autoMealPrice = "10";
-                  }
+                if (checked && selectedMealType) {
+                  const derived = mealInfoForType(selectedMealType);
+                  autoMealInfo = derived.mealInfo;
+                  autoMealPrice = derived.mealPrice;
                 }
                 setForm({ ...form, hasMeal: checked, menus: autoMenus, mealInfo: autoMealInfo, mealPrice: autoMealPrice });
               }}
@@ -1827,7 +1879,7 @@ export default function AdminEventsPage() {
                             className={`${inputClass} sm:flex-1`}
                           >
                             <option value="">— Libellé personnalisé —</option>
-                            {menuCatalog.map((cat) => (
+                            {catalogItemsForMealType(menuCatalog, selectedMealType).map((cat) => (
                               <option key={cat.id} value={cat.id}>{cat.label}{cat.stock != null ? ` (${cat.stock} portions)` : ""}</option>
                             ))}
                           </select>
