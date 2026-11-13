@@ -54,7 +54,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: `📅 Nouvel événement : **${event.title}** — ${dateStr}${event.location ? `\n📍 ${event.location}` : ""}\n${eventUrl}`,
+        content: `📅 Nouvel événement : **${event.title}** — ${dateStr}${event.location ? `\n📍 ${event.location}` : ""}\n🔗 S'inscrire : ${eventUrl}`,
       }),
     }).catch(() => null);
   }
