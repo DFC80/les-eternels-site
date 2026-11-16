@@ -35,8 +35,13 @@ export default function HomePollWidget() {
     if (!res.ok) return;
     const polls: Poll[] = await res.json();
     const now = new Date();
-    const active = polls.find((p) => !p.closedAt || new Date(p.closedAt) >= now) ?? null;
-    setPoll(active);
+    const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    // Priorité : sondage ouvert, puis sondage clos depuis moins de 24h
+    const visible = polls.filter(
+      (p) => !p.closedAt || new Date(p.closedAt) >= cutoff24h
+    );
+    const active = visible.find((p) => !p.closedAt || new Date(p.closedAt) >= now) ?? visible[0] ?? null;
+    setPoll(active ?? null);
     setSelected([]);
     setEditing(false);
   }
