@@ -49,7 +49,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
   const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
   if (discordWebhook) {
-    const dateStr = event.startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const dateStr = event.startsAt.toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
     await fetch(discordWebhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
